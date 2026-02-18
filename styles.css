@@ -1,0 +1,93 @@
+/* Master Reset */
+* { box-sizing: border-box; }
+
+body { 
+    margin: 0; padding: 0; 
+    background: #000; 
+    overflow: hidden !important; /* CRITICAL FIX */
+    font-family: 'Segoe UI', sans-serif; 
+    height: 100vh; width: 100vw; 
+    display: flex; flex-direction: column; 
+    user-select: none;
+}
+
+#bg-cover { 
+    position: absolute; inset: 0; 
+    background-size: cover; background-position: center; 
+    filter: blur(1px) brightness(0.4); 
+    z-index: -1; transform: scale(1.1); 
+    transition: background-image 0.5s ease; 
+}
+
+#lyricCanvas { 
+    width: 100%; height: 95%; 
+    display: block; 
+    margin: auto; /* <--- CENTER */
+}
+
+#ui-container { 
+    position: absolute; bottom: 0; left: 0; width: 100%; 
+    
+    /* 1. The Glass Effect */
+    background: rgba(0, 0, 0, 0.3); 
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    /* 2. The "Feather" Fix (CSS Mask) */
+    /* This makes the top edge fade out transparently */
+    mask-image: linear-gradient(to top, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
+
+    /* Keep existing layout styles */
+    display: flex; flex-direction: column; align-items: center; 
+    padding: 20px 0; 
+    opacity: 0; transition: opacity 0.2s; 
+    z-index: 10;
+}
+
+body:hover #ui-container { opacity: 1; }
+
+#seeker-container { 
+    width: 100%; height: 6px; 
+    background: rgba(255,255,255,0.2); 
+    border-radius: 3px; margin-bottom: 15px; 
+    cursor: pointer; overflow: hidden;
+}
+
+#seeker-bar { 
+    height: 100%; width: 0%; 
+    background: #1DB954; 
+    border-radius: 3px; 
+    box-shadow: 0 0 10px #1DB954;
+    transition: width 0.1s linear;
+}
+
+#controls { 
+    display: flex; justify-content: center; gap: 40px; 
+    align-items: center; 
+}
+
+.btn { 
+    background: none; border: none; 
+    padding: 0; margin: 0;
+    cursor: pointer; 
+    opacity: 0.8; 
+    transition: transform 0.1s, opacity 0.1s;
+    
+    /* Flexbox to center the icon inside the button */
+    display: flex; align-items: center; justify-content: center;
+}
+
+.btn svg {
+    width: 4vh;  /* Dynamic Size based on window height */
+    height: 4vh;
+    stroke: white; /* The Outline Color */
+    stroke-width: 2; /* Thickness of the line */
+    stroke-linecap: round; /* MAKES THE TIPS ROUNDED */
+    stroke-linejoin: round; /* MAKES CORNERS ROUNDED */
+    fill: none; /* Hollow inside */
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+
+.btn:hover { opacity: 1; transform: scale(1.1); }
+.btn:hover svg { stroke: #1DB954; } /* Green glow on hover */

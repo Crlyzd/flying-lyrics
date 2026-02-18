@@ -1,15 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Flying Romanized Lyrics",
-  "version": "1.0",
+  "name": "Flying Lyrics Pro",
+  "version": "2.0",
   "permissions": ["storage"],
-  "host_permissions": ["https://lrclib.net/*", "https://translate.googleapis.com/*"],
-  "icons": {
-    "128": "icon.png"
-  },
-  "action": {
-    "default_icon": "icon.png"
-  },
+  "host_permissions": [
+    "https://lrclib.net/*",
+    "https://translate.googleapis.com/*"
+  ],
   "content_scripts": [
     {
       "matches": [
@@ -19,6 +16,12 @@
       ],
       "js": ["content.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["styles.css"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
