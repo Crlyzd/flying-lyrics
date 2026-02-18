@@ -1,0 +1,12 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code / IDE files
+.vscode/
+*.suo
+*.user
+
+# Old or broken libraries (already deleted, but good for safety)
+wanakana.min.js
+wanakana.min.js.map
