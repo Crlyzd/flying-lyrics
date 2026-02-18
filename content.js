@@ -225,6 +225,9 @@ function injectStructure() {
 // --- 2. LAUNCHER ---
 
 const createLauncher = () => {
+    const host = window.location.hostname;
+    if (host !== 'open.spotify.com' && host !== 'music.youtube.com') return;
+
     if (document.getElementById('pip-trigger')) return;
     const btn = document.createElement('button');
     btn.id = 'pip-trigger';
@@ -238,7 +241,7 @@ const createLauncher = () => {
     
     btn.onclick = async () => {
         try {
-            pipWin = await window.documentPictureInPicture.requestWindow({ width: 500, height: 500 });
+            pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
             
             const link = pipWin.document.createElement('link');
             link.rel = 'stylesheet';

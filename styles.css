@@ -34,26 +34,25 @@ body {
     -webkit-backdrop-filter: blur(10px);
 
     /* 2. The "Feather" Fix (CSS Mask) */
-    /* This makes the top edge fade out transparently */
     mask-image: linear-gradient(to top, black 50%, transparent 100%);
     -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
 
-    /* Keep existing layout styles */
-    height: 30vh;
+    /* 3. Layout & Visibility */
+    height: 30vh; 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
-    justify-content: center;
-    opacity: 0; transition: opacity 0.2s; 
+    justify-content: center; 
+    padding: 0; 
+    opacity: 1; /* Keeps buttons visible at all times */
+    transition: opacity 0.2s; 
     z-index: 10;
 }
-
-body:hover #ui-container { opacity: 1; }
 
 #seeker-container { 
     width: 100%; height: 6px; 
     background: rgba(255,255,255,0.2); 
-    border-radius: 3px; margin-bottom: 15px; 
+    border-radius: 3px; margin-bottom: 5px; 
     cursor: pointer; overflow: hidden;
 }
 
@@ -66,8 +65,11 @@ body:hover #ui-container { opacity: 1; }
 }
 
 #controls { 
-    display: flex; justify-content: center; gap: 40px; 
+    display: flex; 
+    justify-content: center; 
+    gap: 40px; 
     align-items: center; 
+    margin-top: 20px; /* Nudges buttons down to look balanced */
 }
 
 .btn { 

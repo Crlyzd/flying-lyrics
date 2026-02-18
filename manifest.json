@@ -11,7 +11,7 @@
     {
       "matches": [
         "*://open.spotify.com/*",
-        "*://music.youtube.com/*",
+        "*://music.youtube.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_end"
