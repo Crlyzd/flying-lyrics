@@ -4,7 +4,12 @@
   "version": "1.0",
   "permissions": ["storage"],
   "host_permissions": ["https://lrclib.net/*", "https://translate.googleapis.com/*"],
-  "action": {}, 
+  "icons": {
+    "128": "icon.png"
+  },
+  "action": {
+    "default_icon": "icon.png"
+  },
   "content_scripts": [
     {
       "matches": [
