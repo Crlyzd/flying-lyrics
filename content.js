@@ -228,7 +228,7 @@ const createLauncher = () => {
     if (document.getElementById('pip-trigger')) return;
     const btn = document.createElement('button');
     btn.id = 'pip-trigger';
-    btn.innerText = '🎵 LYRICS PRO';
+    btn.innerText = '🎵 FLYING LYRICS';
     Object.assign(btn.style, {
         position: 'fixed', top: '80px', right: '20px', zIndex: 99999,
         padding: '10px 20px', background: '#1DB954', color: '#fff',

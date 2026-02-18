@@ -39,8 +39,11 @@ body {
     -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
 
     /* Keep existing layout styles */
-    display: flex; flex-direction: column; align-items: center; 
-    padding: 20px 0; 
+    height: 30vh;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
     opacity: 0; transition: opacity 0.2s; 
     z-index: 10;
 }
