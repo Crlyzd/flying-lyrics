@@ -18,6 +18,9 @@ A browser extension that creates a floating PiP window to show lyrics from Spoti
 2. Go to `edge://extensions` or `chrome://extensions`.
 3. Enable **Developer Mode**.
 4. Click **Load unpacked** and select this folder.
+5. Once successful, a "Lyrics" button will appear at the top right of your Spotify or YouTube Music window.
+
+<img width="555" height="362" alt="image" src="https://github.com/user-attachments/assets/7d42450c-f0cd-4a3d-b038-c0d475341d69" />
 
 ## LIMITATION
 1. Does not support auto-scroll, too complicated, deal with it LMAO.
