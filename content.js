@@ -1,14 +1,28 @@
-﻿let currentTrack = "";
+﻿// --- GLOBAL STATE ---
+let currentTrack = "";
+let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "" }];
+let scrollPos = 0;
+let targetScroll = 0;
+let pipWin = null;
 
-const createBtn = () => {
-  if (document.getElementById('pip-lyrics-trigger')) return;
-  const btn = document.createElement('button');
-  btn.id = 'pip-lyrics-trigger';
-  btn.innerHTML = '🎵 LYRICS';
-  btn.style.cssText = 'position:fixed; top:60px; right:20px; z-index:2147483647; padding:12px 20px; background:#1DB954; color:white; border-radius:30px; border:2px solid white; cursor:pointer; font-weight:bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);';
-  (document.body || document.documentElement).appendChild(btn);
-  btn.onclick = () => startLyricWindow();
-};
+// For Spotify Time Interpolation
+let lastTimeStr = "";
+let lastTimeValue = 0;
+let lastUpdateMs = performance.now();
+
+// --- ICONS (SVG STRINGS) ---
+const ICON_PREV = `<svg viewBox="0 0 24 24"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>`;
+const ICON_NEXT = `<svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>`;
+const ICON_PLAY = `<svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+const ICON_PAUSE = `<svg viewBox="0 0 24 24"><line x1="10" y1="4" x2="10" y2="20"></line><line x1="14" y1="4" x2="14" y2="20"></line></svg>`;
+let canvas, ctx;
+
+// --- 1. CORE FUNCTIONS ---
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+    const words = text.split(' ');
+    let line = '';
+    const lines = [];
 
 // --- Settings helper ---
 
@@ -679,9 +693,9 @@ async function updateLyrics(container, doc, badge) {
   const settings = await getSettings();
   console.log('[FlyingLyrics] Settings loaded:', settings);
 
-  try {
-    const res = await fetch(`https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`);
-    const data = await res.json();
+    if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime > 0) {
+        return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
+    }
 
     if (!data || (!data.plainLyrics && !data.syncedLyrics)) {
       container.innerHTML = `<h3>${title}</h3><p style="color:#ff4444; font-weight:bold; margin-top:50px;">NO LYRIC AVAILABLE</p>`;
@@ -739,4 +753,42 @@ async function updateLyrics(container, doc, badge) {
   }
 }
 
-setInterval(createBtn, 3000);
+// --- 2. LAUNCHER ---
+
+const createLauncher = () => {
+    const host = window.location.hostname;
+    if (!host.includes('spotify') && !host.includes('music.youtube')) return;
+
+    if (document.getElementById('pip-trigger')) return;
+    const btn = document.createElement('button');
+    btn.id = 'pip-trigger';
+    btn.innerText = '🎵 FLYING LYRICS';
+    Object.assign(btn.style, {
+        position: 'fixed', top: '80px', right: '20px', zIndex: 99999,
+        padding: '10px 20px', background: '#1DB954', color: '#fff',
+        border: 'none', borderRadius: '50px', cursor: 'pointer',
+        fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+    });
+    
+    btn.onclick = async () => {
+        try {
+            pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
+            
+            const link = pipWin.document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = chrome.runtime.getURL('styles.css');
+            pipWin.document.head.appendChild(link);
+
+            injectStructure();
+            fetchLyrics();
+            
+            pipWin.requestAnimationFrame(renderLoop);
+        } catch (e) {
+            console.error("Launch Failed:", e);
+        }
+    };
+
+    document.body.appendChild(btn);
+};
+
+setInterval(createLauncher, 2000);

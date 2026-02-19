@@ -16,15 +16,12 @@ A browser extension that creates a floating PiP window to show lyrics from Spoti
 
 ## 🚀 Installation
 
-### Easy Install (.crx)
-The fastest way to get Flying Lyrics running on your Chromium-based browser (Edge, Chrome, Brave):
-
-1. Go to the **Releases** section on the right side of this GitHub page.
-2. Download the latest `Flying Lyrics.crx` file.
-3. Open your browser and navigate to `edge://extensions/` (or `chrome://extensions/`).
-4. Toggle **Developer mode** ON (usually located in the top right or left menu).
-5. Drag and drop the downloaded `.crx` file directly onto the extensions page.
-6. Click **Add Extension** when the browser prompts you. 
+1. Download the `Flying Lyrics.zip` from the [Releases](https://github.com/Crlyzd/flying-lyrics/releases) page.
+2. **Extract** the zip file into a permanent folder on your computer.
+3. Open `edge://extensions/` (or `chrome://extensions/`).
+4. Toggle **Developer mode** ON.
+5. Click the **Load unpacked** button.
+6. Select the folder where you just extracted the files (the folder containing `manifest.json`).
 
 <img width="555" height="362" alt="image" src="https://github.com/user-attachments/assets/7d42450c-f0cd-4a3d-b038-c0d475341d69" />
 
