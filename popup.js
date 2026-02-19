@@ -32,13 +32,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load Saved Settings
     chrome.storage.local.get({
-        showTranslation: false,
-        translationLang: 'en',
-        syncOffset: 0
+        showTranslation: true,
+        translationLang: 'id',
+        syncOffset: 400
     }, (items) => {
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
         updateOffsetDisplay(items.syncOffset);
+    });
+
+    // Listen for changes from Content Script (PiP)
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'local' && changes.showTranslation) {
+            toggleTrans.checked = changes.showTranslation.newValue;
+        }
+    });
+
+    // Request current effective offset (in case song-specific offset is active)
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_SYNC_OFFSET' }, (response) => {
+                if (response && response.syncOffset !== undefined) {
+                    updateOffsetDisplay(response.syncOffset);
+                }
+            });
+        }
+    });
+
+    // Listen for SETTINGS_UPDATE broadcast from content.js (e.g. song change)
+    chrome.runtime.onMessage.addListener((msg) => {
+        if (msg.type === 'SETTINGS_UPDATE' && msg.payload.syncOffset !== undefined) {
+            updateOffsetDisplay(msg.payload.syncOffset);
+        }
     });
 
     // --- Event Listeners ---

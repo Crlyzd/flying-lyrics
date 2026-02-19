@@ -6,19 +6,22 @@ let targetScroll = 0;
 let pipWin = null;
 
 // Settings
-let showTranslation = false;
-let translationLang = 'en';
-let syncOffset = 0;
+let showTranslation = true;
+let translationLang = 'id';
+let syncOffset = 400;
+let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
 
 // Load initial settings
 chrome.storage.local.get({
-    showTranslation: false,
-    translationLang: 'en',
-    syncOffset: 0
+    showTranslation: true,
+    translationLang: 'id',
+    syncOffset: 400,
+    songOffsets: {}
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
-    syncOffset = items.syncOffset;
+    syncOffset = items.syncOffset; // Still load global last used as fallback/init
+    songOffsets = items.songOffsets || {};
 });
 
 // Listen for updates
@@ -34,7 +37,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             translationLang = p.translationLang;
             fetchLyrics(); // Re-fetch with new lang
         }
-        if (p.syncOffset !== undefined) syncOffset = p.syncOffset;
+        if (p.syncOffset !== undefined) {
+            syncOffset = p.syncOffset;
+
+            // Save offset for current song (Fetch latest storage first to avoid overwrite)
+            const meta = navigator.mediaSession.metadata;
+            if (meta && meta.title && meta.artist) {
+                const key = `${meta.artist} - ${meta.title}`;
+                chrome.storage.local.get({ songOffsets: {} }, (items) => {
+                    const latestOffsets = items.songOffsets || {};
+                    latestOffsets[key] = syncOffset;
+                    songOffsets = latestOffsets; // Update local cache
+                    chrome.storage.local.set({ songOffsets: latestOffsets });
+                });
+            }
+        }
+    } else if (msg.type === 'GET_SYNC_OFFSET') {
+        sendResponse({ syncOffset });
     }
 });
 
@@ -94,6 +113,17 @@ async function fetchLyrics(retryCount = 0) {
 
     try {
         const query = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
+
+        // --- APPLY SAVED OFFSET ---
+        const key = `${meta.artist} - ${meta.title}`;
+        if (songOffsets[key] !== undefined) {
+            syncOffset = songOffsets[key];
+        } else {
+            syncOffset = 400; // Default if no custom offset
+        }
+        // Broadcast new offset to Popup (so UI updates if open)
+        chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
+
         const res = await fetch(`https://lrclib.net/api/get?${query}`);
         const data = await res.json();
         const raw = data.syncedLyrics || data.plainLyrics || "";
