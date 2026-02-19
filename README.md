@@ -16,7 +16,7 @@ A browser extension that creates a floating PiP window to show lyrics from Spoti
 
 ## 🚀 Installation
 
-1. Download the `Flying Lyrics.zip` from the [Releases]([https://github.com/your-repo/releases)](https://github.com/Crlyzd/flying-lyrics/releases) page.
+1. Download the `Flying Lyrics.zip` from the [Releases](https://github.com/Crlyzd/flying-lyrics/releases) page.
 2. **Extract** the zip file into a permanent folder on your computer.
 3. Open `edge://extensions/` (or `chrome://extensions/`).
 4. Toggle **Developer mode** ON.
