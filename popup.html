@@ -218,6 +218,16 @@
         </select>
     </div>
 
+    <!-- Sync Offset -->
+    <div class="setting-group">
+        <label for="sync-offset">Sync Offset (ms)</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="number" id="sync-offset" value="0" step="100"
+                style="flex:1; padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.08); color: white;">
+            <span style="font-size: 10px; color: #888;">(+ Faster / - Slower)</span>
+        </div>
+    </div>
+
     <button id="save-btn">💾 Save Settings</button>
     <div id="status-msg">✓ Settings saved!</div>
 
