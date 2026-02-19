@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Flying Lyrics",
-  "version": "1.1",
-  "permissions": ["storage"],
+  "version": "2.0",
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "https://lrclib.net/*",
     "https://translate.googleapis.com/*",
@@ -15,14 +17,24 @@
         "*://open.spotify.com/*",
         "*://music.youtube.com/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_end"
     }
   ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
   "web_accessible_resources": [
     {
-      "resources": ["styles.css"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "styles.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

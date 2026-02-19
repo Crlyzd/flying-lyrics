@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics Settings</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 15px;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: white;
+            user-select: none;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 18px;
+            text-align: center;
+            color: #1DB954;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            background: #282828;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Toggle Switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #535353;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #1DB954;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(20px);
+        }
+
+        /* Dropdown */
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #3E3E3E;
+            color: white;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Sync Offset */
+        .offset-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-small {
+            background: #3E3E3E;
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .btn-small:hover {
+            background: #535353;
+        }
+
+        #offset-display {
+            font-family: monospace;
+            font-size: 16px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 10px;
+            color: #888;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Flying Lyrics</h2>
+
+    <div class="control-group">
+        <div class="row">
+            <label for="toggle-translation" style="margin:0">Show Translation</label>
+            <label class="switch">
+                <input type="checkbox" id="toggle-translation">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="control-group">
+        <label for="lang-select">Translation Language</label>
+        <select id="lang-select">
+            <!-- Populated by JS -->
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label style="text-align:center">Sync Offset (ms)</label>
+        <div class="offset-controls">
+            <button class="btn-small" id="offset-minus">-</button>
+            <span id="offset-display">0</span>
+            <button class="btn-small" id="offset-plus">+</button>
+        </div>
+    </div>
+
+    <div class="footer">v1.2 - Enhance your music experience</div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
