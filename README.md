@@ -12,6 +12,7 @@ A browser extension that creates a floating PiP window to show lyrics from Spoti
 - Auto-reloading on track change.
 - Repeating album art background.
 - AI Romanization for Japanese, Korean, and Chinese.
+- **Autoscroll synced lyrics** — automatically scrolls and highlights the active lyric line in real-time. Falls back to plain lyrics when synced data is unavailable.
 
 ## Installation
 1. Download this repo.
@@ -22,5 +23,3 @@ A browser extension that creates a floating PiP window to show lyrics from Spoti
 
 <img width="555" height="362" alt="image" src="https://github.com/user-attachments/assets/7d42450c-f0cd-4a3d-b038-c0d475341d69" />
 
-## LIMITATION
-1. Does not support auto-scroll, too complicated, deal with it LMAO.
