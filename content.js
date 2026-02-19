@@ -4,6 +4,12 @@ let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "" }];
 let scrollPos = 0;
 let targetScroll = 0;
 let pipWin = null;
+
+// For Spotify Time Interpolation
+let lastTimeStr = "";
+let lastTimeValue = 0;
+let lastUpdateMs = performance.now();
+
 // --- ICONS (SVG STRINGS) ---
 const ICON_PREV = `<svg viewBox="0 0 24 24"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>`;
 const ICON_NEXT = `<svg viewBox="0 0 24 24"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>`;
@@ -13,13 +19,11 @@ let canvas, ctx;
 
 // --- 1. CORE FUNCTIONS ---
 
-// THE WRAPPER ALGORITHM (Now handles UPWARD wrapping for Romaji)
 function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
     const words = text.split(' ');
     let line = '';
     const lines = [];
 
-    // 1. Calculate all lines first
     for (let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
         const metrics = ctx.measureText(testLine);
@@ -34,25 +38,20 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
     }
     lines.push(line);
 
-    // 2. Determine Start Y
-    // If growing upwards (Romaji), we shift start Y up based on number of lines
     let currentY = growUpwards ? y - ((lines.length - 1) * lineHeight) : y;
 
-    // 3. Draw
     for (let k = 0; k < lines.length; k++) {
         ctx.fillText(lines[k], x, currentY);
         currentY += lineHeight;
     }
 }
 
-async function fetchLyrics() {
+async function fetchLyrics(retryCount = 0) {
     const meta = navigator.mediaSession.metadata;
-    if (!meta) return;
 
-    if (pipWin && pipWin.document) {
-        const art = meta.artwork?.[0]?.src || "";
-        const bg = pipWin.document.getElementById('bg-cover');
-        if (bg) bg.style.backgroundImage = `url(${art})`;
+    if (!meta || !meta.title) {
+        if (retryCount < 5) setTimeout(() => fetchLyrics(retryCount + 1), 1000);
+        return;
     }
 
     try {
@@ -82,7 +81,7 @@ async function fetchLyrics() {
                     const tRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`);
                     const tData = await tRes.json();
                     romaji = tData?.[0]?.[0]?.[3] || "";
-                } catch (e) { /* silent fail */ }
+                } catch (e) { }
             }
             temp.push({ time, text, romaji });
         }
@@ -90,6 +89,75 @@ async function fetchLyrics() {
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
     }
+}
+
+function parseTime(timeStr) {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map(Number);
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    return 0;
+}
+
+function getPlayerState() {
+    let currentTime = 0;
+    let duration = 1;
+    let paused = false;
+
+    const mediaElements = Array.from(document.querySelectorAll('video, audio'));
+    const activeMedia = mediaElements.find(m => m.readyState >= 2 && !m.paused) 
+                     || mediaElements.find(m => m.readyState >= 2);
+
+    if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime > 0) {
+        return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
+    }
+
+    if (window.location.hostname.includes('spotify')) {
+        const timeEl = document.querySelector('[data-testid="playback-position"]');
+        const durationEl = document.querySelector('[data-testid="playback-duration"]');
+        const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
+        
+        if (timeEl && durationEl) {
+            const currentStr = timeEl.textContent;
+            duration = parseTime(durationEl.textContent) || 1;
+            
+            if (playBtn) {
+                paused = playBtn.getAttribute('aria-label') === 'Play';
+            }
+
+            if (currentStr !== lastTimeStr) {
+                lastTimeStr = currentStr;
+                lastTimeValue = parseTime(currentStr);
+                lastUpdateMs = performance.now();
+            }
+
+            currentTime = lastTimeValue;
+            if (!paused) {
+                currentTime += (performance.now() - lastUpdateMs) / 1000;
+            }
+        }
+    }
+
+    return { currentTime, duration, paused };
+}
+
+function getCoverArt() {
+    // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
+    const meta = navigator.mediaSession?.metadata;
+    if (meta && meta.artwork && meta.artwork.length > 0) {
+        return meta.artwork[meta.artwork.length - 1].src;
+    }
+    
+    // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
+    const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') || 
+                     document.querySelector('img[data-testid="cover-art-image"]');
+    if (spotiImg) return spotiImg.src;
+    
+    // 3. YouTube Music DOM Fallback
+    const ytImg = document.querySelector('.ytmusic-player-bar img');
+    if (ytImg) return ytImg.src;
+    
+    return "";
 }
 
 function renderLoop() {
@@ -102,8 +170,23 @@ function renderLoop() {
         fetchLyrics();
     }
 
-    if (!canvas) canvas = pipWin.document.getElementById('lyricCanvas');
-    if (!canvas) return requestAnimationFrame(renderLoop);
+// --- CONTINUOUS BACKGROUND IMAGE SYNC ---
+    const art = getCoverArt();
+    const bg = pipWin.document.getElementById('bg-cover');
+    
+    if (bg && art) {
+        const newBg = `url("${art}")`;
+        // Only trigger a DOM repaint if the image actually changed
+        if (bg.style.backgroundImage !== newBg) {
+            bg.style.backgroundImage = newBg;
+        }
+    }
+
+    if (!canvas || !pipWin.document.body.contains(canvas)) {
+        canvas = pipWin.document.getElementById('lyricCanvas');
+        ctx = null;
+    }
+    if (!canvas) return pipWin.requestAnimationFrame(renderLoop); 
     if (!ctx) ctx = canvas.getContext('2d');
 
     const w = pipWin.innerWidth;
@@ -112,28 +195,26 @@ function renderLoop() {
     canvas.height = h;
 
     const vh = h / 100;
-    const player = document.querySelector('video, audio');
-    const currentTime = player?.currentTime || 0;
-    const duration = player?.duration || 1;
 
+    const state = getPlayerState();
+    
     const seeker = pipWin.document.getElementById('seeker-bar');
-    if (seeker) seeker.style.width = `${(currentTime / duration) * 100}%`;
+    if (seeker) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
     
     const ppBtn = pipWin.document.getElementById('playpause');
     if (ppBtn) {
-        // Only update if the icon actually changed to save performance
-        const targetIcon = (player?.paused) ? ICON_PLAY : ICON_PAUSE;
+        const targetIcon = (state.paused) ? ICON_PLAY : ICON_PAUSE;
         if (ppBtn.innerHTML !== targetIcon) ppBtn.innerHTML = targetIcon;
     }
 
     ctx.clearRect(0, 0, w, h);
 
     let activeIdx = lyricLines.findIndex((l, i) => 
-        currentTime >= l.time && (!lyricLines[i+1] || currentTime < lyricLines[i+1].time)
+        state.currentTime >= l.time && (!lyricLines[i+1] || state.currentTime < lyricLines[i+1].time)
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const spacing = vh * 22; // More spacing for double-wrapped lines
+    const spacing = vh * 22; 
     targetScroll = activeIdx * spacing;
     scrollPos += (targetScroll - scrollPos) * 0.1;
 
@@ -148,16 +229,13 @@ function renderLoop() {
         const y = i * spacing;
         const isCurrent = (i === activeIdx);
 
-        // 1. Draw ROMAJI (Wrapped, Growing Upwards)
         if (line.romaji) {
             const romajiSize = vh * 4;
             ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
             ctx.fillStyle = "#F5AF19";
-            // We pass 'true' for growUpwards so it stacks up
             wrapText(ctx, line.romaji, 0, y - (vh * 6), w * 0.85, romajiSize * 1.2, true);
         }
 
-        // 2. Draw MAIN TEXT (Wrapped, Growing Downwards)
         const mainSize = isCurrent ? vh * 4.5 : vh * 3.5;
         ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
         ctx.fillStyle = isCurrent ? "#1DB954" : "#FFFFFF";
@@ -169,12 +247,12 @@ function renderLoop() {
             ctx.shadowBlur = 0;
         }
 
-        // wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards)
         wrapText(ctx, line.text, 0, y, w * 0.85, mainSize * 1.2, false);
     });
 
     ctx.restore();
-    requestAnimationFrame(renderLoop);
+    
+    pipWin.requestAnimationFrame(renderLoop); 
 }
 
 function injectStructure() {
@@ -205,7 +283,6 @@ function injectStructure() {
         </style>
     `;
     
-    // ... keep the rest of the click handlers ...
     const click = (sel) => document.querySelector(sel)?.click();
     doc.getElementById('prev').onclick = () => click('[data-testid="control-button-skip-back"], .previous-button');
     doc.getElementById('next').onclick = () => click('[data-testid="control-button-skip-forward"], .next-button');
@@ -214,10 +291,32 @@ function injectStructure() {
     doc.getElementById('back-btn').onclick = () => pipWin.close();
     
     doc.getElementById('seeker-container').onclick = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        
         const p = document.querySelector('video, audio');
-        if (p) {
-            const rect = e.currentTarget.getBoundingClientRect();
-            p.currentTime = ((e.clientX - rect.left) / rect.width) * p.duration;
+        if (p && p.duration > 0) {
+            p.currentTime = percent * p.duration;
+        }
+
+        // --- THE POINTER EVENT FIX ---
+        const spotifyProgressBar = document.querySelector('[data-testid="progress-bar"]');
+        if (spotifyProgressBar) {
+            const spRect = spotifyProgressBar.getBoundingClientRect();
+            const targetX = spRect.left + (percent * spRect.width);
+            const targetY = spRect.top + (spRect.height / 2);
+            
+            const pointerDown = new PointerEvent('pointerdown', {
+                bubbles: true, cancelable: true,
+                clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
+            });
+            spotifyProgressBar.dispatchEvent(pointerDown);
+            
+            const pointerUp = new PointerEvent('pointerup', {
+                bubbles: true, cancelable: true,
+                clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
+            });
+            spotifyProgressBar.dispatchEvent(pointerUp);
         }
     };
 }
@@ -226,7 +325,7 @@ function injectStructure() {
 
 const createLauncher = () => {
     const host = window.location.hostname;
-    if (host !== 'open.spotify.com' && host !== 'music.youtube.com') return;
+    if (!host.includes('spotify') && !host.includes('music.youtube')) return;
 
     if (document.getElementById('pip-trigger')) return;
     const btn = document.createElement('button');
@@ -250,7 +349,8 @@ const createLauncher = () => {
 
             injectStructure();
             fetchLyrics();
-            requestAnimationFrame(renderLoop);
+            
+            pipWin.requestAnimationFrame(renderLoop);
         } catch (e) {
             console.error("Launch Failed:", e);
         }

@@ -5,7 +5,9 @@
   "permissions": ["storage"],
   "host_permissions": [
     "https://lrclib.net/*",
-    "https://translate.googleapis.com/*"
+    "https://translate.googleapis.com/*",
+    "https://i.scdn.co/*",
+    "https://*.spotifycdn.com/*"
   ],
   "content_scripts": [
     {

@@ -3,8 +3,7 @@
 
 body { 
     margin: 0; padding: 0; 
-    background: #000; 
-    overflow: hidden !important; /* CRITICAL FIX */
+    overflow: hidden !important;
     font-family: 'Segoe UI', sans-serif; 
     height: 100vh; width: 100vw; 
     display: flex; flex-direction: column; 
@@ -12,45 +11,47 @@ body {
 }
 
 #bg-cover { 
-    position: absolute; inset: 0; 
-    background-size: cover; background-position: center; 
-    filter: blur(1px) brightness(0.4); 
-    z-index: -1; transform: scale(1.1); 
-    transition: background-image 0.5s ease; 
+    position: absolute; 
+    inset: -20px; 
+    background-size: cover; 
+    background-position: center; 
+    background-repeat: no-repeat;
+    filter: blur(2px) brightness(0.5); /* <-- Reduced blur to 3px */
+    z-index: 0; /* <-- Ensures the background isn't hidden behind the black body */
+    transform: scale(1.2); 
+    transition: background-image 0.5s ease-in-out;
+    background-color: #121212; 
 }
 
 #lyricCanvas { 
-    width: 100%; height: 95%; 
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; 
+    height: 100%; 
     display: block; 
-    margin: auto; /* <--- CENTER */
+    z-index: 1;
 }
 
 #ui-container { 
     position: absolute; bottom: 0; left: 0; width: 100%; 
-    
-    /* 1. The Glass Effect */
-    background: rgba(0, 0, 0, 0.3); 
+    background: rgba(0, 0, 0, 0.4); 
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-
-    /* 2. The "Feather" Fix (CSS Mask) */
-    /* This makes the top edge fade out transparently */
     mask-image: linear-gradient(to top, black 50%, transparent 100%);
     -webkit-mask-image: linear-gradient(to top, black 50%, transparent 100%);
-
-    /* Keep existing layout styles */
     display: flex; flex-direction: column; align-items: center; 
-    padding: 20px 0; 
-    opacity: 0; transition: opacity 0.2s; 
+    padding: 30px 0 20px 0; 
+    opacity: 0; transition: opacity 0.3s ease; 
     z-index: 10;
 }
 
-body:hover #ui-container { opacity: 1; }
+body:hover #ui-container, #ui-container:hover { opacity: 1; }
 
 #seeker-container { 
-    width: 100%; height: 6px; 
-    background: rgba(255,255,255,0.2); 
-    border-radius: 3px; margin-bottom: 15px; 
+    width: 90%; height: 6px; 
+    background: rgba(255, 255, 255, 0.3); 
+    border-radius: 3px; margin-bottom: 20px; 
     cursor: pointer; overflow: hidden;
 }
 
@@ -73,21 +74,19 @@ body:hover #ui-container { opacity: 1; }
     cursor: pointer; 
     opacity: 0.8; 
     transition: transform 0.1s, opacity 0.1s;
-    
-    /* Flexbox to center the icon inside the button */
     display: flex; align-items: center; justify-content: center;
 }
 
 .btn svg {
-    width: 4vh;  /* Dynamic Size based on window height */
-    height: 4vh;
-    stroke: white; /* The Outline Color */
-    stroke-width: 2; /* Thickness of the line */
-    stroke-linecap: round; /* MAKES THE TIPS ROUNDED */
-    stroke-linejoin: round; /* MAKES CORNERS ROUNDED */
-    fill: none; /* Hollow inside */
+    width: 20px; 
+    height: 20px;
+    stroke: white; 
+    stroke-width: 2; 
+    stroke-linecap: round; 
+    stroke-linejoin: round; 
+    fill: none; 
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
 
 .btn:hover { opacity: 1; transform: scale(1.1); }
-.btn:hover svg { stroke: #1DB954; } /* Green glow on hover */
+.btn:hover svg { stroke: #1DB954; }
