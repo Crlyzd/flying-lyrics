@@ -1,19 +1,28 @@
 {
   "manifest_version": 3,
-  "name": "Flying Romanized Lyrics",
-  "version": "1.0",
+  "name": "Flying Lyrics",
+  "version": "1.1",
   "permissions": ["storage"],
-  "host_permissions": ["https://lrclib.net/*", "https://translate.googleapis.com/*"],
-  "action": {}, 
+  "host_permissions": [
+    "https://lrclib.net/*",
+    "https://translate.googleapis.com/*",
+    "https://i.scdn.co/*",
+    "https://*.spotifycdn.com/*"
+  ],
   "content_scripts": [
     {
       "matches": [
         "*://open.spotify.com/*",
-        "*://music.youtube.com/*",
-        "*://www.youtube.com/*"
+        "*://music.youtube.com/*"
       ],
       "js": ["content.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["styles.css"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
