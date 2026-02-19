@@ -4,7 +4,9 @@
   "version": "1.0",
   "permissions": ["storage"],
   "host_permissions": ["https://lrclib.net/*", "https://translate.googleapis.com/*"],
-  "action": {}, 
+  "action": {
+    "default_popup": "popup.html"
+  }, 
   "content_scripts": [
     {
       "matches": [

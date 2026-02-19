@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics Settings</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 320px;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(145deg, #0d0d0d, #1a1a2e);
+            color: #e0e0e0;
+            padding: 24px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header img {
+            width: 28px;
+            height: 28px;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #1DB954, #1ed760);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .setting-group {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .setting-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23aaa' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #1DB954;
+            box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.25);
+        }
+
+        select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        /* Toggle switch */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle .slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle .slider::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            bottom: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle input:checked+.slider {
+            background: #1DB954;
+        }
+
+        .toggle input:checked+.slider::before {
+            transform: translateX(20px);
+        }
+
+        #save-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #1DB954, #1ed760);
+            color: #000;
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        #save-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(29, 185, 84, 0.4);
+        }
+
+        #save-btn:active {
+            transform: translateY(0);
+        }
+
+        #status-msg {
+            text-align: center;
+            font-size: 12px;
+            color: #1DB954;
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #status-msg.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <img src="icon.png" alt="icon">
+        <h1>Flying Lyrics Settings</h1>
+    </div>
+
+    <!-- Translation toggle -->
+    <div class="setting-group">
+        <div class="toggle-row">
+            <span class="toggle-label">🌐 Show Translation</span>
+            <label class="toggle">
+                <input type="checkbox" id="translation-enabled" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Target language -->
+    <div class="setting-group">
+        <label for="target-lang">Translation Language</label>
+        <select id="target-lang">
+            <option value="id">🇮🇩 Bahasa Indonesia</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="ja">🇯🇵 日本語 (Japanese)</option>
+            <option value="ko">🇰🇷 한국어 (Korean)</option>
+            <option value="zh">🇨🇳 中文 (Chinese)</option>
+            <option value="es">🇪🇸 Español (Spanish)</option>
+            <option value="fr">🇫🇷 Français (French)</option>
+            <option value="de">🇩🇪 Deutsch (German)</option>
+            <option value="pt">🇧🇷 Português (Portuguese)</option>
+            <option value="ru">🇷🇺 Русский (Russian)</option>
+            <option value="ar">🇸🇦 العربية (Arabic)</option>
+            <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+            <option value="th">🇹🇭 ไทย (Thai)</option>
+            <option value="vi">🇻🇳 Tiếng Việt (Vietnamese)</option>
+            <option value="ms">🇲🇾 Bahasa Melayu (Malay)</option>
+            <option value="tr">🇹🇷 Türkçe (Turkish)</option>
+            <option value="it">🇮🇹 Italiano (Italian)</option>
+            <option value="nl">🇳🇱 Nederlands (Dutch)</option>
+        </select>
+    </div>
+
+    <button id="save-btn">💾 Save Settings</button>
+    <div id="status-msg">✓ Settings saved!</div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

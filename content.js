@@ -10,6 +10,44 @@ const createBtn = () => {
   btn.onclick = () => startLyricWindow();
 };
 
+// --- Settings helper ---
+
+const SETTING_DEFAULTS = { translationEnabled: true, targetLanguage: "id" };
+
+/** Read user settings from chrome.storage.sync */
+async function getSettings() {
+  return new Promise(resolve => {
+    chrome.storage.sync.get(SETTING_DEFAULTS, (s) => resolve(s));
+  });
+}
+
+// --- Translation helpers ---
+
+const CJK_REGEX = /[぀-ゟ゠-ヿ一-鿿가-힣]/;
+
+/**
+ * Get romanization (transliteration) for CJK text via Google Translate.
+ * Uses dt=rm to request romanized form.
+ */
+async function getRomanization(text) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data?.[0]?.[0]?.[3] || "";
+}
+
+/**
+ * Translate text to targetLang via Google Translate.
+ * Uses dt=t to request translated text.
+ */
+async function translateText(text, targetLang) {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  // Concat all segments returned by the API
+  return data?.[0]?.map(s => s[0]).join('') || "";
+}
+
 // --- Autoscroll helpers ---
 
 function parseLRC(syncedLyrics) {
@@ -32,11 +70,9 @@ function parseLRC(syncedLyrics) {
  * Robustly find media element - searches normal DOM, shadow DOMs, and iframes
  */
 function getMediaElement() {
-  // 1. Direct search
   let el = document.querySelector('video, audio');
   if (el) return el;
 
-  // 2. Search inside shadow DOMs (Spotify sometimes nests elements)
   const allElements = document.querySelectorAll('*');
   for (const node of allElements) {
     if (node.shadowRoot) {
@@ -50,26 +86,16 @@ function getMediaElement() {
 
 /**
  * Fallback: parse playback time from Spotify/YTM progress bar UI text
- * Returns seconds or null
  */
 function getTimeFromProgressBar() {
-  // Spotify: data-testid="playback-position" shows "m:ss" or "mm:ss"
   const spotifyEl = document.querySelector('[data-testid="playback-position"]');
-  if (spotifyEl) {
-    return parseTimeString(spotifyEl.textContent);
-  }
+  if (spotifyEl) return parseTimeString(spotifyEl.textContent);
 
-  // YouTube Music: .time-info inside ytmusic-player-bar, first .time-info is current time
   const ytmEl = document.querySelector('.time-info.style-scope.ytmusic-player-bar');
-  if (ytmEl) {
-    return parseTimeString(ytmEl.textContent);
-  }
+  if (ytmEl) return parseTimeString(ytmEl.textContent);
 
-  // YouTube (regular): .ytp-time-current
   const ytEl = document.querySelector('.ytp-time-current');
-  if (ytEl) {
-    return parseTimeString(ytEl.textContent);
-  }
+  if (ytEl) return parseTimeString(ytEl.textContent);
 
   return null;
 }
@@ -77,7 +103,6 @@ function getTimeFromProgressBar() {
 function parseTimeString(str) {
   if (!str) return null;
   const cleaned = str.trim();
-  // Handle formats: "1:23", "01:23", "1:02:33"
   const parts = cleaned.split(':').map(Number);
   if (parts.some(isNaN)) return null;
   if (parts.length === 2) return parts[0] * 60 + parts[1];
@@ -89,17 +114,11 @@ function parseTimeString(str) {
  * Get current playback time in seconds using all available methods
  */
 function getCurrentPlaybackTime() {
-  // Method 1: Media element currentTime
   const mediaEl = getMediaElement();
-  if (mediaEl && mediaEl.currentTime > 0) {
-    return mediaEl.currentTime;
-  }
+  if (mediaEl && mediaEl.currentTime > 0) return mediaEl.currentTime;
 
-  // Method 2: Parse from progress bar UI
   const uiTime = getTimeFromProgressBar();
-  if (uiTime !== null) {
-    return uiTime;
-  }
+  if (uiTime !== null) return uiTime;
 
   return null;
 }
@@ -165,6 +184,10 @@ async function startLyricWindow() {
       color: #ffd700;
       text-shadow: 0 0 12px rgba(255,215,0,0.6), 2px 2px 4px #000;
     }
+    .lyric-item.active .translation {
+      color: #90EE90;
+      text-shadow: 0 0 10px rgba(144,238,144,0.5), 1px 1px 2px #000;
+    }
     /* Passed lines: slightly visible, no blur */
     .lyric-item.passed {
       opacity: 0.4;
@@ -180,6 +203,7 @@ async function startLyricWindow() {
 
     .romaji { display: block; font-size: 20px; color: #f5af19; font-weight: bold; font-style: italic; margin-bottom: 10px; text-shadow: 2px 2px 4px #000; }
     .original { font-size: 18px; text-shadow: 2px 2px 4px #000; }
+    .translation { display: block; font-size: 14px; color: #aaa; font-style: italic; margin-top: 5px; text-shadow: 1px 1px 2px #000; }
 
     /* Sync status indicator */
     #sync-status {
@@ -255,7 +279,6 @@ async function startLyricWindow() {
       } else if (i === activeIdx + 1 || i === activeIdx + 2) {
         allLines[i].classList.add('near');
       }
-      // else: stays default (dimmed + blurred = upcoming far lines)
     }
 
     // Smooth scroll active line to center
@@ -276,6 +299,34 @@ async function startLyricWindow() {
   }, 3000);
 }
 
+/**
+ * Build HTML for a single lyric line.
+ * @param {string} text - The original lyric text
+ * @param {object} settings - User settings { translationEnabled, targetLanguage }
+ * @returns {Promise<string>} HTML content for the line
+ */
+async function buildLyricLineHTML(text, settings) {
+  const isCJK = CJK_REGEX.test(text);
+  let html = '';
+
+  // Line 1: Romaji (only for CJK text)
+  if (isCJK) {
+    const romaji = await getRomanization(text);
+    html += `<span class="romaji">${romaji}</span>`;
+  }
+
+  // Line 2: Original text (always shown)
+  html += `<span class="original">${text}</span>`;
+
+  // Line 3: Translation (if enabled in settings)
+  if (settings.translationEnabled) {
+    const translation = await translateText(text, settings.targetLanguage);
+    html += `<span class="translation">${translation}</span>`;
+  }
+
+  return html;
+}
+
 async function updateLyrics(container, doc, badge) {
   const metadata = navigator.mediaSession.metadata;
   const title = metadata?.title || "Unknown Track";
@@ -287,6 +338,9 @@ async function updateLyrics(container, doc, badge) {
   }
 
   container.innerHTML = `<h3>${title}</h3><p>AI Romanizing...</p>`;
+
+  // Load user settings
+  const settings = await getSettings();
 
   try {
     const res = await fetch(`https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`);
@@ -309,17 +363,8 @@ async function updateLyrics(container, doc, badge) {
         const lineDiv = doc.createElement('div');
         lineDiv.className = "lyric-item";
         lineDiv.dataset.time = entry.time;
+        lineDiv.innerHTML = await buildLyricLineHTML(entry.text, settings);
         container.appendChild(lineDiv);
-
-        if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(entry.text)) {
-          const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(entry.text)}`;
-          const transRes = await fetch(url);
-          const transData = await transRes.json();
-          const romaji = transData?.[0]?.[0]?.[3] || "";
-          lineDiv.innerHTML = `<span class="romaji">${romaji}</span><span class="original">${entry.text}</span>`;
-        } else {
-          lineDiv.innerHTML = `<span class="original">${entry.text}</span>`;
-        }
       }
     }
     // --- Plain lyrics fallback (no autoscroll) ---
@@ -331,17 +376,8 @@ async function updateLyrics(container, doc, badge) {
         if (!line.trim()) continue;
         const lineDiv = doc.createElement('div');
         lineDiv.className = "lyric-item no-sync";
+        lineDiv.innerHTML = await buildLyricLineHTML(line, settings);
         container.appendChild(lineDiv);
-
-        if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(line)) {
-          const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(line)}`;
-          const transRes = await fetch(url);
-          const transData = await transRes.json();
-          const romaji = transData?.[0]?.[0]?.[3] || "";
-          lineDiv.innerHTML = `<span class="romaji">${romaji}</span><span class="original">${line}</span>`;
-        } else {
-          lineDiv.innerHTML = `<span class="original">${line}</span>`;
-        }
       }
     }
   } catch (e) {
