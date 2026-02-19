@@ -1,0 +1,27 @@
+📝 DOCUMENT - Explain the Improvement
+
+Create a PR with:
+
+- Title: "🚀 Fitur Pewarnaan Lirik Adaptif & Optimasi Autoscroll"
+
+- Description with:
+
+  * 🎯 **What:** 
+    - **Pewarnaan Adaptif:** Mengimplementasikan ekstraksi warna dominan dari cover album menggunakan Canvas API untuk menentukan warna teks lirik (Romaji, Original, Terjemahan) secara dinamis.
+    - **Optimasi Autoscroll:** Meningkatkan interval pengecekan menjadi 100ms dan menggunakan logika pencarian indeks lirik yang lebih efisien untuk sinkronisasi yang lebih halus.
+    - **Manajemen Request:** Menambahkan sistem antrian (queue) untuk proses terjemahan dan romanisasi guna menghindari rate limiting dari API eksternal.
+
+  * 💡 **Why:** 
+    - **Estetika:** Memberikan pengalaman visual yang lebih imersif dan personal sesuai dengan lagu yang sedang diputar, menggantikan warna statis yang membosankan.
+    - **Performa:** Pengguna sering mengalami delay atau lirik yang tidak sinkron saat melakukan seeking; optimasi ini memastikan transisi UI yang mulus dan responsif.
+    - **Stabilitas:** Mencegah kegagalan pemuatan terjemahan pada lagu dengan banyak baris lirik karena request yang berlebihan secara bersamaan.
+
+  * ✅ **Verification:** 
+    1. Buka Spotify atau YouTube Music dan putar lagu yang memiliki cover album berwarna cerah/gelap.
+    2. Buka jendela lirik Flying Lyrics.
+    3. Verifikasi bahwa warna lirik (Romaji warnanya beda, Terjemahan beda) mengikuti palet warna cover album dan tetap mudah dibaca (kontras terjaga).
+    4. Coba *seek* (geser durasi) lagu ke tengah atau akhir; pastikan lirik langsung melompat ke posisi yang benar tanpa delay.
+
+  * ✨ **Result:** 
+    - Tampilan lirik sekarang memiliki tema warna yang otentik sesuai album art.
+    - Gerakan lirik terasa lebih fluid (60fps feel) dan sinkronisasi tetap akurat meskipun pengguna melompat-lompat durasi lagu.
