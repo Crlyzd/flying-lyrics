@@ -1,11 +1,12 @@
 ﻿# Flying Romanized Lyrics 🎵
 
 > [!NOTE]
-> This extension turns the basic lyrics panel of Spotify and YouTube Music into a beautiful, interactive, and AI-powered experience.
+> ALL LYRICS PANEL FOR SPOTIFY AND YOUTUBE MUSIC IN THE WHOLE INTERNET IS TRASH (IF YOU FOUND A BETTER ONE PLEASE TELL ME SO I CAN DITCH MY RELEASE) BECAUSE THEY COULD NOT EVEN ROMANIZED JAPANESE OR KOREAN LETTERS SO I MADE THIS SIMPLE EXTENSION FOR CHROMIUM BROWSER
 
 A browser extension that creates a floating **Picture-in-Picture (PiP)** window to show lyrics from Spotify and YouTube Music with AI-powered Romanization and live Translation.
 
-![Flying Lyrics Preview](https://github.com/user-attachments/assets/04d09842-310a-42a9-98d0-94d9301c910a)
+<img width="885" height="1177" alt="{ED81112B-FFF7-43C2-9AA8-783643252E36}" src="https://github.com/user-attachments/assets/8440b55f-ee5d-4e90-9ad2-707156b4e2cd" />
+
 
 ## ✨ Features
 
@@ -39,6 +40,8 @@ Unlike standard lyrics displays, this extension provides a rich 3-line format fo
 5.  Click the **Load unpacked** button.
 6.  Select the folder where you just extracted the files (the folder containing `manifest.json`).
 
+<img width="478" height="558" alt="{8F2C30E7-C7C5-4AA9-8713-2D774F85A36E}" src="https://github.com/user-attachments/assets/4ede8b8d-4f2c-48e8-823a-ecacc83f8145" />
+
 ## 🛠️ Built With
 
 *   **Core**: Vanilla JavaScript (ES6+), HTML5, CSS3
@@ -48,25 +51,8 @@ Unlike standard lyrics displays, this extension provides a rich 3-line format fo
     *   [LRCLIB API](https://lrclib.net/) (for high-quality synced lyrics)
     *   Google Translate API (for AI Romanization and Translation)
 
-## 📁 Project Structure & Flow
-
-```mermaid
-graph TD
-    A[Spotify / YT Music Tab] -->|Track Data| B(content.js)
-    B -->|Request Lyrics| C[LRCLIB API]
-    C -->|LRC Lyrics| B
-    B -->|Request Trans/Romaji| D[Google Translate API]
-    D -->|Translations| B
-    B -->|Dominant Color| E[Dynamic Styling]
-    B -->|Render UI| F[PiP Window]
-    G[Extension Popup] -->|Settings Change| B
-    B -->|Save Per-Song Offset| H[Chrome Storage]
-```
-
-- [content.js](file:///d:/VS/flying-lyrics/flying-lyrics/content.js): The heart of the extension. Handles lyric fetching, translation logic, color extraction, and PiP window management.
-- [popup.html](file:///d:/VS/flying-lyrics/flying-lyrics/popup.html) / [popup.js](file:///d:/VS/flying-lyrics/flying-lyrics/popup.js): Settings interface for language selection, visibility toggles, and sync offset adjustments.
-- [styles.css](file:///d:/VS/flying-lyrics/flying-lyrics/styles.css): Modern styling for the lyrics display and interactive controls.
-- [manifest.json](file:///d:/VS/flying-lyrics/flying-lyrics/manifest.json): Extension configuration and permissions.
+## CURRENT BUG
+- The seek bar might act weirdly when using Spotify, fuck you Spotify 🖕🖕🖕🖕
 
 ## 📝 License
 This project is open-source and available under the MIT License.
