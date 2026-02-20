@@ -178,7 +178,8 @@ let canvas, ctx;
 
 // --- 1. CORE FUNCTIONS ---
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+function getWrapLines(ctx, text, maxWidth) {
+    if (!text) return [];
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -196,7 +197,11 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
         }
     }
     lines.push(line);
+    return lines;
+}
 
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+    const lines = getWrapLines(ctx, text, maxWidth);
     let currentY = growUpwards ? y - ((lines.length - 1) * lineHeight) : y;
 
     for (let k = 0; k < lines.length; k++) {
@@ -389,7 +394,8 @@ function renderLoop() {
     canvas.width = w;
     canvas.height = h;
 
-    const vh = h / 100;
+    const vmin = Math.min(w, h) / 100;
+    const maxWidth = w * 0.85;
 
     const state = getPlayerState();
     // Apply Sync Offset
@@ -422,8 +428,48 @@ function renderLoop() {
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const spacing = vh * 22;
-    targetScroll = activeIdx * spacing;
+    const defaultSpacing = vmin * 10; // Base spacing between blocks
+
+    let currentYOffset = 0;
+    const lineOffsets = [];
+
+    for (let i = 0; i < lyricLines.length; i++) {
+        const line = lyricLines[i];
+
+        const mainSize = (i === activeIdx) ? vmin * 3.8 : vmin * 3.5;
+        const romajiSize = vmin * 3.5;
+        const transSize = vmin * 3.5;
+
+        let romajiHeight = 0;
+        if (line.romaji) {
+            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+            romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
+        }
+
+        ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+        let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+
+        let transHeight = 0;
+        if (showTranslation && line.translation) {
+            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
+        }
+
+        // Pad top and bottom
+        let romajiPadding = romajiHeight > 0 ? vmin * 4.5 : 0;
+        let transPadding = transHeight > 0 ? vmin * 1.5 : 0;
+
+        // This is the Y position where the Main text will start drawing
+        const baseY = currentYOffset + romajiHeight + romajiPadding;
+        lineOffsets.push(baseY);
+
+        const totalBlockHeight = romajiHeight + romajiPadding + mainHeight + transPadding + transHeight;
+
+        // Add padding between blocks
+        currentYOffset += totalBlockHeight + defaultSpacing;
+    }
+
+    targetScroll = lineOffsets[activeIdx] || 0;
     scrollPos += (targetScroll - scrollPos) * 0.1;
 
     ctx.save();
@@ -435,56 +481,56 @@ function renderLoop() {
         ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
         ctx.textAlign = "center";
 
-        const y = i * spacing;
+        const y = lineOffsets[i];
         const isCurrent = (i === activeIdx);
 
         // Universal Dark Shadow for all text
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 8;
 
+        const mainSize = isCurrent ? vmin * 3.8 : vmin * 3.5;
+        const romajiSize = vmin * 3.5;
+        const transSize = vmin * 3.5;
+
         // 1. Romaji (Top)
         if (line.romaji) {
-            const romajiSize = vh * 3.5;
             ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
             // Revert inactive romaji to light gray for readability
             ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
             // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (vh * 5), w * 0.85, romajiSize * 1.2, true);
+            wrapText(ctx, line.romaji, 0, y - (vmin * 4.5), maxWidth, romajiSize * 1.2, true);
         }
 
         // 2. Original Text (Middle)
-        const mainSize = isCurrent ? vh * 3.8 : vh * 3.5;
         ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
         // Inactive main text stays white
         ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
 
         // Draw main text
-        wrapText(ctx, line.text, 0, y, w * 0.85, mainSize * 1.2, false);
+        wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
 
         // If current, draw a second pass with the vibrant glow to ensure both contrast and vibrancy
         if (isCurrent) {
             ctx.shadowColor = currentPalette.vibrant;
             ctx.shadowBlur = 15;
-            wrapText(ctx, line.text, 0, y, w * 0.85, mainSize * 1.2, false);
+            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
         }
 
         // 3. Translation (Bottom)
         if (showTranslation && line.translation) {
+            // Need mainHeight to push translation downwards correctly relative to wrapped text
+            ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            const mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+
             // Reset shadow to black for translation since we might have changed it for main active text
             ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
             ctx.shadowBlur = 8;
 
-            const transSize = vh * 3.5;
             ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
             // Revert inactive translation to light gray
             ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
             // Shift down below original text
-            // We need to estimate height of original text to place this correctly, 
-            // but for simplicity we'll just push it down by a fixed amount relative to vh
-            const lineCount = Math.ceil(ctx.measureText(line.text).width / (w * 0.85)); // Crude approx
-            const dropOffset = (lineCount * mainSize * 1.2) + (vh * 1);
-
-            wrapText(ctx, `(${line.translation})`, 0, y + dropOffset, w * 0.85, transSize * 1.2, false);
+            wrapText(ctx, `(${line.translation})`, 0, y + mainHeight + (vmin * 1.5), maxWidth, transSize * 1.2, false);
         }
     });
 
