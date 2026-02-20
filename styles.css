@@ -77,10 +77,10 @@ body:hover #ui-container,
 #seeker-bar {
     height: 100%;
     width: 0%;
-    background: #1DB954;
+    background: var(--vibrant-color, #1DB954);
     border-radius: 3px;
-    box-shadow: 0 0 10px #1DB954;
-    transition: width 0.1s linear;
+    box-shadow: 0 0 10px var(--vibrant-color, #1DB954);
+    transition: width 0.1s linear, background-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
 }
 
 #controls {
@@ -125,10 +125,11 @@ body:hover #ui-container,
 }
 
 .btn:hover svg {
-    stroke: #1DB954;
+    stroke: var(--vibrant-color, #1DB954);
 }
 
 .cc-active svg {
-    stroke: #1DB954;
-    fill: rgba(29, 185, 84, 0.2);
+    stroke: var(--vibrant-color, #1DB954);
+    fill: var(--vibrant-color, #1DB954);
+    fill-opacity: 0.2;
 }
