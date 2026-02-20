@@ -11,6 +11,108 @@ let translationLang = 'id';
 let syncOffset = 400;
 let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
 
+// Dynamic Colors State
+let currentPalette = {
+    vibrant: "#1DB954", // Default Spotify Green
+    trans: "#A0C0E0",   // Default Translation Blue
+    romaji: "#F5AF19"   // Default Romaji Orange
+};
+let lastExtractedArt = "";
+
+async function extractPalette(imgUrl) {
+    if (!imgUrl || imgUrl === lastExtractedArt) return;
+    lastExtractedArt = imgUrl;
+
+    try {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = imgUrl;
+        });
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 50; // Small for performance
+        canvas.height = 50;
+        ctx.drawImage(img, 0, 0, 50, 50);
+
+        const data = ctx.getImageData(0, 0, 50, 50).data;
+        let r = 0, g = 0, b = 0, count = 0;
+
+        // Simple dominant color sampling (filtering out extremes)
+        for (let i = 0; i < data.length; i += 4) {
+            const tr = data[i], tg = data[i + 1], tb = data[i + 2];
+            const brightness = (tr * 299 + tg * 587 + tb * 114) / 1000;
+            // Filter out very dark or very light pixels to find "color"
+            if (brightness > 40 && brightness < 220) {
+                r += tr; g += tg; b += tb;
+                count++;
+            }
+        }
+
+        if (count > 0) {
+            r = Math.floor(r / count);
+            g = Math.floor(g / count);
+            b = Math.floor(b / count);
+
+            // Boost saturation and brightness for the "vibrant" color
+            const hsl = rgbToHsl(r, g, b);
+            currentPalette.vibrant = hslToRgb(hsl.h, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.6));
+            currentPalette.trans = hslToRgb(hsl.h, Math.max(hsl.s, 0.4), Math.max(hsl.l, 0.8));
+            // Fix: hue is 0-1, so shift by 30 degrees is 30/360. Also guarantee high lightness for readability.
+            currentPalette.romaji = hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.8));
+
+            // Set CSS custom properties for UI controls
+            if (pipWin && pipWin.document) {
+                pipWin.document.body.style.setProperty('--vibrant-color', currentPalette.vibrant);
+            }
+        }
+    } catch (e) {
+        console.warn("Color extraction failed:", e);
+    }
+}
+
+function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return { h, s, l };
+}
+
+function hslToRgb(h, s, l) {
+    let r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+}
+
 // Load initial settings
 chrome.storage.local.get({
     showTranslation: true,
@@ -76,7 +178,8 @@ let canvas, ctx;
 
 // --- 1. CORE FUNCTIONS ---
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+function getWrapLines(ctx, text, maxWidth) {
+    if (!text) return [];
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -94,7 +197,11 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
         }
     }
     lines.push(line);
+    return lines;
+}
 
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+    const lines = getWrapLines(ctx, text, maxWidth);
     let currentY = growUpwards ? y - ((lines.length - 1) * lineHeight) : y;
 
     for (let k = 0; k < lines.length; k++) {
@@ -271,6 +378,7 @@ function renderLoop() {
         // Only trigger a DOM repaint if the image actually changed
         if (bg.style.backgroundImage !== newBg) {
             bg.style.backgroundImage = newBg;
+            extractPalette(art); // Trigger color extraction
         }
     }
 
@@ -286,7 +394,8 @@ function renderLoop() {
     canvas.width = w;
     canvas.height = h;
 
-    const vh = h / 100;
+    const vmin = Math.min(w, h) / 100;
+    const maxWidth = w * 0.85;
 
     const state = getPlayerState();
     // Apply Sync Offset
@@ -319,8 +428,48 @@ function renderLoop() {
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const spacing = vh * 22;
-    targetScroll = activeIdx * spacing;
+    const defaultSpacing = vmin * 10; // Base spacing between blocks
+
+    let currentYOffset = 0;
+    const lineOffsets = [];
+
+    for (let i = 0; i < lyricLines.length; i++) {
+        const line = lyricLines[i];
+
+        const mainSize = (i === activeIdx) ? vmin * 3.8 : vmin * 3.5;
+        const romajiSize = vmin * 3.5;
+        const transSize = vmin * 3.5;
+
+        let romajiHeight = 0;
+        if (line.romaji) {
+            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+            romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
+        }
+
+        ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+        let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+
+        let transHeight = 0;
+        if (showTranslation && line.translation) {
+            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
+        }
+
+        // Pad top and bottom
+        let romajiPadding = romajiHeight > 0 ? vmin * 4.5 : 0;
+        let transPadding = transHeight > 0 ? vmin * 1.5 : 0;
+
+        // This is the Y position where the Main text will start drawing
+        const baseY = currentYOffset + romajiHeight + romajiPadding;
+        lineOffsets.push(baseY);
+
+        const totalBlockHeight = romajiHeight + romajiPadding + mainHeight + transPadding + transHeight;
+
+        // Add padding between blocks
+        currentYOffset += totalBlockHeight + defaultSpacing;
+    }
+
+    targetScroll = lineOffsets[activeIdx] || 0;
     scrollPos += (targetScroll - scrollPos) * 0.1;
 
     ctx.save();
@@ -328,47 +477,60 @@ function renderLoop() {
 
     lyricLines.forEach((line, i) => {
         const dist = Math.abs(i - activeIdx);
-        ctx.globalAlpha = Math.max(0.1, 1 - dist * 0.3);
+        // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
+        ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
         ctx.textAlign = "center";
 
-        const y = i * spacing;
+        const y = lineOffsets[i];
         const isCurrent = (i === activeIdx);
+
+        // Universal Dark Shadow for all text
+        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        ctx.shadowBlur = 8;
+
+        const mainSize = isCurrent ? vmin * 3.8 : vmin * 3.5;
+        const romajiSize = vmin * 3.5;
+        const transSize = vmin * 3.5;
 
         // 1. Romaji (Top)
         if (line.romaji) {
-            const romajiSize = vh * 3.5;
             ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
-            ctx.fillStyle = "#F5AF19";
+            // Revert inactive romaji to light gray for readability
+            ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
             // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (vh * 5), w * 0.85, romajiSize * 1.2, true);
+            wrapText(ctx, line.romaji, 0, y - (vmin * 4.5), maxWidth, romajiSize * 1.2, true);
         }
 
         // 2. Original Text (Middle)
-        const mainSize = isCurrent ? vh * 3.8 : vh * 3.5;
         ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-        ctx.fillStyle = isCurrent ? "#1DB954" : "#FFFFFF";
+        // Inactive main text stays white
+        ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
 
+        // Draw main text
+        wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+
+        // If current, draw a second pass with the vibrant glow to ensure both contrast and vibrancy
         if (isCurrent) {
-            ctx.shadowColor = "rgba(29, 185, 84, 0.5)";
+            ctx.shadowColor = currentPalette.vibrant;
             ctx.shadowBlur = 15;
-        } else {
-            ctx.shadowBlur = 0;
+            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
         }
-
-        wrapText(ctx, line.text, 0, y, w * 0.85, mainSize * 1.2, false);
 
         // 3. Translation (Bottom)
         if (showTranslation && line.translation) {
-            const transSize = vh * 3.5;
-            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
-            ctx.fillStyle = isCurrent ? "#A0C0E0" : "#888888"; // Light blueish when active
-            // Shift down below original text
-            // We need to estimate height of original text to place this correctly, 
-            // but for simplicity we'll just push it down by a fixed amount relative to vh
-            const lineCount = Math.ceil(ctx.measureText(line.text).width / (w * 0.85)); // Crude approx
-            const dropOffset = (lineCount * mainSize * 1.2) + (vh * 1);
+            // Need mainHeight to push translation downwards correctly relative to wrapped text
+            ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            const mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
 
-            wrapText(ctx, `(${line.translation})`, 0, y + dropOffset, w * 0.85, transSize * 1.2, false);
+            // Reset shadow to black for translation since we might have changed it for main active text
+            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+            ctx.shadowBlur = 8;
+
+            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            // Revert inactive translation to light gray
+            ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
+            // Shift down below original text
+            wrapText(ctx, `(${line.translation})`, 0, y + mainHeight + (vmin * 1.5), maxWidth, transSize * 1.2, false);
         }
     });
 
@@ -414,7 +576,10 @@ function injectStructure() {
     doc.getElementById('next').onclick = () => click('[data-testid="control-button-skip-forward"], .next-button');
     doc.getElementById('playpause').onclick = () => click('[data-testid="control-button-playpause"], .play-pause-button');
 
-    doc.getElementById('back-btn').onclick = () => pipWin.close();
+    doc.getElementById('back-btn').onclick = () => {
+        chrome.runtime.sendMessage({ type: 'FOCUS_TAB' });
+        pipWin.close();
+    };
 
     // Mute Logic
     doc.getElementById('mute-btn').onclick = () => {
