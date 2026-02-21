@@ -3,7 +3,20 @@ let currentTrack = "";
 let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
 let scrollPos = 0;
 let targetScroll = 0;
-let pipWin = null;
+
+// --- PiP ENGINE STATE ---
+// Uses a Canvas → captureStream() → Video PiP pipeline for a clean, title-bar-less window.
+// There is no DOM inside the PiP window; all rendering is done on pipCanvas.
+let pipCanvas = null; // Off-screen canvas (never appended to DOM)
+let pipCtx = null;    // Its 2D context
+let pipVideo = null;  // Hidden <video> that streams the canvas into PiP
+
+// Background art state
+let cachedBgImage = null; // Pre-loaded Image object for drawImage()
+let lastDrawnArt = "";    // Tracks which URL is currently cached
+
+// Dirty flag — renderLoop only redraws when true, to avoid wasting CPU
+let needsRedraw = true;
 
 // Settings
 let showTranslation = true;
@@ -61,14 +74,10 @@ async function extractPalette(imgUrl) {
             const hsl = rgbToHsl(r, g, b);
             currentPalette.vibrant = hslToRgb(hsl.h, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.6));
             currentPalette.trans = hslToRgb(hsl.h, Math.max(hsl.s, 0.4), Math.max(hsl.l, 0.8));
-            // Fix: hue is 0-1, so shift by 30 degrees is 30/360. Also guarantee high lightness for readability.
             currentPalette.romaji = hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.8));
-
-            // Set CSS custom properties for UI controls
-            if (pipWin && pipWin.document) {
-                pipWin.document.body.style.setProperty('--vibrant-color', currentPalette.vibrant);
-            }
         }
+
+        needsRedraw = true; // Palette changed, redraw
     } catch (e) {
         console.warn("Color extraction failed:", e);
     }
@@ -122,34 +131,32 @@ chrome.storage.local.get({
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
-    syncOffset = items.syncOffset; // Still load global last used as fallback/init
+    syncOffset = items.syncOffset;
     songOffsets = items.songOffsets || {};
 });
 
-// Listen for updates
+// Listen for updates from popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'SETTINGS_UPDATE') {
         const p = msg.payload;
         if (p.showTranslation !== undefined) {
             showTranslation = p.showTranslation;
-            if (showTranslation) fetchLyrics(); // Re-fetch if turned on
-            updateCCButtonState();
+            if (showTranslation) fetchLyrics();
+            needsRedraw = true;
         }
         if (p.translationLang !== undefined) {
             translationLang = p.translationLang;
-            fetchLyrics(); // Re-fetch with new lang
+            fetchLyrics();
         }
         if (p.syncOffset !== undefined) {
             syncOffset = p.syncOffset;
-
-            // Save offset for current song (Fetch latest storage first to avoid overwrite)
             const meta = navigator.mediaSession.metadata;
             if (meta && meta.title && meta.artist) {
                 const key = `${meta.artist} - ${meta.title}`;
                 chrome.storage.local.get({ songOffsets: {} }, (items) => {
                     const latestOffsets = items.songOffsets || {};
                     latestOffsets[key] = syncOffset;
-                    songOffsets = latestOffsets; // Update local cache
+                    songOffsets = latestOffsets;
                     chrome.storage.local.set({ songOffsets: latestOffsets });
                 });
             }
@@ -165,16 +172,36 @@ let lastTimeValue = 0;
 let lastUpdateMs = performance.now();
 
 // --- ICONS (SVG STRINGS) ---
-// --- ICONS (SVG STRINGS) ---
-// --- ICONS (SVG STRINGS) ---
 const ICON_PREV = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>`;
 const ICON_NEXT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>`;
 const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5 L18.5 11.5 Q19.5 12 18.5 12.5 L5.5 20.5 Q4.5 21 4.5 20 L4.5 4 Q4.5 3 5.5 3.5 Z"></path></svg>`;
 const ICON_PAUSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="6" height="20" rx="1.5"></rect><rect x="15" y="2" width="6" height="20" rx="1.5"></rect></svg>`;
-const ICON_VOL_HIGH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>`;
-const ICON_VOL_MUTE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>`;
-const ICON_CC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect><path d="M10 9.5a2 2 0 0 0 -2 2v1a2 2 0 0 0 2 2"></path><path d="M16 9.5a2 2 0 0 0 -2 2v1a2 2 0 0 0 2 2"></path></svg>`;
-let canvas, ctx;
+
+/**
+ * Converts an SVG string into a drawable HTMLImageElement.
+ * Used at boot time to pre-rasterize icon SVGs for ctx.drawImage() calls.
+ * @param {string} svgString - Raw SVG markup
+ * @param {number} width
+ * @param {number} height
+ * @returns {HTMLImageElement}
+ */
+function svgToImage(svgString, width, height) {
+    // Inject explicit white stroke so the icon is visible on the dark canvas
+    const colorized = svgString.replace(/stroke="currentColor"/g, 'stroke="white"');
+    const blob = new Blob([colorized], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image(width, height);
+    img.src = url;
+    // Release the object URL once loaded to free memory
+    img.onload = () => URL.revokeObjectURL(url);
+    return img;
+}
+
+// Pre-rasterize icons once at boot. IMG_* are used in drawControls().
+const IMG_PREV = svgToImage(ICON_PREV, 24, 24);
+const IMG_NEXT = svgToImage(ICON_NEXT, 24, 24);
+const IMG_PLAY = svgToImage(ICON_PLAY, 40, 40);
+const IMG_PAUSE = svgToImage(ICON_PAUSE, 40, 40);
 
 // --- 1. CORE FUNCTIONS ---
 
@@ -221,23 +248,22 @@ async function fetchLyrics(retryCount = 0) {
     try {
         const query = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
 
-        // --- APPLY SAVED OFFSET ---
+        // Apply saved per-song offset
         const key = `${meta.artist} - ${meta.title}`;
         if (songOffsets[key] !== undefined) {
             syncOffset = songOffsets[key];
         } else {
-            syncOffset = 400; // Default if no custom offset
+            syncOffset = 400;
         }
-        // Broadcast new offset to Popup (so UI updates if open)
         chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
 
         const res = await fetch(`https://lrclib.net/api/get?${query}`);
         const data = await res.json();
         const raw = data.syncedLyrics || data.plainLyrics || "";
-        // Don't modify basic structure yet, will parse in loop
 
         if (!raw) {
             lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
+            needsRedraw = true;
             return;
         }
 
@@ -254,7 +280,6 @@ async function fetchLyrics(retryCount = 0) {
             let romaji = "";
             let translation = "";
 
-            // Parallel requests for Romaji and/or Translation
             const requests = [];
 
             if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(text)) {
@@ -271,7 +296,6 @@ async function fetchLyrics(retryCount = 0) {
                     fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${translationLang}&dt=t&q=${encodeURIComponent(text)}`)
                         .then(r => r.json())
                         .then(d => {
-                            // Extract translation from response
                             if (d && d[0]) {
                                 translation = d[0].map(x => x[0]).join('');
                             }
@@ -281,12 +305,14 @@ async function fetchLyrics(retryCount = 0) {
             }
 
             await Promise.all(requests);
-
             temp.push({ time, text, romaji, translation });
         }
+
         lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
+        needsRedraw = true;
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
+        needsRedraw = true;
     }
 }
 
@@ -341,13 +367,13 @@ function getPlayerState() {
 }
 
 function getCoverArt() {
-    // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
+    // 1. MediaSession API (last item = highest resolution)
     const meta = navigator.mediaSession?.metadata;
     if (meta && meta.artwork && meta.artwork.length > 0) {
         return meta.artwork[meta.artwork.length - 1].src;
     }
 
-    // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
+    // 2. Spotify DOM Fallback
     const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
         document.querySelector('img[data-testid="cover-art-image"]');
     if (spotiImg) return spotiImg.src;
@@ -359,9 +385,96 @@ function getCoverArt() {
     return "";
 }
 
-function renderLoop() {
-    if (!pipWin || pipWin.closed) return;
+// --- 2. CANVAS DRAWING HELPERS ---
 
+/**
+ * Draws the blurred cover art background onto the canvas.
+ * Loads the image asynchronously and caches it in cachedBgImage.
+ * Falls back to a solid dark color while the image is loading.
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} w Canvas width
+ * @param {number} h Canvas height
+ */
+function drawBackground(ctx, w, h) {
+    const art = getCoverArt();
+
+    // Trigger async load if the art URL has changed
+    if (art && art !== lastDrawnArt) {
+        lastDrawnArt = art;
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; // Required to avoid canvas taint that would break captureStream()
+        img.onload = () => {
+            cachedBgImage = img;
+            extractPalette(art); // Also update the color palette
+            needsRedraw = true;
+        };
+        img.onerror = () => {
+            cachedBgImage = null;
+        };
+        img.src = art;
+    }
+
+    if (cachedBgImage && cachedBgImage.complete && cachedBgImage.naturalWidth > 0) {
+        // Draw blurred, darkened cover art as background
+        // Expand slightly to hide blur edge artifacts
+        ctx.save();
+        ctx.filter = 'blur(12px) brightness(0.45)';
+        ctx.drawImage(cachedBgImage, -15, -15, w + 30, h + 30);
+        ctx.restore();
+    } else {
+        // Solid fallback while image loads
+        ctx.fillStyle = '#121212';
+        ctx.fillRect(0, 0, w, h);
+    }
+}
+
+/**
+ * Draws a gradient footer and Prev / Play-Pause / Next icon buttons onto the canvas.
+ * Icons are pre-rasterized SVG Image objects (IMG_PREV, IMG_PLAY, etc.).
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {number} w Canvas width
+ * @param {number} h Canvas height
+ * @param {{ paused: boolean }} state Current player state
+ */
+function drawControls(ctx, w, h, state) {
+    // Gradient footer — fades from transparent to dark at the bottom
+    const grad = ctx.createLinearGradient(0, h * 0.65, 0, h);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.75)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, h * 0.65, w, h * 0.35);
+
+    // Icon positions — centered horizontally, near bottom
+    const centerX = w / 2;
+    const iconY = h - 36; // Vertical center of the control row
+
+    // Play/Pause (center, larger)
+    const ppIcon = state.paused ? IMG_PLAY : IMG_PAUSE;
+    if (ppIcon.complete && ppIcon.naturalWidth > 0) {
+        ctx.drawImage(ppIcon, centerX - 20, iconY - 20, 40, 40);
+    }
+
+    // Previous (left of center)
+    if (IMG_PREV.complete && IMG_PREV.naturalWidth > 0) {
+        ctx.drawImage(IMG_PREV, centerX - 70, iconY - 12, 24, 24);
+    }
+
+    // Next (right of center)
+    if (IMG_NEXT.complete && IMG_NEXT.naturalWidth > 0) {
+        ctx.drawImage(IMG_NEXT, centerX + 46, iconY - 12, 24, 24);
+    }
+}
+
+// --- 3. RENDER LOOP ---
+
+function renderLoop() {
+    // Guard: stop loop if PiP canvas was cleaned up
+    if (!pipCanvas || !pipCtx) return;
+
+    const w = pipCanvas.width;  // 300
+    const h = pipCanvas.height; // 300
+
+    // Track change detection
     const meta = navigator.mediaSession.metadata;
     const nowTitle = meta?.title || "";
     if (nowTitle !== currentTrack) {
@@ -369,70 +482,29 @@ function renderLoop() {
         fetchLyrics();
     }
 
-    // --- CONTINUOUS BACKGROUND IMAGE SYNC ---
-    const art = getCoverArt();
-    const bg = pipWin.document.getElementById('bg-cover');
-
-    if (bg && art) {
-        const newBg = `url("${art}")`;
-        // Only trigger a DOM repaint if the image actually changed
-        if (bg.style.backgroundImage !== newBg) {
-            bg.style.backgroundImage = newBg;
-            extractPalette(art); // Trigger color extraction
-        }
-    }
-
-    if (!canvas || !pipWin.document.body.contains(canvas)) {
-        canvas = pipWin.document.getElementById('lyricCanvas');
-        ctx = null;
-    }
-    if (!canvas) return pipWin.requestAnimationFrame(renderLoop);
-    if (!ctx) ctx = canvas.getContext('2d');
-
-    const w = pipWin.innerWidth;
-    const h = pipWin.innerHeight;
-    canvas.width = w;
-    canvas.height = h;
+    // --- DRAW FRAME ---
+    // 1. Background (cover art or fallback)
+    drawBackground(pipCtx, w, h);
 
     const vmin = Math.min(w, h) / 100;
-    const maxWidth = w * 0.94;
+    const maxWidth = w * 0.90;
 
     const state = getPlayerState();
-    // Apply Sync Offset
     if (!state.paused) {
         state.currentTime += (syncOffset / 1000);
     }
 
-    const seeker = pipWin.document.getElementById('seeker-bar');
-    if (seeker) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
-
-    const ppBtn = pipWin.document.getElementById('playpause');
-    if (ppBtn) {
-        const targetIcon = (state.paused) ? ICON_PLAY : ICON_PAUSE;
-        if (ppBtn.innerHTML !== targetIcon) ppBtn.innerHTML = targetIcon;
-    }
-
-    // Update mute button icon if changed externally
-    const muteBtn = pipWin.document.getElementById('mute-btn');
-    if (muteBtn) {
-        const media = document.querySelector('video, audio');
-        const isMuted = media ? media.muted : false;
-        const targetMuteIcon = isMuted ? ICON_VOL_MUTE : ICON_VOL_HIGH;
-        if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
-    }
-
-    ctx.clearRect(0, 0, w, h);
-
+    // 2. Lyrics
     let activeIdx = lyricLines.findIndex((l, i) =>
         state.currentTime >= l.time && (!lyricLines[i + 1] || state.currentTime < lyricLines[i + 1].time)
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const defaultSpacing = vmin * 3; // Literal 3vmin gap between blocks
-
+    const defaultSpacing = vmin * 3;
     let currentYOffset = 0;
     const lineOffsets = [];
 
+    // Measure all line block heights first (to calculate scroll target)
     for (let i = 0; i < lyricLines.length; i++) {
         const line = lyricLines[i];
 
@@ -442,223 +514,158 @@ function renderLoop() {
 
         let romajiHeight = 0;
         if (line.romaji) {
-            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
-            romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
+            pipCtx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+            romajiHeight = getWrapLines(pipCtx, line.romaji, maxWidth).length * (romajiSize * 1.2);
         }
 
-        ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-        let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+        pipCtx.font = (i === activeIdx)
+            ? `700 ${mainSize}px 'Segoe UI', sans-serif`
+            : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+        let mainHeight = getWrapLines(pipCtx, line.text, maxWidth).length * (mainSize * 1.2);
 
         let transHeight = 0;
         if (showTranslation && line.translation) {
-            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
-            transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
+            pipCtx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            transHeight = getWrapLines(pipCtx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
         }
 
-        // --- ABSOLUTE BOUNDING BOX MEASUREMENT ---
-        // Instead of stacking heights (which creates invisible phantom spacing),
-        // we measure the exact top and bottom pixels the text will occupy on the canvas.
-
-        // Top Boundary: the romaji anchors 7.5vmin above the main text's Y + its own text height
         const topBoundary = line.romaji
             ? (vmin * 9.2) + romajiHeight
             : mainHeight / 2;
 
-        // Bottom Boundary: below the full rendered height of main lyric + tight gap
         let bottomBoundary = mainHeight / 2;
         if (showTranslation && line.translation) {
-            // Calculate downward baseline shift for wrapped main lyrics
-            const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+            const mainLineCount = getWrapLines(pipCtx, line.text, maxWidth).length;
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-            // 6.8vmin creates perfect visual symmetry with the 7.5vmin top gap
             bottomBoundary = mainWrapShift + (vmin * 8.2) + transHeight;
         }
 
-        // This is the canvas Y where the main lyric will be drawn (centered between top/bottom)
         const baseY = currentYOffset + topBoundary;
         lineOffsets.push(baseY);
 
-        // Total height = exact pixels from tip of romaji to base of translation
         const totalBlockHeight = topBoundary + bottomBoundary;
-
-        // Add padding between blocks
         currentYOffset += totalBlockHeight + defaultSpacing;
     }
 
     targetScroll = lineOffsets[activeIdx] || 0;
     scrollPos += (targetScroll - scrollPos) * 0.1;
 
-    ctx.save();
-    ctx.translate(w / 2, (h / 2) - scrollPos);
+    pipCtx.save();
+    pipCtx.translate(w / 2, (h / 2) - scrollPos);
 
     lyricLines.forEach((line, i) => {
         const dist = Math.abs(i - activeIdx);
-        // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
-        ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
-        ctx.textAlign = "center";
+        pipCtx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
+        pipCtx.textAlign = "center";
 
         const y = lineOffsets[i];
         const isCurrent = (i === activeIdx);
 
-        // Universal Dark Shadow for all text
-        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        ctx.shadowBlur = 8;
+        pipCtx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        pipCtx.shadowBlur = 8;
 
         const mainSize = isCurrent ? vmin * 7.2 : vmin * 4.2;
         const romajiSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
         const transSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
 
-        // 1. Romaji (Top)
+        // Romaji (Top)
         if (line.romaji) {
-            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
-            // Revert inactive romaji to light gray for readability
-            ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
-            // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (vmin * 9.2), maxWidth, romajiSize * 1.2, true);
+            pipCtx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+            pipCtx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
+            wrapText(pipCtx, line.romaji, 0, y - (vmin * 9.2), maxWidth, romajiSize * 1.2, true);
         }
 
-        // 2. Original Text (Middle)
-        ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-        // Inactive main text stays white
-        ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
+        // Original Text (Middle)
+        pipCtx.font = isCurrent
+            ? `700 ${mainSize}px 'Segoe UI', sans-serif`
+            : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+        pipCtx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
+        wrapText(pipCtx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
 
-        // Draw main text
-        wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
-
-        // If current, draw a second pass with the vibrant glow to ensure both contrast and vibrancy
+        // Double-pass vibrant glow on active line
         if (isCurrent) {
-            ctx.shadowColor = currentPalette.vibrant;
-            ctx.shadowBlur = 15;
-            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+            pipCtx.shadowColor = currentPalette.vibrant;
+            pipCtx.shadowBlur = 15;
+            wrapText(pipCtx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
         }
 
-        // 3. Translation (Bottom)
+        // Translation (Bottom)
         if (showTranslation && line.translation) {
-            // Calculate downward baseline shift for wrapped lyrics
-            ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-            const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+            pipCtx.font = isCurrent
+                ? `700 ${mainSize}px 'Segoe UI', sans-serif`
+                : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            const mainLineCount = getWrapLines(pipCtx, line.text, maxWidth).length;
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
-            ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-            ctx.shadowBlur = 8;
+            pipCtx.shadowColor = "rgba(0, 0, 0, 0.8)";
+            pipCtx.shadowBlur = 8;
 
-            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
-            ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
-
-            // Perfect 6.8vmin baseline offset guarantees exactly 2.0vmin of physical blank space
-            wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
+            pipCtx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            pipCtx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
+            wrapText(pipCtx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
         }
     });
 
-    ctx.restore();
+    pipCtx.restore();
 
-    pipWin.requestAnimationFrame(renderLoop);
+    // 3. Controls drawn on top of lyrics (always visible)
+    pipCtx.globalAlpha = 1;
+    pipCtx.shadowBlur = 0;
+    drawControls(pipCtx, w, h, state);
+
+    // Schedule next frame
+    requestAnimationFrame(renderLoop);
 }
 
-function injectStructure() {
-    const doc = pipWin.document;
-    doc.body.innerHTML = `
-        <div id="bg-cover"></div>
-        <canvas id="lyricCanvas"></canvas>
-        <button id="back-btn">⤺ Back to tab</button>
-        <div id="ui-container">
-            <div id="seeker-container"><div id="seeker-bar"></div></div>
-            <div id="controls">
-                <button class="btn" id="mute-btn">${ICON_VOL_HIGH}</button>
-                <div style="width: 0px;"></div>
-                <button class="btn" id="prev">${ICON_PREV}</button>
-                <button class="btn" id="playpause">${ICON_PAUSE}</button>
-                <button class="btn" id="next">${ICON_NEXT}</button>
-                <div style="width: 0px;"></div>
-                <button class="btn" id="cc-btn" title="Translate Lyrics">${ICON_CC}</button>
-            </div>
-        </div>
-        <style>
-            #back-btn {
-                position: absolute; top: 15px; left: 15px;
-                background: rgba(255,255,255,0.2); border: none;
-                color: white; padding: 8px 15px; border-radius: 20px;
-                font-weight: bold; cursor: pointer; backdrop-filter: blur(5px);
-                font-family: 'Segoe UI', sans-serif; opacity: 0; transition: opacity 0.2s;
-                z-index: 20;
-            }
-            body:hover #back-btn { opacity: 1; }
-            #back-btn:hover { background: rgba(255,255,255,0.4); }
-        </style>
-    `;
+// --- 4. MEDIA SESSION CONTROLS ---
 
-    const click = (sel) => document.querySelector(sel)?.click();
-    doc.getElementById('prev').onclick = () => click('[data-testid="control-button-skip-back"], .previous-button');
-    doc.getElementById('next').onclick = () => click('[data-testid="control-button-skip-forward"], .next-button');
-    doc.getElementById('playpause').onclick = () => click('[data-testid="control-button-playpause"], .play-pause-button');
-
-    doc.getElementById('back-btn').onclick = () => {
-        chrome.runtime.sendMessage({ type: 'FOCUS_TAB' });
-        pipWin.close();
+/**
+ * Registers Media Session action handlers so the PiP window's native
+ * prev/play/pause/next overlay buttons trigger actions on the host player.
+ * These are cleared in cleanupPip() when the window closes.
+ */
+function registerMediaSessionControls() {
+    const clickSelector = (selectors) => {
+        document.querySelector(selectors)?.click();
     };
 
-    // Mute Logic
-    doc.getElementById('mute-btn').onclick = () => {
-        const media = document.querySelector('video, audio');
-        if (media) media.muted = !media.muted;
-    };
-
-    // CC Logic
-    doc.getElementById('cc-btn').onclick = () => {
-        showTranslation = !showTranslation;
-        chrome.storage.local.set({ showTranslation });
-        updateCCButtonState();
-        if (showTranslation) fetchLyrics(); // Fetch if enabled
-    };
-
-    updateCCButtonState(); // Init state
-
-    doc.getElementById('seeker-container').onclick = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const percent = (e.clientX - rect.left) / rect.width;
-
-        const p = document.querySelector('video, audio');
-        if (p && p.duration > 0) {
-            p.currentTime = percent * p.duration;
-        }
-
-        // --- THE POINTER EVENT FIX ---
-        const spotifyProgressBar = document.querySelector('[data-testid="progress-bar"]');
-        if (spotifyProgressBar) {
-            const spRect = spotifyProgressBar.getBoundingClientRect();
-            const targetX = spRect.left + (percent * spRect.width);
-            const targetY = spRect.top + (spRect.height / 2);
-
-            const pointerDown = new PointerEvent('pointerdown', {
-                bubbles: true, cancelable: true,
-                clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
-            });
-            spotifyProgressBar.dispatchEvent(pointerDown);
-
-            const pointerUp = new PointerEvent('pointerup', {
-                bubbles: true, cancelable: true,
-                clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
-            });
-            spotifyProgressBar.dispatchEvent(pointerUp);
-        }
-    };
+    navigator.mediaSession.setActionHandler('previoustrack', () =>
+        clickSelector('[data-testid="control-button-skip-back"], .previous-button')
+    );
+    navigator.mediaSession.setActionHandler('nexttrack', () =>
+        clickSelector('[data-testid="control-button-skip-forward"], .next-button')
+    );
+    navigator.mediaSession.setActionHandler('play', () =>
+        clickSelector('[data-testid="control-button-playpause"], .play-pause-button')
+    );
+    navigator.mediaSession.setActionHandler('pause', () =>
+        clickSelector('[data-testid="control-button-playpause"], .play-pause-button')
+    );
 }
 
+/**
+ * Cleans up all PiP engine state and releases Media Session handlers.
+ * Called automatically when the user closes the PiP window (leavepictureinpicture event).
+ */
+function cleanupPip() {
+    // Nullify canvas references — this causes renderLoop() to exit on its next tick
+    pipCanvas = null;
+    pipCtx = null;
+    pipVideo = null;
+    cachedBgImage = null;
+    lastDrawnArt = "";
+    needsRedraw = false;
+    scrollPos = 0;
+    targetScroll = 0;
 
-
-function updateCCButtonState() {
-    if (!pipWin) return;
-    const btn = pipWin.document.getElementById('cc-btn');
-    if (btn) {
-        if (showTranslation) {
-            btn.classList.add('cc-active');
-        } else {
-            btn.classList.remove('cc-active');
-        }
-    }
+    // Clear Media Session handlers
+    navigator.mediaSession.setActionHandler('previoustrack', null);
+    navigator.mediaSession.setActionHandler('nexttrack', null);
+    navigator.mediaSession.setActionHandler('play', null);
+    navigator.mediaSession.setActionHandler('pause', null);
 }
 
-// --- 2. LAUNCHER ---
+// --- 5. LAUNCHER ---
 
 const createLauncher = () => {
     const host = window.location.hostname;
@@ -676,20 +683,46 @@ const createLauncher = () => {
     });
 
     btn.onclick = async () => {
+        // Prevent double-launch if PiP is already active
+        if (pipVideo && document.pictureInPictureElement) return;
+
         try {
-            pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
+            // 1. Create off-screen canvas — 300x300, never appended to DOM
+            pipCanvas = document.createElement('canvas');
+            pipCanvas.width = 300;
+            pipCanvas.height = 300;
+            pipCtx = pipCanvas.getContext('2d');
 
-            const link = pipWin.document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = chrome.runtime.getURL('styles.css');
-            pipWin.document.head.appendChild(link);
+            // 2. Paint an initial frame — required to prevent "video not ready" errors
+            pipCtx.fillStyle = '#121212';
+            pipCtx.fillRect(0, 0, 300, 300);
 
-            injectStructure();
+            // 3. Create hidden muted video and pipe canvas stream into it
+            //    Muted = no volume control in PiP; live stream = no timeline in PiP
+            pipVideo = document.createElement('video');
+            pipVideo.muted = true;
+            pipVideo.playsInline = true;
+            pipVideo.srcObject = pipCanvas.captureStream(30);
+
+            // 4. Register Media Session handlers before launching PiP
+            registerMediaSessionControls();
+
+            // 5. Play video first, then request PiP — both must happen in same click gesture
+            await pipVideo.play();
+            await pipVideo.requestPictureInPicture();
+
+            // 6. Wire cleanup to PiP exit event
+            pipVideo.addEventListener('leavepictureinpicture', cleanupPip, { once: true });
+
+            // 7. Start lyrics fetch and render loop
             fetchLyrics();
+            needsRedraw = true;
+            requestAnimationFrame(renderLoop);
 
-            pipWin.requestAnimationFrame(renderLoop);
         } catch (e) {
-            console.error("Launch Failed:", e);
+            console.error("Flying Lyrics: PiP launch failed:", e);
+            // Clean up partial state on error
+            cleanupPip();
         }
     };
 
