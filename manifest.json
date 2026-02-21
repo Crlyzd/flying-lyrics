@@ -19,6 +19,7 @@
     "https://lrclib.net/*",
     "https://translate.googleapis.com/*",
     "https://i.scdn.co/*",
+    "https://music.163.com/*",
     "https://*.spotifycdn.com/*"
   ],
   "content_scripts": [
@@ -28,7 +29,11 @@
         "*://music.youtube.com/*"
       ],
       "js": [
-        "content.js"
+        "content.js",
+        "utils.js",
+        "services.js",
+        "ui.js",
+        "renderer.js"
       ],
       "run_at": "document_end"
     }

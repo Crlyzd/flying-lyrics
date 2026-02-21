@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Request current effective offset (in case song-specific offset is active)
+    let currentActiveTrack = { artist: "", title: "" };
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
             chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_SYNC_OFFSET' }, (response) => {
@@ -56,7 +57,134 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateOffsetDisplay(response.syncOffset);
                 }
             });
+
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_CURRENT_TRACK' }, (response) => {
+                if (response && response.artist && response.title) {
+                    const searchInput = document.getElementById('search-query');
+                    currentActiveTrack = response;
+                    if (searchInput) {
+                        searchInput.value = `${response.artist} - ${response.title}`;
+                    }
+                }
+            });
         }
+    });
+
+    // --- SEARCH & OVERRIDE LOGIC ---
+    const searchBtn = document.getElementById('search-btn');
+    const searchInput = document.getElementById('search-query');
+    const resultsContainer = document.getElementById('search-results-container');
+    const localUpload = document.getElementById('local-lyric-upload');
+
+    searchBtn.addEventListener('click', async () => {
+        const query = searchInput.value.trim();
+        if (!query) return;
+
+        searchBtn.textContent = '...';
+        resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">Searching...</div>';
+
+        try {
+            const [lrcRes, neteaseRes] = await Promise.allSettled([
+                fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
+                new Promise(resolve => chrome.runtime.sendMessage({ type: 'SEARCH_NETEASE', payload: { query } }, resolve))
+            ]);
+
+            resultsContainer.innerHTML = '';
+
+            let results = [];
+
+            if (lrcRes.status === 'fulfilled' && Array.isArray(lrcRes.value)) {
+                results = results.concat(lrcRes.value.slice(0, 10).map(item => ({
+                    source: 'api',
+                    id: item.id,
+                    name: item.trackName,
+                    artistName: item.artistName,
+                    albumName: item.albumName,
+                    duration: item.duration,
+                    synced: !!item.syncedLyrics,
+                    badgeHtml: `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
+                        (item.syncedLyrics ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
+                })));
+            }
+
+            if (neteaseRes.status === 'fulfilled' && neteaseRes.value?.results) {
+                results = results.concat(neteaseRes.value.results.map(item => ({
+                    source: 'netease',
+                    id: item.id,
+                    name: item.trackName,
+                    artistName: item.artistName,
+                    albumName: item.albumName,
+                    duration: item.duration,
+                    synced: false,
+                    badgeHtml: `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>` +
+                        `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>` // We assume Netease might be synced or not, but let's just show NETEASE for now, or maybe ?
+                })));
+            }
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
+                return;
+            }
+
+            // Create "Auto" reset option
+            const autoItem = document.createElement('div');
+            autoItem.className = 'result-item';
+            autoItem.innerHTML = `
+                <div class="result-title">↳ Auto (Best Match)</div>
+                <div class="result-meta">Reset to original search</div>
+            `;
+            autoItem.onclick = () => {
+                saveAndNotify({ lyricOverride: null }); // Passing null will remove/ignore override on content script
+                resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+                autoItem.classList.add('active-lyric');
+            };
+            resultsContainer.appendChild(autoItem);
+
+            results.forEach(item => {
+                const duration = item.duration ? `${Math.floor(item.duration / 60).toString().padStart(2, '0')}:${(item.duration % 60).toString().padStart(2, '0')}` : "?:??";
+
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.innerHTML = `
+                    <div class="result-title">${item.name} ${item.badgeHtml}</div>
+                    <div class="result-meta">
+                        <span>${item.artistName} • ${item.albumName || 'Unknown Album'}</span>
+                        <span>${duration}</span>
+                    </div>
+                `;
+                div.onclick = () => {
+                    saveAndNotify({ lyricOverride: { type: item.source, id: item.id } });
+                    resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+                    div.classList.add('active-lyric');
+                };
+                resultsContainer.appendChild(div);
+            });
+
+        } catch (e) {
+            resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #ff5555;">Search failed.</div>';
+        } finally {
+            searchBtn.textContent = 'Search';
+        }
+    });
+
+    // Local File Read
+    localUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const rawText = ev.target.result;
+            saveAndNotify({ lyricOverride: { type: 'local', data: rawText } });
+
+            resultsContainer.innerHTML = `
+                <div class="result-item active-lyric">
+                    <div class="result-title">📁 Local File Loaded <span class="result-badge">CUSTOM</span></div>
+                    <div class="result-meta"><span>${file.name}</span></div>
+                </div>
+            `;
+        };
+        reader.readAsText(file);
     });
 
     // Listen for SETTINGS_UPDATE broadcast from content.js (e.g. song change)

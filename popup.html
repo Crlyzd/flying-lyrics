@@ -135,17 +135,178 @@
             text-align: center;
         }
 
+        /* --- NEW SEARCH UI STYLES --- */
+        .search-bar-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: none;
+            background-color: #3E3E3E;
+            color: white;
+            outline: none;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+        }
+
+        .search-btn {
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-btn:hover {
+            background-color: #1ed760;
+        }
+
+        #local-lyric-btn:hover {
+            background-color: #535353 !important;
+        }
+
+        .search-results-container {
+            max-height: 180px;
+            overflow-y: auto;
+            background-color: #1A1A1A;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        /* Custom Scrollbar for the list */
+        .search-results-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .search-results-container::-webkit-scrollbar-track {
+            background: #1A1A1A;
+        }
+
+        .search-results-container::-webkit-scrollbar-thumb {
+            background: #535353;
+            border-radius: 3px;
+        }
+
+        .search-results-container::-webkit-scrollbar-thumb:hover {
+            background: #1DB954;
+        }
+
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-item:hover {
+            background-color: #333;
+        }
+
+        .result-title {
+            font-weight: bold;
+            font-size: 13px;
+            color: white;
+            margin-bottom: 2px;
+        }
+
+        .result-meta {
+            font-size: 11px;
+            color: #AAA;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .result-badge {
+            background: #1DB954;
+            color: #000;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 9px;
+            margin-left: 5px;
+            display: inline-block;
+        }
+
+        .active-lyric {
+            border-left: 3px solid #1DB954;
+            background-color: rgba(29, 185, 84, 0.1);
+        }
+
         .footer {
-            text-align: center;
-            font-size: 10px;
+            font-size: 11px;
             color: #888;
+            padding: 0 15px;
+            line-height: 1.5;
+            text-align: center;
             margin-top: 20px;
+        }
+
+        .footer p {
+            margin: 4px 0;
+        }
+
+        .footer a {
+            color: #1DB954;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: color 0.15s;
+        }
+
+        .footer a:hover {
+            color: #1ed760;
+            text-decoration: underline;
+        }
+
+        .footer .icon {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
         }
     </style>
 </head>
 
 <body>
     <h2>Flying Lyrics</h2>
+
+    <!-- SEARCH & SELECT LYRIC VERSION -->
+    <div class="control-group">
+        <label>Manual Lyric Search</label>
+
+        <div class="search-bar-row">
+            <input type="text" class="search-input" id="search-query" placeholder="Artist - Title">
+            <button class="search-btn" id="search-btn">Search</button>
+        </div>
+
+        <div class="search-bar-row" style="margin-top: 5px; margin-bottom: 10px; position: relative;">
+            <input type="file" id="local-lyric-upload" accept=".lrc,.txt"
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+            <button id="local-lyric-btn" class="btn"
+                style="width: 100%; background: #3E3E3E; padding: 6px; border-radius: 4px; color: white; border: none; cursor: pointer; font-size: 12px; transition: background 0.2s; position: relative; z-index: 1;">
+                📁 Load Local .lrc File
+            </button>
+        </div>
+
+        <div class="search-results-container" id="search-results-container">
+            <!-- Results populated by JS -->
+            <div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">
+                Click Search to find lyric versions.
+            </div>
+        </div>
+    </div>
 
     <div class="control-group">
         <div class="row">
@@ -173,7 +334,29 @@
         </div>
     </div>
 
-    <div class="footer">v2.0 - Enhance your music experience</div>
+    <div class="footer">
+        <p>v3.0 - Enhance your music experience</p>
+        <p>
+            Made with <span class="icon" style="color: #ff5555;"><svg width="12" height="12" viewBox="0 0 24 24"
+                    fill="currentColor">
+                    <path
+                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg></span> by Kaleksanan Bagus
+        </p>
+        <p>
+            <a href="https://saweria.co/curlyzed" target="_blank">
+                <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                        <line x1="6" y1="1" x2="6" y2="4"></line>
+                        <line x1="10" y1="1" x2="10" y2="4"></line>
+                        <line x1="14" y1="1" x2="14" y2="4"></line>
+                    </svg></span>
+                Buy me a coffee
+            </a>
+        </p>
+    </div>
 
     <script src="popup.js"></script>
 </body>
