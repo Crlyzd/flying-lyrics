@@ -3,6 +3,8 @@ let currentTrack = "";
 let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
 let scrollPos = 0;
 let targetScroll = 0;
+let cachedSearchTrack = "";
+let cachedSearchResults = [];
 
 // --- PiP ENGINE STATE ---
 // Uses a Canvas → captureStream() → Video PiP pipeline for a clean, title-bar-less window.
@@ -23,6 +25,9 @@ let showTranslation = true;
 let translationLang = 'id';
 let syncOffset = 400;
 let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
+
+// Manual lyrics overrides — keyed by "Artist - Title"
+let manualLyrics = {};
 
 // Dynamic Colors State
 let currentPalette = {
@@ -122,21 +127,27 @@ function hslToRgb(h, s, l) {
     return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }
 
-// Load initial settings
+// Load initial settings (including the new manualLyrics map)
 chrome.storage.local.get({
     showTranslation: true,
     translationLang: 'id',
     syncOffset: 400,
-    songOffsets: {}
+    songOffsets: {},
+    manualLyrics: {}
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
     syncOffset = items.syncOffset;
     songOffsets = items.songOffsets || {};
+    manualLyrics = items.manualLyrics || {};
 });
 
-// Listen for updates from popup
+// =============================================================================
+//  SETTINGS & LYRICS OVERRIDE MESSAGING
+// =============================================================================
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    // ---- Existing settings handlers ----
     if (msg.type === 'SETTINGS_UPDATE') {
         const p = msg.payload;
         if (p.showTranslation !== undefined) {
@@ -151,7 +162,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (p.syncOffset !== undefined) {
             syncOffset = p.syncOffset;
             const meta = navigator.mediaSession.metadata;
-            if (meta && meta.title && meta.artist) {
+            if (meta?.title && meta?.artist) {
                 const key = `${meta.artist} - ${meta.title}`;
                 chrome.storage.local.get({ songOffsets: {} }, (items) => {
                     const latestOffsets = items.songOffsets || {};
@@ -161,8 +172,90 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                 });
             }
         }
+
     } else if (msg.type === 'GET_SYNC_OFFSET') {
         sendResponse({ syncOffset });
+
+        // ---- New: popup requests current track info ----
+    } else if (msg.type === 'GET_NOW_PLAYING') {
+        const meta = navigator.mediaSession.metadata;
+        if (meta?.title) {
+            const trackKey = `${meta.artist} - ${meta.title}`;
+            const isSameTrack = (cachedSearchTrack === currentTrack);
+            sendResponse({
+                trackKey,
+                override: manualLyrics[trackKey] || null,
+                cachedResults: isSameTrack ? cachedSearchResults : []
+            });
+        } else {
+            sendResponse({ trackKey: null, override: null, cachedResults: [] });
+        }
+
+        // ---- New: popup requests a lyrics search ----
+    } else if (msg.type === 'SEARCH_LYRICS') {
+        const meta = navigator.mediaSession.metadata;
+        if (!meta?.title) {
+            sendResponse({ results: [], currentOverride: null });
+            return true;
+        }
+        const trackKey = `${meta.artist} - ${meta.title}`;
+
+        searchAndScoreLyrics(meta.title, meta.artist, getPlayerState().duration)
+            .then(combined => {
+                // Cache the results for popup re-opens
+                cachedSearchTrack = currentTrack;
+                cachedSearchResults = combined;
+
+                sendResponse({ results: combined, currentOverride: manualLyrics[trackKey] || null });
+            }).catch(() => sendResponse({ results: [], currentOverride: null }));
+        return true; // keep channel open for async sendResponse
+
+        // ---- New: user selected a specific network result ----
+    } else if (msg.type === 'SELECT_LYRICS') {
+        const meta = navigator.mediaSession.metadata;
+        if (!meta?.title) { sendResponse({ ok: false }); return; }
+        const trackKey = `${meta.artist} - ${meta.title}`;
+        const entry = { type: 'network', source: msg.source, id: msg.id };
+        manualLyrics[trackKey] = entry;
+        chrome.storage.local.get({ manualLyrics: {} }, (items) => {
+            items.manualLyrics[trackKey] = entry;
+            chrome.storage.local.set({ manualLyrics: items.manualLyrics }, () => {
+                fetchLyrics();
+                sendResponse({ ok: true });
+            });
+        });
+        return true;
+
+        // ---- New: user uploaded a local .lrc file ----
+    } else if (msg.type === 'SAVE_LOCAL_LYRICS') {
+        const meta = navigator.mediaSession.metadata;
+        if (!meta?.title) { sendResponse({ ok: false }); return; }
+        const trackKey = `${meta.artist} - ${meta.title}`;
+        const entry = { type: 'local', text: msg.lrcText };
+        manualLyrics[trackKey] = entry;
+        chrome.storage.local.get({ manualLyrics: {} }, (items) => {
+            items.manualLyrics[trackKey] = entry;
+            chrome.storage.local.set({ manualLyrics: items.manualLyrics }, () => {
+                fetchLyrics();
+                sendResponse({ ok: true });
+            });
+        });
+        return true;
+
+        // ---- New: user clears the override for the current track ----
+    } else if (msg.type === 'CLEAR_LYRICS_OVERRIDE') {
+        const meta = navigator.mediaSession.metadata;
+        if (!meta?.title) { sendResponse({ ok: false }); return; }
+        const trackKey = `${meta.artist} - ${meta.title}`;
+        delete manualLyrics[trackKey];
+        chrome.storage.local.get({ manualLyrics: {} }, (items) => {
+            delete items.manualLyrics[trackKey];
+            chrome.storage.local.set({ manualLyrics: items.manualLyrics }, () => {
+                fetchLyrics();
+                sendResponse({ ok: true });
+            });
+        });
+        return true;
     }
 });
 
@@ -170,38 +263,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 let lastTimeStr = "";
 let lastTimeValue = 0;
 let lastUpdateMs = performance.now();
-
-// --- ICONS (SVG STRINGS) ---
-const ICON_PREV = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>`;
-const ICON_NEXT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>`;
-const ICON_PLAY = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.5 L18.5 11.5 Q19.5 12 18.5 12.5 L5.5 20.5 Q4.5 21 4.5 20 L4.5 4 Q4.5 3 5.5 3.5 Z"></path></svg>`;
-const ICON_PAUSE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="6" height="20" rx="1.5"></rect><rect x="15" y="2" width="6" height="20" rx="1.5"></rect></svg>`;
-
-/**
- * Converts an SVG string into a drawable HTMLImageElement.
- * Used at boot time to pre-rasterize icon SVGs for ctx.drawImage() calls.
- * @param {string} svgString - Raw SVG markup
- * @param {number} width
- * @param {number} height
- * @returns {HTMLImageElement}
- */
-function svgToImage(svgString, width, height) {
-    // Inject explicit white stroke so the icon is visible on the dark canvas
-    const colorized = svgString.replace(/stroke="currentColor"/g, 'stroke="white"');
-    const blob = new Blob([colorized], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image(width, height);
-    img.src = url;
-    // Release the object URL once loaded to free memory
-    img.onload = () => URL.revokeObjectURL(url);
-    return img;
-}
-
-// Pre-rasterize icons once at boot. IMG_* are used in drawControls().
-const IMG_PREV = svgToImage(ICON_PREV, 24, 24);
-const IMG_NEXT = svgToImage(ICON_NEXT, 24, 24);
-const IMG_PLAY = svgToImage(ICON_PLAY, 40, 40);
-const IMG_PAUSE = svgToImage(ICON_PAUSE, 40, 40);
 
 // --- 1. CORE FUNCTIONS ---
 
@@ -237,6 +298,16 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
     }
 }
 
+// =============================================================================
+//  MAIN LYRICS FETCH ENGINE  (Using global engine.js)
+// =============================================================================
+
+/**
+ * Fetches lyrics for the currently playing track using a 3-step priority chain:
+ *   1. Manual override stored in chrome.storage.local (local file or specific network ID)
+ *   2. Automatic Search & Score fallback pipeline in engine.js
+ * The resolved raw LRC string is then parsed via engine.js, romanized, and translated.
+ */
 async function fetchLyrics(retryCount = 0) {
     const meta = navigator.mediaSession.metadata;
 
@@ -245,71 +316,82 @@ async function fetchLyrics(retryCount = 0) {
         return;
     }
 
+    const trackKey = `${meta.artist} - ${meta.title}`;
+
+    // Apply saved per-song offset
+    if (songOffsets[trackKey] !== undefined) {
+        syncOffset = songOffsets[trackKey];
+    } else {
+        syncOffset = 400;
+    }
+    chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
+
     try {
-        const query = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
+        let raw = "";
 
-        // Apply saved per-song offset
-        const key = `${meta.artist} - ${meta.title}`;
-        if (songOffsets[key] !== undefined) {
-            syncOffset = songOffsets[key];
-        } else {
-            syncOffset = 400;
+        // ── PRIORITY 1: Manual override ──────────────────────────────────────
+        const override = manualLyrics[trackKey];
+        if (override) {
+            if (override.type === 'local') {
+                raw = override.text;
+            } else if (override.type === 'network' && override.source === 'netease') {
+                raw = await fetchNeteaseLyricsById(override.id);
+            } else if (override.type === 'network' && override.source === 'lrclib') {
+                raw = await fetchLrclibById(override.id);
+            }
         }
-        chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
 
-        const res = await fetch(`https://lrclib.net/api/get?${query}`);
-        const data = await res.json();
-        const raw = data.syncedLyrics || data.plainLyrics || "";
-
+        // ── PRIORITY 2: Search Engine Fallback ──────────────────────────────
         if (!raw) {
-            lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
-            needsRedraw = true;
-            return;
+            const scoredResults = await searchAndScoreLyrics(meta.title, meta.artist, getPlayerState().duration);
+            if (scoredResults.length > 0) {
+                const bestMatch = scoredResults[0];
+                if (bestMatch.source === 'netease') {
+                    raw = await fetchNeteaseLyricsById(bestMatch.id);
+                } else {
+                    raw = await fetchLrclibById(bestMatch.id);
+                }
+            }
         }
 
-        const lines = raw.split('\n');
-        const temp = [];
-        for (let line of lines) {
-            const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
-            if (!match) continue;
+        // ── Parse phase ──────────────────────────────────────────────────────
+        lyricLines = parseLrc(raw, getPlayerState().duration);
+        needsRedraw = true; // Trigger instant paint of native lyrics
 
-            const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
-            const text = match[3].trim();
-            if (!text) continue;
+        // --- Pass 2: Asynchronous Translation (Non-blocking) ---
+        if (lyricLines.length > 0 && lyricLines[0].text !== "No Lyrics Available") {
+            const currentFetchKey = trackKey;
 
-            let romaji = "";
-            let translation = "";
+            lyricLines.forEach((lineObj, index) => {
+                const text = lineObj.text;
 
-            const requests = [];
-
-            if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(text)) {
-                requests.push(
+                // Fire Romaji translation asynchronously if necessary
+                if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(text)) {
                     fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`)
                         .then(r => r.json())
-                        .then(d => { romaji = d?.[0]?.[0]?.[3] || ""; })
-                        .catch(() => { })
-                );
-            }
+                        .then(d => {
+                            if (trackKey === currentFetchKey) {
+                                lyricLines[index].romaji = d?.[0]?.[0]?.[3] || "";
+                                needsRedraw = true;
+                            }
+                        })
+                        .catch(() => { });
+                }
 
-            if (showTranslation) {
-                requests.push(
+                // Fire standard translation asynchronously if toggled ON
+                if (showTranslation) {
                     fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${translationLang}&dt=t&q=${encodeURIComponent(text)}`)
                         .then(r => r.json())
                         .then(d => {
-                            if (d && d[0]) {
-                                translation = d[0].map(x => x[0]).join('');
+                            if (trackKey === currentFetchKey && d && d[0]) {
+                                lyricLines[index].translation = d[0].map(x => x[0]).join('');
+                                needsRedraw = true;
                             }
                         })
-                        .catch(() => { })
-                );
-            }
-
-            await Promise.all(requests);
-            temp.push({ time, text, romaji, translation });
+                        .catch(() => { });
+                }
+            });
         }
-
-        lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
-        needsRedraw = true;
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
         needsRedraw = true;
@@ -428,42 +510,7 @@ function drawBackground(ctx, w, h) {
     }
 }
 
-/**
- * Draws a gradient footer and Prev / Play-Pause / Next icon buttons onto the canvas.
- * Icons are pre-rasterized SVG Image objects (IMG_PREV, IMG_PLAY, etc.).
- * @param {CanvasRenderingContext2D} ctx
- * @param {number} w Canvas width
- * @param {number} h Canvas height
- * @param {{ paused: boolean }} state Current player state
- */
-function drawControls(ctx, w, h, state) {
-    // Gradient footer — fades from transparent to dark at the bottom
-    const grad = ctx.createLinearGradient(0, h * 0.65, 0, h);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.75)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, h * 0.65, w, h * 0.35);
 
-    // Icon positions — centered horizontally, near bottom
-    const centerX = w / 2;
-    const iconY = h - 36; // Vertical center of the control row
-
-    // Play/Pause (center, larger)
-    const ppIcon = state.paused ? IMG_PLAY : IMG_PAUSE;
-    if (ppIcon.complete && ppIcon.naturalWidth > 0) {
-        ctx.drawImage(ppIcon, centerX - 20, iconY - 20, 40, 40);
-    }
-
-    // Previous (left of center)
-    if (IMG_PREV.complete && IMG_PREV.naturalWidth > 0) {
-        ctx.drawImage(IMG_PREV, centerX - 70, iconY - 12, 24, 24);
-    }
-
-    // Next (right of center)
-    if (IMG_NEXT.complete && IMG_NEXT.naturalWidth > 0) {
-        ctx.drawImage(IMG_NEXT, centerX + 46, iconY - 12, 24, 24);
-    }
-}
 
 // --- 3. RENDER LOOP ---
 
@@ -608,10 +655,15 @@ function renderLoop() {
 
     pipCtx.restore();
 
-    // 3. Controls drawn on top of lyrics (always visible)
-    pipCtx.globalAlpha = 1;
-    pipCtx.shadowBlur = 0;
-    drawControls(pipCtx, w, h, state);
+    // Force pipVideo play state to match the real player state
+    // so the native PiP Play/Pause button icon is always correct.
+    if (pipVideo) {
+        if (state.paused && !pipVideo.paused) {
+            pipVideo.pause();
+        } else if (!state.paused && pipVideo.paused) {
+            pipVideo.play().catch(() => { });
+        }
+    }
 
     // Schedule next frame
     requestAnimationFrame(renderLoop);
@@ -706,6 +758,17 @@ const createLauncher = () => {
 
             // 4. Register Media Session handlers before launching PiP
             registerMediaSessionControls();
+
+            // Sync native PiP interactions back to the host player
+            pipVideo.addEventListener('play', () => {
+                const playBtn = document.querySelector('[data-testid="control-button-playpause"], .play-pause-button');
+                if (playBtn && playBtn.getAttribute('aria-label') === 'Play') playBtn.click();
+            });
+
+            pipVideo.addEventListener('pause', () => {
+                const playBtn = document.querySelector('[data-testid="control-button-playpause"], .play-pause-button');
+                if (playBtn && playBtn.getAttribute('aria-label') === 'Pause') playBtn.click();
+            });
 
             // 5. Play video first, then request PiP — both must happen in same click gesture
             await pipVideo.play();

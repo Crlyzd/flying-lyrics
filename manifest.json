@@ -1,9 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Flying Lyrics",
-  "version": "2.0",
+  "name": "Flying Lyrics F",
+  "version": "3.0",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "tabs"
   ],
   "background": {
@@ -19,7 +20,8 @@
     "https://lrclib.net/*",
     "https://translate.googleapis.com/*",
     "https://i.scdn.co/*",
-    "https://*.spotifycdn.com/*"
+    "https://*.spotifycdn.com/*",
+    "https://music.163.com/*"
   ],
   "content_scripts": [
     {
@@ -28,6 +30,7 @@
         "*://music.youtube.com/*"
       ],
       "js": [
+        "engine.js",
         "content.js"
       ],
       "run_at": "document_end"
