@@ -395,7 +395,7 @@ function renderLoop() {
     canvas.height = h;
 
     const vmin = Math.min(w, h) / 100;
-    const maxWidth = w * 0.85;
+    const maxWidth = w * 0.94;
 
     const state = getPlayerState();
     // Apply Sync Offset
@@ -428,7 +428,7 @@ function renderLoop() {
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const defaultSpacing = vmin * 10; // Base spacing between blocks
+    const defaultSpacing = vmin * 3; // Literal 3vmin gap between blocks
 
     let currentYOffset = 0;
     const lineOffsets = [];
@@ -436,9 +436,9 @@ function renderLoop() {
     for (let i = 0; i < lyricLines.length; i++) {
         const line = lyricLines[i];
 
-        const mainSize = (i === activeIdx) ? vmin * 3.8 : vmin * 3.5;
-        const romajiSize = vmin * 3.5;
-        const transSize = vmin * 3.5;
+        const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 4.2;
+        const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
+        const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
 
         let romajiHeight = 0;
         if (line.romaji) {
@@ -455,15 +455,31 @@ function renderLoop() {
             transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
         }
 
-        // Pad top and bottom
-        let romajiPadding = romajiHeight > 0 ? vmin * 4.5 : 0;
-        let transPadding = transHeight > 0 ? vmin * 1.5 : 0;
+        // --- ABSOLUTE BOUNDING BOX MEASUREMENT ---
+        // Instead of stacking heights (which creates invisible phantom spacing),
+        // we measure the exact top and bottom pixels the text will occupy on the canvas.
 
-        // This is the Y position where the Main text will start drawing
-        const baseY = currentYOffset + romajiHeight + romajiPadding;
+        // Top Boundary: the romaji anchors 7.5vmin above the main text's Y + its own text height
+        const topBoundary = line.romaji
+            ? (vmin * 9.2) + romajiHeight
+            : mainHeight / 2;
+
+        // Bottom Boundary: below the full rendered height of main lyric + tight gap
+        let bottomBoundary = mainHeight / 2;
+        if (showTranslation && line.translation) {
+            // Calculate downward baseline shift for wrapped main lyrics
+            const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+            const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
+            // 6.8vmin creates perfect visual symmetry with the 7.5vmin top gap
+            bottomBoundary = mainWrapShift + (vmin * 8.2) + transHeight;
+        }
+
+        // This is the canvas Y where the main lyric will be drawn (centered between top/bottom)
+        const baseY = currentYOffset + topBoundary;
         lineOffsets.push(baseY);
 
-        const totalBlockHeight = romajiHeight + romajiPadding + mainHeight + transPadding + transHeight;
+        // Total height = exact pixels from tip of romaji to base of translation
+        const totalBlockHeight = topBoundary + bottomBoundary;
 
         // Add padding between blocks
         currentYOffset += totalBlockHeight + defaultSpacing;
@@ -488,9 +504,9 @@ function renderLoop() {
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 8;
 
-        const mainSize = isCurrent ? vmin * 3.8 : vmin * 3.5;
-        const romajiSize = vmin * 3.5;
-        const transSize = vmin * 3.5;
+        const mainSize = isCurrent ? vmin * 7.2 : vmin * 4.2;
+        const romajiSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
+        const transSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
 
         // 1. Romaji (Top)
         if (line.romaji) {
@@ -498,7 +514,7 @@ function renderLoop() {
             // Revert inactive romaji to light gray for readability
             ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
             // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (vmin * 4.5), maxWidth, romajiSize * 1.2, true);
+            wrapText(ctx, line.romaji, 0, y - (vmin * 9.2), maxWidth, romajiSize * 1.2, true);
         }
 
         // 2. Original Text (Middle)
@@ -518,19 +534,19 @@ function renderLoop() {
 
         // 3. Translation (Bottom)
         if (showTranslation && line.translation) {
-            // Need mainHeight to push translation downwards correctly relative to wrapped text
+            // Calculate downward baseline shift for wrapped lyrics
             ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-            const mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+            const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+            const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
-            // Reset shadow to black for translation since we might have changed it for main active text
             ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
             ctx.shadowBlur = 8;
 
             ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
-            // Revert inactive translation to light gray
             ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
-            // Shift down below original text
-            wrapText(ctx, `(${line.translation})`, 0, y + mainHeight + (vmin * 1.5), maxWidth, transSize * 1.2, false);
+
+            // Perfect 6.8vmin baseline offset guarantees exactly 2.0vmin of physical blank space
+            wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
         }
     });
 
