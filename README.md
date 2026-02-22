@@ -6,7 +6,7 @@
 <img width="718" height="999" alt="{66951E42-7909-471D-A05E-720B011B7545}" src="https://github.com/user-attachments/assets/7096f7b6-882f-4e19-a1d2-a8e8747ffd67" />
 
 # 🎵 Flying Lyrics
-**Lyrics that follow you wherever you go.** Flying Lyrics is a browser extension that pulls your music lyrics into a floating window so you can sing along while browsing other tabs or working in different apps[cite: 1]. No more switching back and forth to check the words!
+**Lyrics that follow you wherever you go.** Flying Lyrics is a browser extension that pulls your music lyrics into a floating window so you can sing along while browsing other tabs or working in different apps. No more switching back and forth to check the words!
 
 ## ✨ Key Features
 
