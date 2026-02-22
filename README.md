@@ -70,3 +70,7 @@ Made with 💖 by Kaleksanan Bagus
 ☕ Buy me a coffee [Saweria](https://saweria.co/curlyzed) [PayPal](https://paypal.me/BagusMassani)
 
 ---
+
+Icon made by vect ara from vecteezy.com
+
+---
