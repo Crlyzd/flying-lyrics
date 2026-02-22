@@ -94,8 +94,15 @@ function hslToRgb(h, s, l) {
     return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }
 
+// --- TEXT WRAP CACHE ---
+// Keyed by text + maxWidth + font to avoid redundant measureText calls on every frame.
+const wrapCache = new Map();
+
 function getWrapLines(ctx, text, maxWidth) {
     if (!text) return [];
+    const key = `${text}|${maxWidth}|${ctx.font}`;
+    if (wrapCache.has(key)) return wrapCache.get(key);
+
     const words = text.split(' ');
     let line = '';
     const lines = [];
@@ -113,6 +120,8 @@ function getWrapLines(ctx, text, maxWidth) {
         }
     }
     lines.push(line);
+
+    wrapCache.set(key, lines);
     return lines;
 }
 

@@ -1,5 +1,12 @@
 // --- RENDERER ---
 
+// Layout cache state — tracks what we last computed so we can skip redundant math
+let lastW = 0, lastH = 0;       // Last known PiP window dimensions
+let lastActiveIdx = -1;          // Last active lyric line index
+let lastLyricsLen = 0;           // Last known lyric count
+let needsLayoutUpdate = true;    // Dirty flag (true on first run)
+let cachedLayout = [];           // Pre-computed Y offsets for each lyric line
+
 function renderLoop() {
     if (!pipWin || pipWin.closed) return;
 
@@ -32,8 +39,16 @@ function renderLoop() {
 
     const w = pipWin.innerWidth;
     const h = pipWin.innerHeight;
-    canvas.width = w;
-    canvas.height = h;
+
+    // --- CANVAS RESIZE GUARD ---
+    // Only resize when dimensions actually changed. Assigning canvas.width/height
+    // every frame thrashes memory and is the single biggest CPU culprit.
+    if (w !== lastW || h !== lastH) {
+        canvas.width = w;
+        canvas.height = h;
+        lastW = w; lastH = h;
+        needsLayoutUpdate = true; // Window changed — recompute all offsets
+    }
 
     const vmin = Math.min(w, h) / 100;
     const maxWidth = w * 0.94;
@@ -69,64 +84,73 @@ function renderLoop() {
     );
     if (activeIdx === -1) activeIdx = 0;
 
-    const defaultSpacing = vmin * 3; // Literal 3vmin gap between blocks
+    // --- LAYOUT CACHE ---
+    // Recompute line offsets only when something meaningful changes:
+    // song loaded/changed, window resized, or active line moved (different font size).
+    if (needsLayoutUpdate || activeIdx !== lastActiveIdx || lyricLines.length !== lastLyricsLen) {
+        const defaultSpacing = vmin * 3;
+        let currentYOffset = 0;
+        const lineOffsets = [];
 
-    let currentYOffset = 0;
-    const lineOffsets = [];
+        for (let i = 0; i < lyricLines.length; i++) {
+            const line = lyricLines[i];
 
-    for (let i = 0; i < lyricLines.length; i++) {
-        const line = lyricLines[i];
+            const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 4.2;
+            const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
+            const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
 
-        const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 4.2;
-        const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
-        const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
+            let romajiHeight = 0;
+            if (line.romaji) {
+                ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+                romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
+            }
 
-        let romajiHeight = 0;
-        if (line.romaji) {
-            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
-            romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
-        }
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
 
-        ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
-        let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
+            let transHeight = 0;
+            if (showTranslation && line.translation) {
+                ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+                transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
+            }
 
-        let transHeight = 0;
-        if (showTranslation && line.translation) {
-            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
-            transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
-        }
-
-        // --- ABSOLUTE BOUNDING BOX MEASUREMENT ---
-        // Instead of stacking heights (which creates invisible phantom spacing),
-        // we measure the exact top and bottom pixels the text will occupy on the canvas.
-
-        // Top Boundary: the romaji anchors 7.5vmin above the main text's Y + its own text height
-        const topBoundary = line.romaji
-            ? (vmin * 9.2) + romajiHeight
-            : mainHeight / 2;
-
-        // Bottom Boundary: below the full rendered height of main lyric + tight gap
-        let bottomBoundary = mainHeight / 2;
-        if (showTranslation && line.translation) {
-            // Calculate downward baseline shift for wrapped main lyrics
+            // --- ASYMMETRIC BOUNDARY CALCULATION ---
+            // Text always grows DOWNWARD when it wraps, never upward.
+            // So topBoundary is fixed to a single-line anchor, and
+            // bottomBoundary expands to cover any extra wrapped rows.
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
             const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+            // Extra downward shift when the main lyric wraps beyond one line
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-            // 6.8vmin creates perfect visual symmetry with the 7.5vmin top gap
-            bottomBoundary = mainWrapShift + (vmin * 8.2) + transHeight;
+
+            // Top boundary: fixed at half a single line height (anchors the drawn Y position).
+            // When romaji is present, it uses the existing anchored offset instead.
+            const singleLineHalf = mainSize * 0.6;
+            const topBoundary = line.romaji
+                ? (vmin * 9.2) + romajiHeight
+                : singleLineHalf;
+
+            // Bottom boundary: extends downward to cover wrapped rows + translation gap.
+            let bottomBoundary = singleLineHalf + mainWrapShift;
+            if (showTranslation && line.translation) {
+                bottomBoundary = mainWrapShift + (vmin * 8.2) + transHeight;
+            }
+
+            const baseY = currentYOffset + topBoundary;
+            lineOffsets.push(baseY);
+
+            const totalBlockHeight = topBoundary + bottomBoundary;
+            currentYOffset += totalBlockHeight + defaultSpacing;
         }
 
-        // This is the canvas Y where the main lyric will be drawn (centered between top/bottom)
-        const baseY = currentYOffset + topBoundary;
-        lineOffsets.push(baseY);
-
-        // Total height = exact pixels from tip of romaji to base of translation
-        const totalBlockHeight = topBoundary + bottomBoundary;
-
-        // Add padding between blocks
-        currentYOffset += totalBlockHeight + defaultSpacing;
+        cachedLayout = lineOffsets;
+        // Update scroll target inside the invalidation block so the lerp always
+        // chases the new position, even when scrollPos is mid-animation.
+        targetScroll = cachedLayout[activeIdx] || 0;
+        lastActiveIdx = activeIdx;
+        lastLyricsLen = lyricLines.length;
+        needsLayoutUpdate = false;
     }
-
-    targetScroll = lineOffsets[activeIdx] || 0;
     scrollPos += (targetScroll - scrollPos) * 0.1;
 
     ctx.save();
@@ -138,7 +162,7 @@ function renderLoop() {
         ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
         ctx.textAlign = "center";
 
-        const y = lineOffsets[i];
+        const y = cachedLayout[i];
         const isCurrent = (i === activeIdx);
 
         // Universal Dark Shadow for all text
@@ -186,7 +210,6 @@ function renderLoop() {
             ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
             ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
 
-            // Perfect 6.8vmin baseline offset guarantees exactly 2.0vmin of physical blank space
             wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
         }
     });

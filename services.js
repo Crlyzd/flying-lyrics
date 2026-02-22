@@ -73,6 +73,9 @@ async function fetchLyrics(retryCount = 0) {
         const lines = raw.split('\n');
         const temp = [];
 
+        // Clear the wrap-line cache so stale results from the previous song don't persist
+        if (typeof wrapCache !== 'undefined') wrapCache.clear();
+
         // --- PSEUDO-SYNC LOGIC FOR UNSYNCED LYRICS ---
         const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
         isCurrentLyricSynced = isSynced;
@@ -114,6 +117,7 @@ async function fetchLyrics(retryCount = 0) {
 
         // --- NON-BLOCKING TRANSLATION RUNNER ---
         lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
+        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Invalidate cached layout
 
         // Fire off translations in the background without awaiting them
         if (temp.length > 0) {
@@ -140,6 +144,7 @@ async function fetchLyrics(retryCount = 0) {
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
         isCurrentLyricSynced = false;
+        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
         if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
     }
 }
