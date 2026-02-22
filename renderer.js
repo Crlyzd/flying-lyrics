@@ -1,7 +1,7 @@
 // --- RENDERER ---
 
 // Layout cache state — tracks what we last computed so we can skip redundant math
-let lastW = 0, lastH = 0;       // Last known PiP window dimensions
+let lastW = -1, lastH = -1;     // Last known PiP window dimensions (-1 forces first-frame resize)
 let lastActiveIdx = -1;          // Last active lyric line index
 let lastLyricsLen = 0;           // Last known lyric count
 let needsLayoutUpdate = true;    // Dirty flag (true on first run)
@@ -39,6 +39,10 @@ function renderLoop() {
 
     const w = pipWin.innerWidth;
     const h = pipWin.innerHeight;
+
+    // Bail out if the PiP window hasn't finished laying out yet (can happen on the very first frame).
+    // Re-queuing the loop is cheaper than drawing garbage into a 0x0 canvas.
+    if (w <= 0 || h <= 0) return pipWin.requestAnimationFrame(renderLoop);
 
     // --- CANVAS RESIZE GUARD ---
     // Only resize when dimensions actually changed. Assigning canvas.width/height
