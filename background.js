@@ -9,15 +9,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === 'FETCH_NETEASE') {
-        const query = message.payload.query;
-        // Step 1. Use /pc endpoint to bypass abroad geoblocking
+        const { id, query } = message.payload;
+
+        // Direct ID lookup — used when the user explicitly selected a Netease result
+        if (id) {
+            fetch(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`)
+                .then(r => r.json())
+                .then(data => {
+                    sendResponse({ lyric: data?.lrc?.lyric || "" });
+                })
+                .catch(err => {
+                    sendResponse({ lyric: "" });
+                });
+            return true;
+        }
+
+        // Fallback: search by query string, then grab lyrics for the first match
         fetch(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`)
             .then(r => r.json())
             .then(data => {
-                const id = data?.result?.songs?.[0]?.id;
-                if (!id) throw new Error("No Netease track found");
-                // Step 2. Get lyric
-                return fetch(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`);
+                const songId = data?.result?.songs?.[0]?.id;
+                if (!songId) throw new Error("No Netease track found");
+                return fetch(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&tv=-1`);
             })
             .then(r => r.json())
             .then(data => {

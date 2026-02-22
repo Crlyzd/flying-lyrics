@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PiP Indicator Mockup</title>
+    <!-- Simulating the PiP environment styling -->
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            color: #FFF;
+        }
+
+        /* Mock background imitating blurred album art */
+        #bg-cover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1DB954 0%, #121212 100%);
+            opacity: 0.6;
+            z-index: 0;
+        }
+
+        /* Mock lyrics */
+        .mock-lyrics {
+            z-index: 10;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .lyric-line {
+            opacity: 0.5;
+            transition: opacity 0.3s;
+        }
+
+        .lyric-active {
+            opacity: 1;
+            transform: scale(1.1);
+            color: #1DB954;
+        }
+
+        /* === PROPOSED NEW INDICATOR DESIGN === */
+
+        /* The container holding the indicator, pinned to top right */
+        #sync-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            /* Styling to blend with PiP aesthetic */
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+
+            /* Typography */
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.7);
+
+            /* Smooth transitions for state changes */
+            transition: all 0.3s ease;
+            cursor: default;
+            user-select: none;
+        }
+
+        /* Status Dot */
+        .sync-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #555;
+            /* Default: Unsynced */
+            box-shadow: 0 0 0px transparent;
+            transition: all 0.3s ease;
+        }
+
+        /* Synced State Variant */
+        #sync-indicator.is-synced .sync-dot {
+            background-color: #1DB954;
+            /* Spotify Green */
+            box-shadow: 0 0 6px rgba(29, 185, 84, 0.6);
+        }
+
+        #sync-indicator.is-synced {
+            color: rgba(255, 255, 255, 0.9);
+            border-color: rgba(29, 185, 84, 0.3);
+        }
+
+        /* Controls Panel Demo (To ensure it doesn't overlap) */
+        #mock-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            opacity: 0.8;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="bg-cover"></div>
+
+    <div class="mock-lyrics">
+        <div class="lyric-line lyric-active">This is a synced lyric</div>
+        <div class="lyric-line">Waiting for the next beat</div>
+    </div>
+
+    <div id="mock-controls">
+        <div class="btn"></div>
+        <div class="btn"></div>
+        <div class="btn"></div>
+    </div>
+
+    <!-- === PROPOSED NEW INDICATOR === -->
+    <div id="sync-indicator" class="is-synced" title="These lyrics have timestamp data">
+        <div class="sync-dot"></div>
+        <span id="sync-text">SYNCED</span>
+    </div>
+
+    <!-- JS just to toggle state for demonstration -->
+    <script>
+        const indicator = document.getElementById('sync-indicator');
+        const text = document.getElementById('sync-text');
+
+        // Click to toggle state so user can evaluate both modes
+        indicator.addEventListener('click', () => {
+            if (indicator.classList.contains('is-synced')) {
+                indicator.classList.remove('is-synced');
+                text.textContent = 'UNSYNCED';
+                indicator.title = 'These lyrics are missing timestamps and are roughly estimated';
+            } else {
+                indicator.classList.add('is-synced');
+                text.textContent = 'SYNCED';
+                indicator.title = 'These lyrics have timestamp data';
+            }
+        });
+    </script>
+</body>
+
+</html>

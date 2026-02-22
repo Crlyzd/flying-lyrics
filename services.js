@@ -34,7 +34,7 @@ async function fetchLyrics(retryCount = 0) {
                 raw = data.syncedLyrics || data.plainLyrics || "";
             } else if (override.type === 'netease' && override.id) {
                 const resMsg = await new Promise(resolve => {
-                    chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, query: meta.artist + " " + meta.title } }, resolve);
+                    chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
                 });
                 raw = resMsg?.lyric || "";
             }
@@ -65,6 +65,8 @@ async function fetchLyrics(retryCount = 0) {
 
         if (!raw) {
             lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
+            isCurrentLyricSynced = false;
+            if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
             return;
         }
 
@@ -73,11 +75,15 @@ async function fetchLyrics(retryCount = 0) {
 
         // --- PSEUDO-SYNC LOGIC FOR UNSYNCED LYRICS ---
         const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
+        isCurrentLyricSynced = isSynced;
+        if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
 
         if (!isSynced) {
             const cleanLines = lines.map(l => l.trim()).filter(l => l);
             if (cleanLines.length === 0) {
                 lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
+                isCurrentLyricSynced = false;
+                if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
                 return;
             }
 
@@ -133,6 +139,8 @@ async function fetchLyrics(retryCount = 0) {
         }
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
+        isCurrentLyricSynced = false;
+        if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
     }
 }
 

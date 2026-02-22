@@ -1,6 +1,7 @@
 ﻿// --- GLOBAL STATE & INIT ---
 let currentTrack = "";
 let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
+let isCurrentLyricSynced = false;
 let scrollPos = 0;
 let targetScroll = 0;
 let pipWin = null;

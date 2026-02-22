@@ -25,6 +25,10 @@ function injectStructure() {
                 <button class="btn" id="cc-btn" title="Translate Lyrics">${ICON_CC}</button>
             </div>
         </div>
+        <div id="sync-indicator">
+            <div class="sync-dot"></div>
+            <span id="sync-text">UNSYNCED</span>
+        </div>
         <style>
             #back-btn {
                 position: absolute; top: 15px; left: 15px;
@@ -36,6 +40,28 @@ function injectStructure() {
             }
             body:hover #back-btn { opacity: 1; }
             #back-btn:hover { background: rgba(255,255,255,0.4); }
+
+            #sync-indicator {
+                position: absolute; top: 15px; right: 15px; z-index: 20;
+                display: flex; align-items: center; gap: 6px;
+                background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+                border: 1px solid rgba(255, 255, 255, 0.1); padding: 4px 8px;
+                border-radius: 4px; font-size: 10px; font-weight: 700;
+                letter-spacing: 0.5px; color: rgba(255, 255, 255, 0.7);
+                transition: all 0.3s ease; user-select: none;
+                transform: scale(0.6); transform-origin: top right;
+            }
+            .sync-dot {
+                width: 6px; height: 6px; border-radius: 50%;
+                background-color: #555; box-shadow: 0 0 0px transparent;
+                transition: all 0.3s ease;
+            }
+            #sync-indicator.is-synced .sync-dot {
+                background-color: #1DB954; box-shadow: 0 0 6px rgba(29, 185, 84, 0.6);
+            }
+            #sync-indicator.is-synced {
+                color: rgba(255, 255, 255, 0.9); border-color: rgba(29, 185, 84, 0.3);
+            }
         </style>
     `;
 
@@ -107,6 +133,23 @@ function updateCCButtonState() {
     }
 }
 
+function updateSyncIndicator() {
+    if (!pipWin) return;
+    const ind = pipWin.document.getElementById('sync-indicator');
+    const txt = pipWin.document.getElementById('sync-text');
+    if (ind && txt) {
+        if (isCurrentLyricSynced) {
+            ind.classList.add('is-synced');
+            ind.title = 'These lyrics have timestamp data';
+            txt.textContent = 'SYNCED';
+        } else {
+            ind.classList.remove('is-synced');
+            ind.title = 'These lyrics are missing timestamps and are roughly estimated';
+            txt.textContent = 'UNSYNCED';
+        }
+    }
+}
+
 const createLauncher = () => {
     const host = window.location.hostname;
     if (!host.includes('spotify') && !host.includes('music.youtube')) return;
@@ -117,7 +160,7 @@ const createLauncher = () => {
 
     // Add SVG and Text
     btn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
             <path d="M9 18V5l12-2v13"></path>
             <circle cx="6" cy="18" r="3"></circle>
             <circle cx="18" cy="16" r="3"></circle>
@@ -127,11 +170,11 @@ const createLauncher = () => {
 
     Object.assign(btn.style, {
         position: 'fixed', top: '80px', right: '20px', zIndex: 99999,
-        padding: '8px 16px', background: '#1DB954', color: '#fff',
+        padding: '4px 10px', background: '#1DB954', color: '#fff',
         border: 'none', borderRadius: '50px', cursor: 'pointer',
         fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        display: 'flex', alignItems: 'center', gap: '6px',
-        fontSize: '13px', transition: 'transform 0.1s ease, background 0.2s ease'
+        display: 'flex', alignItems: 'center', gap: '4px',
+        fontSize: '10px', transition: 'transform 0.1s ease, background 0.2s ease'
     });
 
     btn.onmouseover = () => btn.style.background = '#1ed760';
