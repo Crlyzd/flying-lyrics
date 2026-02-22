@@ -67,6 +67,6 @@
 
 Made with 💖 by Kaleksanan Bagus
 
-☕ Buy me a coffee [Saweria](https://saweria.co/curlyzed) [PayPall](https://paypal.me/BagusMassani)
+☕ Buy me a coffee [Saweria](https://saweria.co/curlyzed) [PayPal](https://paypal.me/BagusMassani)
 
 ---
