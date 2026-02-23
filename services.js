@@ -174,26 +174,24 @@ function getPlayerState() {
     let duration = 1;
     let paused = true;
 
-    const mediaElements = Array.from(document.querySelectorAll('video, audio'));
-    const activeMedia = mediaElements.find(m => m.readyState >= 2 && !m.paused)
-        || mediaElements.find(m => m.readyState >= 2);
-
-    if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
-        return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
-    }
-
+    // --- SPOTIFY: Always use the DOM as primary source of truth ---
+    // Spotify manages its own React state — audio.paused is unreliable there
+    // (it may stay "playing" even when the UI is paused). The play button's
+    // aria-label is the only accurate signal.
     if (window.location.hostname.includes('spotify')) {
         const timeEl = document.querySelector('[data-testid="playback-position"]');
         const durationEl = document.querySelector('[data-testid="playback-duration"]');
         const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
 
+        // Read paused state independently — don't gate it behind timeEl/durationEl.
+        // If the play button isn't found, assume playing (safest visual default).
+        if (playBtn) {
+            paused = playBtn.getAttribute('aria-label') === 'Play';
+        }
+
         if (timeEl && durationEl) {
             const currentStr = timeEl.textContent;
             duration = parseTime(durationEl.textContent) || 1;
-
-            if (playBtn) {
-                paused = playBtn.getAttribute('aria-label') === 'Play';
-            }
 
             if (currentStr !== lastTimeStr) {
                 lastTimeStr = currentStr;
@@ -206,6 +204,25 @@ function getPlayerState() {
                 currentTime += (performance.now() - lastUpdateMs) / 1000;
             }
         }
+
+        return { currentTime, duration, paused };
+    }
+
+    // --- NON-SPOTIFY: Use media element (YouTube Music, etc.) ---
+    // These sites use standard HTML5 audio/video whose native properties are reliable.
+    const mediaElements = Array.from(document.querySelectorAll('video, audio'));
+
+    // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
+    // while still avoiding accidental matches on silent background videos elsewhere.
+    const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
+    const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
+    const pool = audioEls.length > 0 ? audioEls : videoEls;
+
+    const activeMedia = pool.find(m => m.readyState >= 2 && !m.paused)
+        || pool.find(m => m.readyState >= 2);
+
+    if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
+        return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
     }
 
     return { currentTime, duration, paused };

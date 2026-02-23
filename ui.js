@@ -75,11 +75,27 @@ function injectStructure() {
         pipWin.close();
     };
 
-    // Mute Logic
-    doc.getElementById('mute-btn').onclick = () => {
+    // Mute Logic — site-specific adapter
+    // On Spotify, toggling media.muted directly is ignored because the player manages
+    // its own internal audio state. Clicking the real native button is the only reliable way.
+    // For other sites, fall back to direct DOM mutation.
+    const toggleMute = () => {
+        const host = window.location.hostname;
+        if (host.includes('spotify.com')) {
+            // Spotify's mute button `aria-label` is "Mute" when unmuted, "Unmute" when muted.
+            const spotifyMuteBtn = document.querySelector(
+                '[data-testid="volume-bar-toggle-mute-button"]'
+            );
+            if (spotifyMuteBtn) {
+                spotifyMuteBtn.click();
+                return;
+            }
+        }
+        // Generic fallback for other sites (YouTube Music, etc.)
         const media = document.querySelector('video, audio');
         if (media) media.muted = !media.muted;
     };
+    doc.getElementById('mute-btn').onclick = toggleMute;
 
     // CC Logic
     doc.getElementById('cc-btn').onclick = () => {

@@ -81,11 +81,21 @@ function renderLoop() {
         if (ppBtn.innerHTML !== targetIcon) ppBtn.innerHTML = targetIcon;
     }
 
-    // Update mute button icon if changed externally
+    // Update mute button icon if changed externally (or by our toggle)
     const muteBtn = pipWin.document.getElementById('mute-btn');
     if (muteBtn) {
-        const media = document.querySelector('video, audio');
-        const isMuted = media ? media.muted : false;
+        // Empirically verified via live DOM inspection:
+        // Mute button aria-label = "Unmute" when muted, "Mute" when unmuted.
+        // The volume slider approach was abandoned because [data-testid="volume-bar"]
+        // is on a parent div, not the <input> itself — making it unreliable.
+        let isMuted = false;
+        if (window.location.hostname.includes('spotify')) {
+            const muteToggleBtn = document.querySelector('[data-testid="volume-bar-toggle-mute-button"]');
+            isMuted = muteToggleBtn?.getAttribute('aria-label') === 'Unmute';
+        } else {
+            const media = document.querySelector('audio') || document.querySelector('video, audio');
+            isMuted = media ? (media.muted || media.volume === 0) : false;
+        }
         const targetMuteIcon = isMuted ? ICON_VOL_MUTE : ICON_VOL_HIGH;
         if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
     }
