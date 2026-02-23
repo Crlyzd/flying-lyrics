@@ -108,17 +108,63 @@ function getWrapLines(ctx, text, maxWidth) {
     const lines = [];
 
     for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
+        const word = words[n];
+        const wordPlusSpace = word + ' ';
+        const testLine = line + wordPlusSpace;
         const metrics = ctx.measureText(testLine);
-        const testWidth = metrics.width;
 
-        if (testWidth > maxWidth && n > 0) {
-            lines.push(line);
-            line = words[n] + ' ';
+        // Standard space-based wrapping
+        if (metrics.width > maxWidth && n > 0) {
+            // Check if the single word ITSELF is wider than the maximum width
+            // This happens for spaceless languages (Chinese/Japanese) or extremely long URLs
+            const wordMetrics = ctx.measureText(word);
+
+            if (wordMetrics.width > maxWidth) {
+                // The word itself is too massive. We must break it down character-by-character.
+                if (line.trim().length > 0) {
+                    lines.push(line);
+                    line = '';
+                }
+
+                let charLine = '';
+                for (let i = 0; i < word.length; i++) {
+                    const charTest = charLine + word[i];
+                    if (ctx.measureText(charTest).width > maxWidth && i > 0) {
+                        lines.push(charLine);
+                        charLine = word[i];
+                    } else {
+                        charLine = charTest;
+                    }
+                }
+                // The remainder of the long word carries over
+                line = charLine + ' ';
+            } else {
+                // Normal word wrapping
+                lines.push(line);
+                line = wordPlusSpace;
+            }
         } else {
             line = testLine;
         }
     }
+
+    // Catch any remaining word that was itself too wide if it appeared as the FIRST word in a block
+    if (lines.length === 0 && ctx.measureText(line.trim()).width > maxWidth) {
+        let charLine = '';
+        const rawText = line.trim();
+        line = '';
+        for (let i = 0; i < rawText.length; i++) {
+            const charTest = charLine + rawText[i];
+            if (ctx.measureText(charTest).width > maxWidth && i > 0) {
+                lines.push(charLine);
+                charLine = rawText[i];
+            } else {
+                charLine = charTest;
+            }
+        }
+        line = charLine + ' ';
+    }
+
     lines.push(line);
 
     wrapCache.set(key, lines);

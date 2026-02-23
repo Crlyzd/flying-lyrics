@@ -10,8 +10,12 @@ let pipWin = null;
 let showTranslation = true;
 let translationLang = 'id';
 let syncOffset = 400;
+let autoLaunch = false; // Auto-open lyrics window on first user interaction
 let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
 let lyricsOverrides = {}; // Dictionary: "Artist - Title" -> { type: 'api', id: 1234 } OR { type: 'local', data: string }
+
+// Cache State
+let cachedLyrics = { key: "", lines: [], isSynced: false };
 
 // Dynamic Colors State
 let currentPalette = {
@@ -33,12 +37,14 @@ chrome.storage.local.get({
     showTranslation: true,
     translationLang: 'id',
     syncOffset: 400,
+    autoLaunch: false,
     songOffsets: {},
     lyricsOverrides: {}
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
     syncOffset = items.syncOffset; // Still load global last used as fallback/init
+    autoLaunch = items.autoLaunch;
     songOffsets = items.songOffsets || {};
     lyricsOverrides = items.lyricsOverrides || {};
 });
@@ -47,13 +53,18 @@ chrome.storage.local.get({
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'SETTINGS_UPDATE') {
         const p = msg.payload;
+        if (p.autoLaunch !== undefined) {
+            autoLaunch = p.autoLaunch;
+        }
         if (p.showTranslation !== undefined) {
             showTranslation = p.showTranslation;
+            cachedLyrics.key = ""; // Invalidate cache so translations get fetched/removed
             if (showTranslation && typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch if turned on
             if (typeof updateCCButtonState === 'function') updateCCButtonState();
         }
         if (p.translationLang !== undefined) {
             translationLang = p.translationLang;
+            cachedLyrics.key = ""; // Invalidate cache for new language
             if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch with new lang
         }
         if (p.syncOffset !== undefined) {
@@ -80,6 +91,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                     latestOverrides[key] = p.lyricOverride;
                     lyricsOverrides = latestOverrides; // Update local cache
                     chrome.storage.local.set({ lyricsOverrides: latestOverrides });
+                    cachedLyrics.key = ""; // Invalidate cache for new explicit override
                     if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch immediately
                 });
             }

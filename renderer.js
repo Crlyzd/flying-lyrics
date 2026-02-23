@@ -14,6 +14,13 @@ function renderLoop() {
     const nowTitle = meta?.title || "";
     if (nowTitle !== currentTrack) {
         currentTrack = nowTitle;
+
+        // --- INSTANT FLUSH: Clear old lyrics immediately ---
+        lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
+        isCurrentLyricSynced = false;
+        needsLayoutUpdate = true;
+        if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
+
         fetchLyrics();
     }
 
@@ -33,6 +40,8 @@ function renderLoop() {
     if (!canvas || !pipWin.document.body.contains(canvas)) {
         canvas = pipWin.document.getElementById('lyricCanvas');
         ctx = null;
+        lastW = -1; // Force resize for the new canvas
+        lastH = -1;
     }
     if (!canvas) return pipWin.requestAnimationFrame(renderLoop);
     if (!ctx) ctx = canvas.getContext('2d');

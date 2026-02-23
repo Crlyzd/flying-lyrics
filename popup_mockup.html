@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flying Lyrics Settings</title>
+    <title>Flying Lyrics Settings (Mockup)</title>
     <style>
         body {
             width: 300px;
@@ -308,25 +308,26 @@
         </div>
     </div>
 
-    <!-- AUTO-LAUNCH TOGGLE -->
-    <div class="control-group">
+    <!-- NEW: AUTO-LAUNCH TOGGLE MOCKUP -->
+    <div class="control-group" style="border: 1px solid rgba(29, 185, 84, 0.3);">
         <div class="row">
             <label for="toggle-autolaunch" style="margin:0">Auto-Launch Lyrics</label>
             <label class="switch">
-                <input type="checkbox" id="toggle-autolaunch">
+                <input type="checkbox" id="toggle-autolaunch" checked>
                 <span class="slider"></span>
             </label>
         </div>
-        <div style="font-size: 11px; color: #AAA; margin-top: 6px; line-height: 1.4;">
-            Opens lyrics window on first interaction with the page.
+        <div style="font-size: 11px; color: #AAA; margin-top: 6px; line-height: 1.3;">
+            Automatically opens the lyrics window on your first interaction with the page.
         </div>
     </div>
 
+    <!-- EXISTING SETTINGS -->
     <div class="control-group">
         <div class="row">
             <label for="toggle-translation" style="margin:0">Show Translation</label>
             <label class="switch">
-                <input type="checkbox" id="toggle-translation">
+                <input type="checkbox" id="toggle-translation" checked>
                 <span class="slider"></span>
             </label>
         </div>
@@ -335,7 +336,8 @@
     <div class="control-group">
         <label for="lang-select">Translation Language</label>
         <select id="lang-select">
-            <!-- Populated by JS -->
+            <option>Indonesian</option>
+            <option>English</option>
         </select>
     </div>
 
@@ -343,7 +345,7 @@
         <label style="text-align:center">Sync Offset (ms)</label>
         <div class="offset-controls">
             <button class="btn-small" id="offset-minus">-</button>
-            <span id="offset-display">0</span>
+            <span id="offset-display">400</span>
             <button class="btn-small" id="offset-plus">+</button>
         </div>
     </div>
@@ -363,8 +365,6 @@
             <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a>
         </p>
     </div>
-
-    <script src="popup.js"></script>
 </body>
 
 </html>

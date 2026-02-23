@@ -21,6 +21,16 @@ async function fetchLyrics(retryCount = 0) {
         // Broadcast new offset to Popup (so UI updates if open)
         chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
 
+        // --- CACHE EARLY RETURN ---
+        if (cachedLyrics.key === key && cachedLyrics.lines.length > 0) {
+            lyricLines = cachedLyrics.lines;
+            isCurrentLyricSynced = cachedLyrics.isSynced;
+
+            if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+            return;
+        }
+
         let raw = "";
 
         // --- CHECK FOR MANUAL OVERRIDES ---
@@ -117,6 +127,12 @@ async function fetchLyrics(retryCount = 0) {
 
         // --- NON-BLOCKING TRANSLATION RUNNER ---
         lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
+
+        // Save to Cache immediately (translation references modify the array in place, so the cache will get translations as they arrive)
+        cachedLyrics.key = key;
+        cachedLyrics.lines = lyricLines;
+        cachedLyrics.isSynced = isCurrentLyricSynced;
+
         if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Invalidate cached layout
 
         // Fire off translations in the background without awaiting them
@@ -125,7 +141,10 @@ async function fetchLyrics(retryCount = 0) {
                 if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
                     fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(item.text)}`)
                         .then(r => r.json())
-                        .then(d => { item.romaji = d?.[0]?.[0]?.[3] || ""; })
+                        .then(d => {
+                            item.romaji = d?.[0]?.[0]?.[3] || "";
+                            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Fix overlap
+                        })
                         .catch(() => { });
                 }
 
@@ -135,6 +154,7 @@ async function fetchLyrics(retryCount = 0) {
                         .then(d => {
                             if (d && d[0]) {
                                 item.translation = d[0].map(x => x[0]).join('');
+                                if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Fix overlap
                             }
                         })
                         .catch(() => { });

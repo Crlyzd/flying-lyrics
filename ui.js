@@ -201,4 +201,17 @@ const createLauncher = () => {
     };
 
     document.body.appendChild(btn);
+
+    // --- AUTO-LAUNCH: First-Interaction Trigger ---
+    // Browsers require a user gesture to open a Picture-in-Picture window.
+    // If auto-launch is enabled, we attach a one-time listener to the document
+    // so the lyrics window opens on the user's very first click on the page.
+    if (autoLaunch && (!pipWin || pipWin.closed)) {
+        document.addEventListener('click', () => {
+            // Guard: only launch if PiP isn't already open
+            if (!pipWin || pipWin.closed) {
+                btn.click();
+            }
+        }, { once: true });
+    }
 };

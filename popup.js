@@ -17,6 +17,7 @@ const LANGUAGES = [
 
 document.addEventListener('DOMContentLoaded', () => {
     const toggleTrans = document.getElementById('toggle-translation');
+    const toggleAutolaunch = document.getElementById('toggle-autolaunch');
     const langSelect = document.getElementById('lang-select');
     const offsetMinus = document.getElementById('offset-minus');
     const offsetPlus = document.getElementById('offset-plus');
@@ -42,11 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.local.get({
         showTranslation: true,
         translationLang: 'id',
-        syncOffset: 400
+        syncOffset: 400,
+        autoLaunch: false
     }, (items) => {
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
         updateOffsetDisplay(items.syncOffset);
+        toggleAutolaunch.checked = items.autoLaunch;
     });
 
     // Listen for changes from Content Script (PiP)
@@ -271,19 +274,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Listeners ---
 
-    // 1. Toggle Translation
+    // 1. Toggle Auto-Launch
+    toggleAutolaunch.addEventListener('change', () => {
+        const val = toggleAutolaunch.checked;
+        saveAndNotify({ autoLaunch: val });
+    });
+
+    // 2. Toggle Translation
     toggleTrans.addEventListener('change', () => {
         const val = toggleTrans.checked;
         saveAndNotify({ showTranslation: val });
     });
 
-    // 2. Language Change
+    // 3. Language Change
     langSelect.addEventListener('change', () => {
         const val = langSelect.value;
         saveAndNotify({ translationLang: val });
     });
 
-    // 3. Offset Controls
+    // 4. Offset Controls
     offsetMinus.addEventListener('click', () => adjustOffset(-100));
     offsetPlus.addEventListener('click', () => adjustOffset(100));
 
