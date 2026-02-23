@@ -2,10 +2,31 @@
 .DS_Store
 Thumbs.db
 
-# VS Code / IDE files
+# VS Code / modern IDE files
 .vscode/
+.idea/
+.vs/
 *.suo
 *.user
 
-# Old or broken libraries (already deleted, but good for safety)
+# Environment Variables
+.env
+.env.local
+.env.*
+
+# Extension build packages
+*.zip
+*.crx
+*.xpi
+
+# Node/NPM
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# AI Assistant memory/artifacts
+.gemini/
+.antigravity/
+
+# Old or broken files
 test.html
