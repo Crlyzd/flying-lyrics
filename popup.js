@@ -226,8 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     albumName: item.albumName,
                     duration: item.duration,
                     synced: false,
-                    badgeHtml: `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>` +
-                        `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`
+                    badgeHtml: `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`
                 })));
             }
 

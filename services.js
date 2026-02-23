@@ -59,7 +59,7 @@ async function fetchLyrics(retryCount = 0) {
                     raw = data.syncedLyrics || data.plainLyrics || "";
                 }
             } catch (err) {
-                console.warn("LRCLIB failed to fetch");
+                console.log("LRCLIB failed to fetch");
             }
         }
 
