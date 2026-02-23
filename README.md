@@ -1,11 +1,11 @@
-﻿# Flying Lyrics 🎵 - Romanized your Lyrics ✨✨
+﻿# Flying Lyrics 🎵 - Romanize Your Lyrics ✨✨
 
 > [!NOTE]
 > ALL LYRICS PANEL FOR SPOTIFY AND YOUTUBE MUSIC IN THE WHOLE INTERNET IS TRASH (IF YOU FOUND A BETTER ONE PLEASE TELL ME SO I CAN DITCH MY RELEASE) BECAUSE THEY COULD NOT EVEN ROMANIZED JAPANESE OR KOREAN LETTERS SO I MADE THIS SIMPLE EXTENSION FOR CHROMIUM BROWSER
 
 <img width="718" height="999" alt="{66951E42-7909-471D-A05E-720B011B7545}" src="https://github.com/user-attachments/assets/7096f7b6-882f-4e19-a1d2-a8e8747ffd67" />
 
-# 🎵 Flying Lyrics
+# 🎵 Flying Lyrics - Romanize Your Lyrics
 **Lyrics that follow you wherever you go.** Flying Lyrics is a browser extension that pulls your music lyrics into a floating window so you can sing along while browsing other tabs or working in different apps. No more switching back and forth to check the words!
 
 ## ✨ Key Features
@@ -68,9 +68,5 @@
 Made with 💖 by Kaleksanan Bagus
 
 ☕ Buy me a coffee [Saweria](https://saweria.co/curlyzed) [PayPal](https://paypal.me/BagusMassani)
-
----
-
-Icon made by vect ara from vecteezy.com
 
 ---
