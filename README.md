@@ -59,7 +59,7 @@
 
 ## ⚠️ Known Limitations & Tips
 
-* **Browser-Specific UI Bug (Microsoft Edge):** Although the player controls (Play, Pause, and Mute) remain functional in Microsoft Edge, the button icons may fail to visually toggle their state when clicked.
+* **Browser-Specific UI Bug:** When your Spotify Web PLayer using language other than English, although the player controls (Play, Pause, and Mute) remain functional, the button icons may fail to visually toggle their state when clicked.
 * **Translation Speed:** Because the app uses a free version of the Google Translate API to keep the extension free for everyone, lyrics might take an extra second or two to load when translating.
 * **API Protection:** To keep things running smoothly, try not to switching the translation too rapidly. Switching it too often might cause the Google Translate API to temporarily block requests.
 
