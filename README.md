@@ -43,7 +43,7 @@
 * **Fix the Timing:** If the lyrics are a little bit too fast or slow, use the Sync Offset buttons to perfectly line them up.
 * **Smart Memory:** The extension automatically remembers your timing fixes for every song, so you only ever have to fix it once!
 
-<img width="419" height="658" alt="image" src="https://github.com/user-attachments/assets/1e032527-1f2f-47c7-b7c3-25ac78e033d1" />
+<img width="434" height="636" alt="{1BABFB27-CE8F-4559-B468-BDB2DAA86FFA}" src="https://github.com/user-attachments/assets/e327e8ee-666c-45be-a4cc-faae9cd33f8c" />
 
 ---
 
