@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Flying Lyrics - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
-  "version": "3.0",
+  "version": "3.1",
   "permissions": [
     "storage",
     "tabs"

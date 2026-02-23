@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Track the current results array so other handlers (e.g. local upload) can reference it
     let currentResults = [];
     let currentActiveTrack = { artist: "", title: "" };
+    let currentEffectiveOffset = 0;
 
     // Populate Languages
     LANGUAGES.forEach(lang => {
@@ -60,16 +61,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Request current effective offset and track info, then restore cached search
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-            chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_SYNC_OFFSET' }, (response) => {
-                if (response && response.syncOffset !== undefined) {
+    chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+        let trackFound = false;
+
+        tabs.forEach(tab => {
+            if (!tab.id) return;
+
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_SYNC_OFFSET' }, (response) => {
+                if (chrome.runtime.lastError) return;
+                // Update offset display only if we haven't locked onto a track yet
+                if (response && response.syncOffset !== undefined && !trackFound) {
                     updateOffsetDisplay(response.syncOffset);
                 }
             });
 
-            chrome.tabs.sendMessage(tabs[0].id, { type: 'GET_CURRENT_TRACK' }, (response) => {
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (response) => {
+                if (chrome.runtime.lastError) return;
+                if (trackFound) return;
+
                 if (response && response.artist && response.title) {
+                    trackFound = true; // Mark as found to ignore subsequent tabs
                     currentActiveTrack = response;
                     const trackKey = `${response.artist} - ${response.title}`;
 
@@ -93,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             });
-        }
+        });
     });
 
     // =====================================================================
@@ -297,27 +308,30 @@ document.addEventListener('DOMContentLoaded', () => {
     offsetPlus.addEventListener('click', () => adjustOffset(100));
 
     function adjustOffset(delta) {
-        chrome.storage.local.get({ syncOffset: 0 }, (items) => {
-            let newOffset = items.syncOffset + delta;
-            updateOffsetDisplay(newOffset);
-            saveAndNotify({ syncOffset: newOffset });
-        });
+        let newOffset = currentEffectiveOffset + delta;
+        updateOffsetDisplay(newOffset);
+        saveAndNotify({ syncOffset: newOffset });
     }
 
     function updateOffsetDisplay(val) {
+        currentEffectiveOffset = val;
         offsetDisplay.textContent = (val > 0 ? '+' : '') + val;
     }
 
     function saveAndNotify(changes) {
         chrome.storage.local.set(changes, () => {
-            // Notify active tab's content script
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]?.id) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        type: 'SETTINGS_UPDATE',
-                        payload: changes
-                    });
-                }
+            // Notify all music player tabs' content scripts
+            chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+                tabs.forEach(tab => {
+                    if (tab.id) {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'SETTINGS_UPDATE',
+                            payload: changes
+                        }, () => {
+                            if (chrome.runtime.lastError) return;
+                        });
+                    }
+                });
             });
         });
     }
