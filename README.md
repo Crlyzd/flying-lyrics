@@ -40,10 +40,11 @@
 ### ⚙️ Personalize Your Experience
 * **Quick-Access Popup:** Manage all your settings by clicking the Flying Lyrics icon in your browser's extension menu.
 * **Pick Your Language:** Use the dropdown menu in the popup to choose your preferred translation language (e.g., Indonesian, English).
-* **Fix the Timing:** If the lyrics are a little bit too fast or slow, use the Sync Offset buttons to perfectly line them up.
+* **Fix the Timing:** Use the Sync Offset buttons to perfectly line up lyrics that are too fast or slow.
+* **Global Sync Offset:** Set a universal timing adjustment using the intuitive two-row layout; this acts as a baseline without overriding individual song fixes.
 * **Smart Memory:** The extension automatically remembers your timing fixes for every song, so you only ever have to fix it once!
 
-<img width="434" height="636" alt="{1BABFB27-CE8F-4559-B468-BDB2DAA86FFA}" src="https://github.com/user-attachments/assets/e327e8ee-666c-45be-a4cc-faae9cd33f8c" />
+<img width="419" height="658" alt="image" src="https://github.com/user-attachments/assets/f21104db-ffbc-46f6-a2f0-27434dcba43e" />
 
 ---
 
