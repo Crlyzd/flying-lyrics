@@ -56,14 +56,29 @@ async function fetchLyrics(retryCount = 0) {
                 const res = await fetch(`https://lrclib.net/api/get?${query}`);
                 if (res.ok) {
                     const data = await res.json();
-                    raw = data.syncedLyrics || data.plainLyrics || "";
+                    const syncedRaw = data.syncedLyrics || "";
+                    const plainFallback = data.plainLyrics || "";
+
+                    if (syncedRaw) {
+                        // lrclib has synced lyrics — best possible result, use immediately
+                        raw = syncedRaw;
+                    } else if (plainFallback) {
+                        // lrclib only has plain text — still try Netease first, it may be better
+                        console.log("LRCLIB has only plain lyrics. Attempting Netease before committing...");
+                        const neteaseMsg = await new Promise(resolve => {
+                            chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { query: `${meta.artist} ${meta.title}` } }, resolve);
+                        });
+                        const neteaseRaw = neteaseMsg?.lyric || "";
+                        // Prefer Netease if it returned anything; fall back to lrclib plain text
+                        raw = neteaseRaw || plainFallback;
+                    }
                 }
             } catch (err) {
                 console.log("LRCLIB failed to fetch");
             }
         }
 
-        // --- FALLBACK TO NETEASE ---
+        // --- FALLBACK TO NETEASE (lrclib returned nothing at all) ---
         if (!raw) {
             const neteaseQuery = `${meta.artist} ${meta.title}`;
             console.log("LRCLIB empty/failed. Falling back to Netease for:", neteaseQuery);

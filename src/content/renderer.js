@@ -180,12 +180,23 @@ function renderLoop() {
     ctx.translate(w / 2, (h / 2) - scrollPos);
 
     lyricLines.forEach((line, i) => {
+        const y = cachedLayout[i];
+
+        // --- CULLING: Skip drawing off-screen lines ---
+        // Calculate where this line will actually render on the screen
+        const screenY = (h / 2) - scrollPos + y;
+
+        // If it's more than half a full screen-height above or below the view, ignore it.
+        // We give it a generous buffer window so shadows don't abruptly pop in.
+        if (screenY < -h * 0.5 || screenY > h * 1.5) {
+            return;
+        }
+
         const dist = Math.abs(i - activeIdx);
         // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
         ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
         ctx.textAlign = "center";
 
-        const y = cachedLayout[i];
         const isCurrent = (i === activeIdx);
 
         // Universal Dark Shadow for all text

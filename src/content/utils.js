@@ -104,68 +104,51 @@ function getWrapLines(ctx, text, maxWidth) {
     if (wrapCache.has(key)) return wrapCache.get(key);
 
     const words = text.split(' ');
-    let line = '';
     const lines = [];
+    let line = '';
 
-    for (let n = 0; n < words.length; n++) {
-        const word = words[n];
-        const wordPlusSpace = word + ' ';
-        const testLine = line + wordPlusSpace;
-        const metrics = ctx.measureText(testLine);
-
-        // Standard space-based wrapping
-        if (metrics.width > maxWidth && n > 0) {
-            // Check if the single word ITSELF is wider than the maximum width
-            // This happens for spaceless languages (Chinese/Japanese) or extremely long URLs
-            const wordMetrics = ctx.measureText(word);
-
-            if (wordMetrics.width > maxWidth) {
-                // The word itself is too massive. We must break it down character-by-character.
-                if (line.trim().length > 0) {
-                    lines.push(line);
-                    line = '';
-                }
-
-                let charLine = '';
-                for (let i = 0; i < word.length; i++) {
-                    const charTest = charLine + word[i];
-                    if (ctx.measureText(charTest).width > maxWidth && i > 0) {
-                        lines.push(charLine);
-                        charLine = word[i];
-                    } else {
-                        charLine = charTest;
-                    }
-                }
-                // The remainder of the long word carries over
-                line = charLine + ' ';
+    /**
+     * Helper: break a single word wider than maxWidth into character-by-character
+     * segments that each fit within maxWidth, flushing the current `line` buffer first.
+     */
+    const breakWord = (word) => {
+        // Flush any existing line buffer before the oversized word
+        if (line.trim().length > 0) {
+            lines.push(line.trim());
+            line = '';
+        }
+        let charLine = '';
+        for (const ch of word) {
+            const test = charLine + ch;
+            if (ctx.measureText(test).width > maxWidth && charLine.length > 0) {
+                lines.push(charLine);
+                charLine = ch;
             } else {
-                // Normal word wrapping
-                lines.push(line);
-                line = wordPlusSpace;
+                charLine = test;
             }
+        }
+        // Remainder of the broken word becomes the start of the next line
+        line = charLine + ' ';
+    };
+
+    for (const word of words) {
+        // First, check if the word itself exceeds the max width - regardless of position
+        if (ctx.measureText(word).width > maxWidth) {
+            breakWord(word);
+            continue;
+        }
+
+        // Standard word-wrap: check if appending this word overflows
+        const testLine = line + word + ' ';
+        if (ctx.measureText(testLine).width > maxWidth && line.trim().length > 0) {
+            lines.push(line.trim());
+            line = word + ' ';
         } else {
             line = testLine;
         }
     }
 
-    // Catch any remaining word that was itself too wide if it appeared as the FIRST word in a block
-    if (lines.length === 0 && ctx.measureText(line.trim()).width > maxWidth) {
-        let charLine = '';
-        const rawText = line.trim();
-        line = '';
-        for (let i = 0; i < rawText.length; i++) {
-            const charTest = charLine + rawText[i];
-            if (ctx.measureText(charTest).width > maxWidth && i > 0) {
-                lines.push(charLine);
-                charLine = rawText[i];
-            } else {
-                charLine = charTest;
-            }
-        }
-        line = charLine + ' ';
-    }
-
-    lines.push(line);
+    if (line.trim().length > 0) lines.push(line.trim());
 
     wrapCache.set(key, lines);
     return lines;
