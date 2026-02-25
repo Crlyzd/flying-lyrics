@@ -24,13 +24,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
         }
 
-        // Fallback: search by query string, then grab lyrics for the first match
+        // Fallback: search by query string, then pick the best match by duration
         fetch(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`)
             .then(r => r.json())
             .then(data => {
-                const songId = data?.result?.songs?.[0]?.id;
-                if (!songId) throw new Error("No Netease track found");
-                return fetch(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&tv=-1`);
+                const songs = data?.result?.songs;
+                if (!songs || songs.length === 0) throw new Error("No Netease track found");
+
+                // --- NETEASE TOP-5 DURATION RANKING ---
+                // Pick the best of the first 5 results based on how closely
+                // each song's duration matches the actual playing track.
+                // The `duration` from the payload is in seconds; Netease `dt` is in ms.
+                const targetDuration = message.payload.duration || 0;
+                const top5 = songs.slice(0, 5);
+                const best = top5.reduce((prev, curr) => {
+                    const prevDelta = Math.abs((prev.dt / 1000) - targetDuration);
+                    const currDelta = Math.abs((curr.dt / 1000) - targetDuration);
+                    return currDelta < prevDelta ? curr : prev;
+                });
+
+                return fetch(`https://music.163.com/api/song/lyric?id=${best.id}&lv=1&tv=-1`);
             })
             .then(r => r.json())
             .then(data => {

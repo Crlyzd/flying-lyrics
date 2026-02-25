@@ -50,40 +50,69 @@ async function fetchLyrics(retryCount = 0) {
             }
         }
 
-        // --- FALLBACK TO STANDARD SEARCH ---
+        // --- RANKED SEARCH via LRCLIB ---
         if (!raw) {
             try {
-                const res = await fetch(`https://lrclib.net/api/get?${query}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const syncedRaw = data.syncedLyrics || "";
-                    const plainFallback = data.plainLyrics || "";
+                // Read the actual playing song duration to aid ranking
+                const actualDuration = getPlayerState().duration || 0;
+                const searchQuery = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
+                const res = await fetch(`https://lrclib.net/api/search?${searchQuery}`);
 
-                    if (syncedRaw) {
-                        // lrclib has synced lyrics — best possible result, use immediately
-                        raw = syncedRaw;
-                    } else if (plainFallback) {
-                        // lrclib only has plain text — still try Netease first, it may be better
-                        console.log("LRCLIB has only plain lyrics. Attempting Netease before committing...");
-                        const neteaseMsg = await new Promise(resolve => {
-                            chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { query: `${meta.artist} ${meta.title}` } }, resolve);
+                if (res.ok) {
+                    const candidates = await res.json();
+
+                    if (Array.isArray(candidates) && candidates.length > 0) {
+                        // --- RANKING ALGORITHM ---
+                        // Score each candidate: huge bonus for synced lyrics,
+                        // then penalize by how far the duration deviates from the actual song.
+                        const scored = candidates.map(c => {
+                            const isSynced = !!c.syncedLyrics;
+                            const durationDelta = actualDuration > 0
+                                ? Math.abs((c.duration || 0) - actualDuration)
+                                : 0;
+                            // 10000 point bonus for being synced, minus 1 point per second off
+                            const score = (isSynced ? 10000 : 0) - durationDelta;
+                            return { c, score };
                         });
-                        const neteaseRaw = neteaseMsg?.lyric || "";
-                        // Prefer Netease if it returned anything; fall back to lrclib plain text
-                        raw = neteaseRaw || plainFallback;
+                        scored.sort((a, b) => b.score - a.score);
+                        const best = scored[0].c;
+
+                        const syncedRaw = best.syncedLyrics || "";
+                        const plainFallback = best.plainLyrics || "";
+
+                        if (syncedRaw) {
+                            // Best candidate has synced lyrics — best possible result
+                            raw = syncedRaw;
+                        } else if (plainFallback) {
+                            // Best candidate only has plain text — try Netease first
+                            console.log("LRCLIB best match has only plain lyrics. Attempting Netease...");
+                            const neteaseMsg = await new Promise(resolve => {
+                                chrome.runtime.sendMessage({
+                                    type: 'FETCH_NETEASE',
+                                    payload: { query: `${meta.artist} ${meta.title}`, duration: actualDuration }
+                                }, resolve);
+                            });
+                            const neteaseRaw = neteaseMsg?.lyric || "";
+                            // Prefer Netease if it returned anything; fall back to lrclib plain text
+                            raw = neteaseRaw || plainFallback;
+                        }
                     }
                 }
             } catch (err) {
-                console.log("LRCLIB failed to fetch");
+                console.log("LRCLIB ranked search failed:", err);
             }
         }
 
         // --- FALLBACK TO NETEASE (lrclib returned nothing at all) ---
         if (!raw) {
+            const actualDuration = getPlayerState().duration || 0;
             const neteaseQuery = `${meta.artist} ${meta.title}`;
             console.log("LRCLIB empty/failed. Falling back to Netease for:", neteaseQuery);
             const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { query: neteaseQuery } }, resolve);
+                chrome.runtime.sendMessage({
+                    type: 'FETCH_NETEASE',
+                    payload: { query: neteaseQuery, duration: actualDuration }
+                }, resolve);
             });
             raw = resMsg?.lyric || "";
         }
