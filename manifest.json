@@ -3,7 +3,7 @@
   "name": "Flying Lyrics - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
   "version": "3.2",
-  "description": "Lyrics that follow you wherever you go, Flying Lyrics is a floating browser extension that pulls in synchronized lyrics, romanization, and translations so you can sing along while multitasking without ever switching tabs.",
+  "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
   "permissions": [
     "storage",
     "tabs"
