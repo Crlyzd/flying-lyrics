@@ -26,11 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-query');
     const resultsContainer = document.getElementById('search-results-container');
     const localUpload = document.getElementById('local-lyric-upload');
+    const appVersion = document.getElementById('app-version');
+    const globalOffsetInput = document.getElementById('global-offset-input');
+    const globalOffsetSetBtn = document.getElementById('global-offset-set-btn');
 
     // Track the current results array so other handlers (e.g. local upload) can reference it
     let currentResults = [];
     let currentActiveTrack = { artist: "", title: "" };
-    let currentEffectiveOffset = 0;
+    let currentEffectiveOffset = 1000;
+    let currentGlobalOffset = 1000;
 
     // Populate Languages
     LANGUAGES.forEach(lang => {
@@ -40,16 +44,23 @@ document.addEventListener('DOMContentLoaded', () => {
         langSelect.appendChild(option);
     });
 
+    // Set Dynamic Version
+    if (appVersion) {
+        const manifest = chrome.runtime.getManifest();
+        appVersion.textContent = `v${manifest.version}`;
+    }
+
     // Load Saved Settings
     chrome.storage.local.get({
         showTranslation: true,
         translationLang: 'id',
-        syncOffset: 400,
+        globalSyncOffset: 1000,
         autoLaunch: false
     }, (items) => {
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
-        updateOffsetDisplay(items.syncOffset);
+        currentGlobalOffset = items.globalSyncOffset;
+        globalOffsetInput.value = currentGlobalOffset;
         toggleAutolaunch.checked = items.autoLaunch;
     });
 
@@ -277,8 +288,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for SETTINGS_UPDATE broadcast from content.js (e.g. song change)
     chrome.runtime.onMessage.addListener((msg) => {
-        if (msg.type === 'SETTINGS_UPDATE' && msg.payload.syncOffset !== undefined) {
-            updateOffsetDisplay(msg.payload.syncOffset);
+        if (msg.type === 'SETTINGS_UPDATE') {
+            if (msg.payload.syncOffset !== undefined) {
+                updateOffsetDisplay(msg.payload.syncOffset);
+            }
+            if (msg.payload.globalSyncOffset !== undefined) {
+                currentGlobalOffset = msg.payload.globalSyncOffset;
+                globalOffsetInput.value = currentGlobalOffset;
+            }
         }
     });
 
@@ -305,6 +322,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Offset Controls
     offsetMinus.addEventListener('click', () => adjustOffset(-100));
     offsetPlus.addEventListener('click', () => adjustOffset(100));
+
+    globalOffsetSetBtn.addEventListener('click', () => {
+        const val = parseInt(globalOffsetInput.value, 10);
+        if (!isNaN(val)) {
+            currentGlobalOffset = val;
+            saveAndNotify({ globalSyncOffset: val });
+
+            // Also update the current effective offset to match the new global if user wants it applied immediately
+            // But usually this just sets the background default.
+
+            globalOffsetSetBtn.textContent = 'Saved!';
+            globalOffsetSetBtn.style.backgroundColor = '#1ed760';
+            setTimeout(() => {
+                globalOffsetSetBtn.textContent = 'Set Global';
+                globalOffsetSetBtn.style.backgroundColor = '';
+            }, 1000);
+        }
+    });
 
     function adjustOffset(delta) {
         let newOffset = currentEffectiveOffset + delta;

@@ -16,7 +16,7 @@ async function fetchLyrics(retryCount = 0) {
         if (songOffsets[key] !== undefined) {
             syncOffset = songOffsets[key];
         } else {
-            syncOffset = 400; // Default if no custom offset
+            syncOffset = globalSyncOffset; // Default if no custom offset
         }
         // Broadcast new offset to Popup (so UI updates if open)
         chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });

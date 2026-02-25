@@ -2,14 +2,14 @@
   "manifest_version": 3,
   "name": "Flying Lyrics - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
-  "version": "3.2",
+  "version": "3.3",
   "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
   "permissions": [
     "storage",
     "tabs"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "src/background/background.js"
   },
   "icons": {
     "16": "assets/icons/icon16.png",
@@ -31,17 +31,17 @@
         "*://music.youtube.com/*"
       ],
       "js": [
-        "content.js",
-        "utils.js",
-        "services.js",
-        "ui.js",
-        "renderer.js"
+        "src/content/content.js",
+        "src/content/utils.js",
+        "src/content/services.js",
+        "src/content/ui.js",
+        "src/content/renderer.js"
       ],
       "run_at": "document_end"
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
       "32": "assets/icons/icon32.png",
@@ -52,7 +52,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "styles.css"
+        "src/content/styles.css"
       ],
       "matches": [
         "<all_urls>"

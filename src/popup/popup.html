@@ -276,6 +276,17 @@
             align-items: center;
             vertical-align: middle;
         }
+
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 
@@ -317,9 +328,6 @@
                 <span class="slider"></span>
             </label>
         </div>
-        <div style="font-size: 11px; color: #AAA; margin-top: 6px; line-height: 1.4;">
-            Opens lyrics window on first interaction with the page.
-        </div>
     </div>
 
     <div class="control-group">
@@ -340,16 +348,29 @@
     </div>
 
     <div class="control-group">
-        <label style="text-align:center">Sync Offset (ms)</label>
-        <div class="offset-controls">
+        <label style="text-align:center; margin-bottom: 15px;">Sync Offset (ms)</label>
+
+        <!-- Row 1: Current Track Override -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px;">
             <button class="btn-small" id="offset-minus">-</button>
-            <span id="offset-display">0</span>
+            <span id="offset-display">+1000</span>
             <button class="btn-small" id="offset-plus">+</button>
         </div>
+
+        <div style="height: 1px; background: #3E3E3E; margin: 12px 0;"></div>
+
+        <!-- Row 2: Global Setting -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+            <input type="number" id="global-offset-input" value="1000"
+                style="width: 65px; padding: 7px; border-radius: 4px; border: none; background: #3E3E3E; color: white; text-align: center; font-family: monospace; font-size: 14px; outline: none;" />
+            <button class="search-btn" id="global-offset-set-btn"
+                style="padding: 7px 12px; font-size: 13px; width: 100px;">Set Global</button>
+        </div>
+
     </div>
 
     <div class="footer">
-        <p>v3.1 - Enhance your music experience</p>
+        <p><span id="app-version"></span> - Enhance your music experience</p>
         <p>
             Made with <span class="icon" style="color: #ff5555;"><svg width="12" height="12" viewBox="0 0 24 24"
                     fill="currentColor">

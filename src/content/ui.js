@@ -184,8 +184,10 @@ const createLauncher = () => {
         <span>FLYING LYRICS</span>
     `;
 
+    const rightOffset = host.includes('spotify') ? '100px' : '20px';
+
     Object.assign(btn.style, {
-        position: 'fixed', top: '80px', right: '20px', zIndex: 99999,
+        position: 'fixed', top: '80px', right: rightOffset, zIndex: 99999,
         padding: '4px 10px', background: '#1DB954', color: '#fff',
         border: 'none', borderRadius: '50px', cursor: 'pointer',
         fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
@@ -204,7 +206,7 @@ const createLauncher = () => {
 
             const link = pipWin.document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = chrome.runtime.getURL('styles.css');
+            link.href = chrome.runtime.getURL('src/content/styles.css');
             pipWin.document.head.appendChild(link);
 
             injectStructure();

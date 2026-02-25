@@ -9,7 +9,8 @@ let pipWin = null;
 // Settings
 let showTranslation = true;
 let translationLang = 'id';
-let syncOffset = 400;
+let globalSyncOffset = 1000;
+let syncOffset = 1000;
 let autoLaunch = false; // Auto-open lyrics window on first user interaction
 let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
 let lyricsOverrides = {}; // Dictionary: "Artist - Title" -> { type: 'api', id: 1234 } OR { type: 'local', data: string }
@@ -36,14 +37,15 @@ let lastUpdateMs = performance.now();
 chrome.storage.local.get({
     showTranslation: true,
     translationLang: 'id',
-    syncOffset: 400,
+    globalSyncOffset: 1000,
     autoLaunch: false,
     songOffsets: {},
     lyricsOverrides: {}
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
-    syncOffset = items.syncOffset; // Still load global last used as fallback/init
+    globalSyncOffset = items.globalSyncOffset;
+    syncOffset = globalSyncOffset; // Fallback init
     autoLaunch = items.autoLaunch;
     songOffsets = items.songOffsets || {};
     lyricsOverrides = items.lyricsOverrides || {};
@@ -66,6 +68,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             translationLang = p.translationLang;
             cachedLyrics.key = ""; // Invalidate cache for new language
             if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch with new lang
+        }
+        if (p.globalSyncOffset !== undefined) {
+            globalSyncOffset = p.globalSyncOffset;
+            // Eagerly apply if there's no explicitly set song offset for the current track
+            const meta = navigator.mediaSession.metadata;
+            if (meta && meta.title && meta.artist) {
+                const key = `${meta.artist} - ${meta.title}`;
+                if (songOffsets[key] === undefined) {
+                    syncOffset = globalSyncOffset;
+                }
+            }
         }
         if (p.syncOffset !== undefined) {
             syncOffset = p.syncOffset;
