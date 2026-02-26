@@ -176,7 +176,7 @@ const createLauncher = () => {
 
     // Add SVG and Text
     btn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 12px; height: 12px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 10px; height: 10px;">
             <path d="M9 18V5l12-2v13"></path>
             <circle cx="6" cy="18" r="3"></circle>
             <circle cx="18" cy="16" r="3"></circle>
@@ -184,15 +184,18 @@ const createLauncher = () => {
         <span>FLYING LYRICS</span>
     `;
 
-    const rightOffset = host.includes('spotify') ? '100px' : '20px';
+    const isSpotify = host.includes('spotify');
 
     Object.assign(btn.style, {
-        position: 'fixed', top: '80px', right: rightOffset, zIndex: 99999,
-        padding: '4px 10px', background: '#1DB954', color: '#fff',
+        position: 'fixed', zIndex: 99999,
+        ...(isSpotify
+            ? { bottom: '46px', left: '970px', top: 'unset', right: 'unset' }
+            : { top: '80px', right: '20px', bottom: 'unset', left: 'unset' }),
+        padding: '3px 8px', background: '#1DB954', color: '#fff',
         border: 'none', borderRadius: '50px', cursor: 'pointer',
         fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        display: 'flex', alignItems: 'center', gap: '4px',
-        fontSize: '10px', transition: 'transform 0.1s ease, background 0.2s ease'
+        display: 'flex', alignItems: 'center', gap: '3px',
+        fontSize: '8px', transition: 'transform 0.1s ease, background 0.2s ease'
     });
 
     btn.onmouseover = () => btn.style.background = '#1ed760';
