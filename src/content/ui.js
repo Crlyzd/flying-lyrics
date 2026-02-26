@@ -189,7 +189,7 @@ const createLauncher = () => {
     Object.assign(btn.style, {
         position: 'fixed', zIndex: 99999,
         ...(isSpotify
-            ? { bottom: '46px', left: '970px', top: 'unset', right: 'unset' }
+            ? { bottom: '46px', left: '975px', top: 'unset', right: 'unset' }
             : { top: '80px', right: '20px', bottom: 'unset', left: 'unset' }),
         padding: '3px 8px', background: '#1DB954', color: '#fff',
         border: 'none', borderRadius: '50px', cursor: 'pointer',
