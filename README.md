@@ -51,10 +51,15 @@
 ## 🚀 Installation
 1. Install the extension.
 2. Navigate to [Spotify Web Player](https://open.spotify.com/) or [YouTube Music](https://music.youtube.com/).
-3. A green **"🎵 FLYING LYRICS"** floating action button will appear in the top right corner of the page.
+3. Locate the green "♫ FLYING LYRICS" button:
+- On YouTube Music: The button appears in the top right corner of the page.
+- On Spotify: The button is now located in the bottom playback bar, specifically to the left of the shuffle/previous track controls.
 4. Click the button to launch the Picture-in-Picture lyrics window and enjoy!
 
-<img width="568" height="605" alt="{D9459200-757C-41C8-889B-ED14C9620541}" src="https://github.com/user-attachments/assets/2e241894-4928-474d-9fd6-b92db281bcc1" />
+<img width="620" height="430" alt="image" src="https://github.com/user-attachments/assets/2b0c0b54-bb32-48d6-84e7-6f4db47e5a4d" />
+<br></br>
+<img width="858" height="186" alt="image" src="https://github.com/user-attachments/assets/75ac1e05-a925-4209-9952-69b57d929ac3" />
+
 
 ---
 
