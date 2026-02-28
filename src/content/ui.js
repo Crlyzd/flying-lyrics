@@ -97,12 +97,14 @@ function injectStructure() {
     };
     doc.getElementById('mute-btn').onclick = toggleMute;
 
-    // CC Logic
     doc.getElementById('cc-btn').onclick = () => {
         showTranslation = !showTranslation;
         chrome.storage.local.set({ showTranslation });
         updateCCButtonState();
-        if (showTranslation) fetchLyrics(); // Fetch if enabled
+        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+        if (showTranslation && typeof translateExistingLyrics === 'function') {
+            translateExistingLyrics();
+        }
     };
 
     updateCCButtonState(); // Init state

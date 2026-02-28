@@ -180,31 +180,7 @@ async function fetchLyrics(retryCount = 0) {
         if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Invalidate cached layout
 
         // Fire off translations in the background without awaiting them
-        if (temp.length > 0) {
-            temp.forEach(item => {
-                if (/[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
-                    fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(item.text)}`)
-                        .then(r => r.json())
-                        .then(d => {
-                            item.romaji = d?.[0]?.[0]?.[3] || "";
-                            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Fix overlap
-                        })
-                        .catch(() => { });
-                }
-
-                if (showTranslation) {
-                    fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${translationLang}&dt=t&q=${encodeURIComponent(item.text)}`)
-                        .then(r => r.json())
-                        .then(d => {
-                            if (d && d[0]) {
-                                item.translation = d[0].map(x => x[0]).join('');
-                                if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Fix overlap
-                            }
-                        })
-                        .catch(() => { });
-                }
-            });
-        }
+        translateExistingLyrics();
     } catch (e) {
         lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
         isCurrentLyricSynced = false;
@@ -289,4 +265,40 @@ function getCoverArt() {
     if (ytImg) return ytImg.src;
 
     return "";
+}
+
+function translateExistingLyrics() {
+    if (!lyricLines || lyricLines.length === 0) return;
+
+    // Filter out placeholder lines from fetching translation
+    const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
+
+    lyricLines.forEach(item => {
+        // Skip placeholders
+        if (placeholders.includes(item.text)) return;
+
+        // Romaji Fetch
+        if (!item.romaji && /[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
+            fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(item.text)}`)
+                .then(r => r.json())
+                .then(d => {
+                    item.romaji = d?.[0]?.[0]?.[3] || "";
+                    if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+                })
+                .catch(() => { });
+        }
+
+        // Translation Fetch
+        if (showTranslation && !item.translation) {
+            fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${translationLang}&dt=t&q=${encodeURIComponent(item.text)}`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d && d[0]) {
+                        item.translation = d[0].map(x => x[0]).join('');
+                        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+                    }
+                })
+                .catch(() => { });
+        }
+    });
 }

@@ -60,14 +60,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         }
         if (p.showTranslation !== undefined) {
             showTranslation = p.showTranslation;
-            cachedLyrics.key = ""; // Invalidate cache so translations get fetched/removed
-            if (showTranslation && typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch if turned on
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+            if (showTranslation && typeof translateExistingLyrics === 'function') translateExistingLyrics();
             if (typeof updateCCButtonState === 'function') updateCCButtonState();
         }
         if (p.translationLang !== undefined) {
             translationLang = p.translationLang;
-            cachedLyrics.key = ""; // Invalidate cache for new language
-            if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch with new lang
+            // Clear existing translations so they get refetched with the new language
+            lyricLines.forEach(line => line.translation = "");
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+            if (showTranslation && typeof translateExistingLyrics === 'function') translateExistingLyrics();
         }
         if (p.globalSyncOffset !== undefined) {
             globalSyncOffset = p.globalSyncOffset;
