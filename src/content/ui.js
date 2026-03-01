@@ -35,7 +35,7 @@ function injectStructure() {
                 background: rgba(255,255,255,0.2); border: none;
                 color: white; padding: 8px 15px; border-radius: 20px;
                 font-weight: bold; cursor: pointer; backdrop-filter: blur(5px);
-                font-family: 'Segoe UI', sans-serif; opacity: 0; transition: opacity 0.2s;
+                font-family: ${userFontFamily}; opacity: 0; transition: opacity 0.2s;
                 z-index: 20;
             }
             body:hover #back-btn { opacity: 1; }
@@ -213,6 +213,28 @@ const createLauncher = () => {
             link.rel = 'stylesheet';
             link.href = chrome.runtime.getURL('src/content/styles.css');
             pipWin.document.head.appendChild(link);
+
+            // --- DYNAMIC FONT LOADING ---
+            try {
+                // Extract the first font from the stack (e.g., "'Noto Sans', 'Segoe UI'" -> "Noto Sans")
+                const primaryFont = userFontFamily.split(',')[0].replace(/['"]/g, '').trim();
+
+                // Only load if it's not a generic system font (like sans-serif, serif, Segoe UI, Arial)
+                const systemFonts = ['sans-serif', 'serif', 'monospace', 'segoe ui', 'arial', 'helvetica'];
+                if (!systemFonts.includes(primaryFont.toLowerCase())) {
+                    const formattedFontName = primaryFont.replace(/ /g, '+');
+                    const fontLink = pipWin.document.createElement('link');
+                    fontLink.rel = 'stylesheet';
+                    // Load typical weights: 400(Regular), 600(SemiBold), 700(Bold) + Italic variants
+                    fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
+                    pipWin.document.head.appendChild(fontLink);
+
+                    // Wait for the font to physically load into the DOM to prevent Canvas flickering
+                    await pipWin.document.fonts.ready;
+                }
+            } catch (err) {
+                console.warn("Failed to load Google Font, falling back to system fonts:", err);
+            }
 
             injectStructure();
             fetchLyrics();

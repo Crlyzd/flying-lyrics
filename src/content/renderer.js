@@ -118,22 +118,22 @@ function renderLoop() {
         for (let i = 0; i < lyricLines.length; i++) {
             const line = lyricLines[i];
 
-            const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 4.2;
-            const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
-            const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 3.6;
+            const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 5.2;
+            const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 5.2;
+            const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 5.2;
 
             let romajiHeight = 0;
             if (line.romaji) {
-                ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+                ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
                 romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
             }
 
-            ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
             let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
 
             let transHeight = 0;
             if (showTranslation && line.translation) {
-                ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+                ctx.font = `600 ${transSize}px ${userFontFamily}`;
                 transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
             }
 
@@ -141,7 +141,7 @@ function renderLoop() {
             // Text always grows DOWNWARD when it wraps, never upward.
             // So topBoundary is fixed to a single-line anchor, and
             // bottomBoundary expands to cover any extra wrapped rows.
-            ctx.font = (i === activeIdx) ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
             const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
             // Extra downward shift when the main lyric wraps beyond one line
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
@@ -203,13 +203,13 @@ function renderLoop() {
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 8;
 
-        const mainSize = isCurrent ? vmin * 7.2 : vmin * 4.2;
-        const romajiSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
-        const transSize = isCurrent ? vmin * 6.2 : vmin * 3.6;
+        const mainSize = isCurrent ? vmin * 7.2 : vmin * 5.2;
+        const romajiSize = isCurrent ? vmin * 6.2 : vmin * 5.2;
+        const transSize = isCurrent ? vmin * 6.2 : vmin * 5.2;
 
         // 1. Romaji (Top)
         if (line.romaji) {
-            ctx.font = `italic 600 ${romajiSize}px 'Segoe UI', sans-serif`;
+            ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
             // Revert inactive romaji to light gray for readability
             ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
             // Shift up to make room
@@ -217,7 +217,7 @@ function renderLoop() {
         }
 
         // 2. Original Text (Middle)
-        ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+        ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
         // Inactive main text stays white
         ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
 
@@ -234,14 +234,14 @@ function renderLoop() {
         // 3. Translation (Bottom)
         if (showTranslation && line.translation) {
             // Calculate downward baseline shift for wrapped lyrics
-            ctx.font = isCurrent ? `700 ${mainSize}px 'Segoe UI', sans-serif` : `600 ${mainSize}px 'Segoe UI', sans-serif`;
+            ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
             const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
             ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
             ctx.shadowBlur = 8;
 
-            ctx.font = `600 ${transSize}px 'Segoe UI', sans-serif`;
+            ctx.font = `600 ${transSize}px ${userFontFamily}`;
             ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
 
             wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
