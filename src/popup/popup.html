@@ -244,6 +244,33 @@
             background-color: rgba(29, 185, 84, 0.1);
         }
 
+        /* Small green dot shown at top-right of the currently active lyric card */
+        .active-dot {
+            position: absolute;
+            top: 6px;
+            right: 7px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #1DB954;
+            box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.6);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% {
+                box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.5);
+            }
+
+            70% {
+                box-shadow: 0 0 0 5px rgba(29, 185, 84, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(29, 185, 84, 0);
+            }
+        }
+
         .footer {
             font-size: 11px;
             color: #888;

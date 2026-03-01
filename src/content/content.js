@@ -18,6 +18,10 @@ let lyricsOverrides = {}; // Dictionary: "Artist - Title" -> { type: 'api', id: 
 // Cache State
 let cachedLyrics = { key: "", lines: [], isSynced: false };
 
+// Active Lyric Source — set by services.js after each successful lyric load.
+// type: 'lrclib' | 'netease' | 'local' | 'auto' | null
+let activeLyricSource = null;
+
 // Dynamic Colors State
 let currentPalette = {
     vibrant: "#1DB954", // Default Spotify Green
@@ -120,6 +124,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         } else {
             sendResponse({ error: 'No active track' });
         }
+    } else if (msg.type === 'GET_ACTIVE_LYRIC') {
+        sendResponse({ source: activeLyricSource });
     }
 });
 

@@ -31,23 +31,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const songs = data?.result?.songs;
                 if (!songs || songs.length === 0) throw new Error("No Netease track found");
 
-                // --- NETEASE TOP-5 DURATION RANKING ---
-                // Pick the best of the first 5 results based on how closely
-                // each song's duration matches the actual playing track.
-                // The `duration` from the payload is in seconds; Netease `dt` is in ms.
+                // --- NETEASE LAZY CHECK FALLBACK ---
                 const targetDuration = message.payload.duration || 0;
-                const top5 = songs.slice(0, 5);
-                const best = top5.reduce((prev, curr) => {
-                    const prevDelta = Math.abs((prev.dt / 1000) - targetDuration);
-                    const currDelta = Math.abs((curr.dt / 1000) - targetDuration);
-                    return currDelta < prevDelta ? curr : prev;
+
+                // 1. Get Top 5 and sort them by closest duration match
+                const top5 = songs.slice(0, 5).sort((a, b) => {
+                    const aDelta = Math.abs((a.dt / 1000) - targetDuration);
+                    const bDelta = Math.abs((b.dt / 1000) - targetDuration);
+                    return aDelta - bDelta;
                 });
 
-                return fetch(`https://music.163.com/api/song/lyric?id=${best.id}&lv=1&tv=-1`);
-            })
-            .then(r => r.json())
-            .then(data => {
-                sendResponse({ lyric: data?.lrc?.lyric || "" });
+                // 2. Recursive function to check each match until we find real text
+                const tryFetchLyric = (index) => {
+                    if (index >= top5.length) {
+                        // Exhausted all 5 attempts, none had lyrics
+                        sendResponse({ lyric: "" });
+                        return;
+                    }
+
+                    const candidate = top5[index];
+                    fetch(`https://music.163.com/api/song/lyric?id=${candidate.id}&lv=1&tv=-1`)
+                        .then(r => r.json())
+                        .then(data => {
+                            const lyricText = data?.lrc?.lyric || "";
+                            if (lyricText.trim().length > 5) {
+                                // Success! Found actual lyrics — also return the resolved ID and name
+                                sendResponse({ lyric: lyricText, id: candidate.id, name: candidate.name || "" });
+                            } else {
+                                // Empty or junk lyrics, try the next best duration match
+                                tryFetchLyric(index + 1);
+                            }
+                        })
+                        .catch(() => {
+                            // On network error for this specific ID, skip to next
+                            tryFetchLyric(index + 1);
+                        });
+                };
+
+                // Start the check loop
+                tryFetchLyric(0);
             })
             .catch(err => {
                 sendResponse({ lyric: "" });

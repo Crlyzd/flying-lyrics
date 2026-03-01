@@ -13,6 +13,9 @@ async function fetchLyrics(retryCount = 0) {
 
         // --- APPLY SAVED OFFSET ---
         const key = `${meta.artist} - ${meta.title}`;
+
+        // Reset receipt — ensures popup never shows a stale previous-song source
+        activeLyricSource = null;
         if (songOffsets[key] !== undefined) {
             syncOffset = songOffsets[key];
         } else {
@@ -38,15 +41,18 @@ async function fetchLyrics(retryCount = 0) {
         if (override) {
             if (override.type === 'local') {
                 raw = override.data; // Use the provided local text directly
+                activeLyricSource = { type: 'local', id: null, name: key };
             } else if (override.type === 'api' && override.id) {
                 const res = await fetch(`https://lrclib.net/api/get/${override.id}`);
                 const data = await res.json();
                 raw = data.syncedLyrics || data.plainLyrics || "";
+                if (raw) activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
             } else if (override.type === 'netease' && override.id) {
                 const resMsg = await new Promise(resolve => {
                     chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
                 });
                 raw = resMsg?.lyric || "";
+                if (raw) activeLyricSource = { type: 'netease', id: resMsg?.id || override.id, name: resMsg?.name || key };
             }
         }
 
@@ -83,6 +89,7 @@ async function fetchLyrics(retryCount = 0) {
                         if (syncedRaw) {
                             // Best candidate has synced lyrics — best possible result
                             raw = syncedRaw;
+                            activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: true };
                         } else if (plainFallback) {
                             // Best candidate only has plain text — try Netease first
                             console.log("LRCLIB best match has only plain lyrics. Attempting Netease...");
@@ -93,8 +100,13 @@ async function fetchLyrics(retryCount = 0) {
                                 }, resolve);
                             });
                             const neteaseRaw = neteaseMsg?.lyric || "";
-                            // Prefer Netease if it returned anything; fall back to lrclib plain text
-                            raw = neteaseRaw || plainFallback;
+                            if (neteaseRaw) {
+                                raw = neteaseRaw;
+                                activeLyricSource = { type: 'netease', id: neteaseMsg?.id || null, name: neteaseMsg?.name || key, synced: false };
+                            } else {
+                                raw = plainFallback;
+                                activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: false };
+                            }
                         }
                     }
                 }
@@ -115,9 +127,11 @@ async function fetchLyrics(retryCount = 0) {
                 }, resolve);
             });
             raw = resMsg?.lyric || "";
+            if (raw) activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
         }
 
         if (!raw) {
+            activeLyricSource = null; // Nothing was found for this song
             lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
             isCurrentLyricSynced = false;
             if (typeof updateSyncIndicator === 'function') updateSyncIndicator();

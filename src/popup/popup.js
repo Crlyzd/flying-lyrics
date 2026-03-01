@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentActiveTrack = { artist: "", title: "" };
     let currentEffectiveOffset = 1000;
     let currentGlobalOffset = 1000;
+    // The live "receipt" from content.js: { type, id, name } or null
+    let activeSource = null;
 
     // Populate Languages
     LANGUAGES.forEach(lang => {
@@ -71,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Request current effective offset and track info, then restore cached search
+    // Request current effective offset, track info, and active lyric source
     chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
         let trackFound = false;
 
@@ -83,6 +85,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update offset display only if we haven't locked onto a track yet
                 if (response && response.syncOffset !== undefined && !trackFound) {
                     updateOffsetDisplay(response.syncOffset);
+                }
+            });
+
+            // Fetch the active lyric source receipt from content.js
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_LYRIC' }, (response) => {
+                if (chrome.runtime.lastError) return;
+                if (response && response.source) {
+                    activeSource = response.source;
                 }
             });
 
@@ -111,6 +121,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         } else {
                             // Nothing to restore, just populate the search box
                             searchInput.value = trackKey;
+                            // Inject a minimal "currently playing" card if we have a source
+                            if (activeSource) renderSearchResults([], null);
                         }
                     });
                 }
@@ -130,30 +142,56 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeOverride && activeOverride.type === 'local') {
             const localItem = document.createElement('div');
             localItem.className = 'result-item active-lyric';
+            localItem.style.position = 'relative';
             localItem.innerHTML = `
+                <div class="active-dot"></div>
                 <div class="result-title">📁 Local File Loaded <span class="result-badge">CUSTOM</span></div>
                 <div class="result-meta"><span>Custom .lrc file</span></div>
             `;
             resultsContainer.appendChild(localItem);
         }
 
-        // "Auto (Best Match)" reset option
+        // "Auto (Best Match)" reset option — show active dot if auto is playing and no override
         const autoItem = document.createElement('div');
         autoItem.className = 'result-item';
-        // Mark active when no override is set (or override is explicitly null)
-        if (!activeOverride) {
-            autoItem.classList.add('active-lyric');
-        }
+        autoItem.style.position = 'relative';
         autoItem.innerHTML = `
             <div class="result-title">↳ Auto (Best Match)</div>
             <div class="result-meta">Reset to original search</div>
         `;
         autoItem.onclick = () => {
             saveAndNotify({ lyricOverride: null });
+            // Move active dot back to auto
+            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
             resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+            const dot = document.createElement('div');
+            dot.className = 'active-dot';
+            autoItem.appendChild(dot);
             autoItem.classList.add('active-lyric');
         };
         resultsContainer.appendChild(autoItem);
+
+        // If no search results yet but we have an active auto-loaded source, show it as a minimal card
+        if (results.length === 0 && activeSource && !(activeOverride && activeOverride.type === 'local')) {
+            const sourceLabel = activeSource.type === 'netease' ? 'NETEASE' : 'LRCLIB';
+            const sourceBadgeColor = activeSource.type === 'netease' ? 'background:#e60026;color:white;' : 'background:#1DB954;color:black;';
+            // Only show synced badge for non-Netease sources (Netease is always unsynced from our perspective)
+            const syncBadge = activeSource.type !== 'local'
+                ? (activeSource.synced
+                    ? `<span class="result-badge">SYNCED</span>`
+                    : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
+                : '';
+            const autoCard = document.createElement('div');
+            autoCard.className = 'result-item active-lyric';
+            autoCard.style.position = 'relative';
+            autoCard.innerHTML = `
+                <div class="active-dot"></div>
+                <div class="result-title">${activeSource.name || 'Unknown'} <span class="result-badge" style="${sourceBadgeColor}">${sourceLabel}</span>${syncBadge}</div>
+                <div class="result-meta"><span>Auto-loaded · Click Search for more versions</span></div>
+            `;
+            resultsContainer.appendChild(autoCard);
+            return;
+        }
 
         // Individual result items
         results.forEach(item => {
@@ -163,16 +201,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const div = document.createElement('div');
             div.className = 'result-item';
+            div.style.position = 'relative';
 
-            // Highlight if this item is the active override
-            if (activeOverride && activeOverride.type !== 'local'
-                && activeOverride.id === item.id && activeOverride.type === item.source) {
+            // Highlight if this item matches the stored override OR the live activeSource
+            const isActiveOverride = activeOverride && activeOverride.type !== 'local'
+                && activeOverride.id === item.id && activeOverride.type === item.source;
+            const isActiveLive = !activeOverride && activeSource
+                && activeSource.id === item.id && activeSource.type === item.source;
+
+            if (isActiveOverride || isActiveLive) {
                 div.classList.add('active-lyric');
-                // Also un-highlight Auto since a specific override is selected
                 autoItem.classList.remove('active-lyric');
+                const dot = document.createElement('div');
+                dot.className = 'active-dot';
+                div.appendChild(dot);
             }
 
-            div.innerHTML = `
+            div.innerHTML += `
                 <div class="result-title">${item.name} ${item.badgeHtml}</div>
                 <div class="result-meta">
                     <span>${item.artistName} • ${item.albumName || 'Unknown Album'}</span>
@@ -181,15 +226,21 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             div.onclick = () => {
                 saveAndNotify({ lyricOverride: { type: item.source, id: item.id } });
+                // Optimistically move dot to the clicked item
+                activeSource = { type: item.source, id: item.id, name: item.name };
+                resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
                 resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+                const dot = document.createElement('div');
+                dot.className = 'active-dot';
+                div.appendChild(dot);
                 div.classList.add('active-lyric');
             };
             resultsContainer.appendChild(div);
         });
 
-        // If no results and no local override, show an empty-state message
-        if (results.length === 0 && !(activeOverride && activeOverride.type === 'local')) {
-            // Keep the Auto item but don't add an extra "no results" — the Auto item is enough
+        // If no override is set at all, put the dot on Auto (Best Match)
+        if (!activeOverride && results.length > 0 && !activeSource) {
+            autoItem.classList.add('active-lyric');
         }
     }
 
