@@ -77,8 +77,11 @@ function renderLoop() {
 
     const ppBtn = pipWin.document.getElementById('playpause');
     if (ppBtn) {
-        const targetIcon = (state.paused) ? ICON_PLAY : ICON_PAUSE;
-        if (ppBtn.innerHTML !== targetIcon) ppBtn.innerHTML = targetIcon;
+        const targetState = state.paused ? 'paused' : 'playing';
+        if (ppBtn.dataset.state !== targetState) {
+            ppBtn.dataset.state = targetState;
+            ppBtn.innerHTML = state.paused ? ICON_PLAY : ICON_PAUSE;
+        }
     }
 
     // Update mute button icon if changed externally (or by our toggle)
