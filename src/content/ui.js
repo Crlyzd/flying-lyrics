@@ -178,34 +178,33 @@ function updateSyncIndicator() {
 
 const createLauncher = () => {
     const host = window.location.hostname;
-    if (!host.includes('spotify') && !host.includes('music.youtube')) return;
+    const isSpotify = host.includes('spotify');
+    const isYTM = host.includes('music.youtube');
 
+    if (!isSpotify && !isYTM) return;
     if (document.getElementById('pip-trigger')) return;
+
     const btn = document.createElement('button');
     btn.id = 'pip-trigger';
 
     // Add SVG and Text
     btn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 10px; height: 10px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 10px; height: 10px; flex-shrink: 0;">
             <path d="M9 18V5l12-2v13"></path>
             <circle cx="6" cy="18" r="3"></circle>
             <circle cx="18" cy="16" r="3"></circle>
         </svg>
-        <span>FLYING LYRICS</span>
+        <span style="white-space: nowrap;">FLYING LYRICS</span>
     `;
 
-    const isSpotify = host.includes('spotify');
-
+    // Common Base Styling
     Object.assign(btn.style, {
-        position: 'fixed', zIndex: 99999,
-        ...(isSpotify
-            ? { bottom: '46px', left: '975px', top: 'unset', right: 'unset' }
-            : { top: '80px', right: '20px', bottom: 'unset', left: 'unset' }),
+        zIndex: 99999,
         padding: '3px 8px', background: '#1DB954', color: '#fff',
         border: 'none', borderRadius: '50px', cursor: 'pointer',
         fontWeight: 'bold', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        display: 'flex', alignItems: 'center', gap: '3px',
-        fontSize: '8px', transition: 'transform 0.1s ease, background 0.2s ease'
+        display: 'flex', alignItems: 'center', gap: '4px',
+        fontSize: '9px', transition: 'transform 0.1s ease, background 0.2s ease'
     });
 
     btn.onmouseover = () => btn.style.background = '#1ed760';
@@ -253,12 +252,56 @@ const createLauncher = () => {
         }
     };
 
-    document.body.appendChild(btn);
+    if (isSpotify) {
+        // Spotify is a flexbox environment in the player bar
+        Object.assign(btn.style, {
+            marginRight: '8px',
+            marginBottom: '33px',
+            height: '20px'
+        });
+
+        const injectSpotify = () => {
+            if (document.getElementById('pip-trigger')) return;
+
+            // Common Spotify selectors for the right-side control area
+            const rightControls = document.querySelector('.main-nowPlayingBar-right') ||
+                document.querySelector('[data-testid="now-playing-widget"]') ||
+                document.querySelector('.volume-bar')?.parentElement;
+
+            if (rightControls) {
+                rightControls.insertBefore(btn, rightControls.firstChild);
+            } else {
+                // Graceful fallback to fixed position if Spotify redesigns radically
+                Object.assign(btn.style, {
+                    position: 'fixed', bottom: '46px', right: '20px'
+                });
+                document.body.appendChild(btn);
+            }
+        };
+
+        // Try injecting
+        injectSpotify();
+
+        // Observe DOM for React re-renders since Spotify dynamically replaces the player bar
+        const observer = new MutationObserver(() => {
+            if (!document.getElementById('pip-trigger')) {
+                injectSpotify();
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+    } else if (isYTM) {
+        // YouTube Music uses standard fixed positioning
+        Object.assign(btn.style, {
+            position: 'fixed',
+            top: '80px',
+            right: '20px'
+        });
+        document.body.appendChild(btn);
+    }
 
     // --- AUTO-LAUNCH: First-Interaction Trigger ---
-    // Browsers require a user gesture to open a Picture-in-Picture window.
-    // If auto-launch is enabled, we attach a one-time listener to the document
-    // so the lyrics window opens on the user's very first click on the page.
     if (autoLaunch && (!pipWin || pipWin.closed)) {
         document.addEventListener('click', () => {
             // Guard: only launch if PiP isn't already open
