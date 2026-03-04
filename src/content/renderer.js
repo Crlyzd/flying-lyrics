@@ -103,6 +103,13 @@ function renderLoop() {
         if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
     }
 
+    // --- Optimization / Bounds Checking ---
+    // If the window is too small, the CSS overlay is showing and the canvas is hidden.
+    if (w < 200 || h < 200) {
+        pipWin.requestAnimationFrame(renderLoop);
+        return;
+    }
+
     ctx.clearRect(0, 0, w, h);
 
     let activeIdx = lyricLines.findIndex((l, i) =>
@@ -118,12 +125,38 @@ function renderLoop() {
         let currentYOffset = 0;
         const lineOffsets = [];
 
+        // Target width for the active line fit — 75% of maxWidth gives breathing
+        // room so a 2-word lyric doesn't stretch wall-to-wall uncomfortably.
+        const fitWidth = maxWidth * 0.75;
+        // Hard floor/ceiling for the active line so it never looks broken.
+        const activeSizeMin = vmin * 6.5;
+        const activeSizeMax = vmin * 9.5;
+
         for (let i = 0; i < lyricLines.length; i++) {
             const line = lyricLines[i];
 
-            const mainSize = (i === activeIdx) ? vmin * 7.2 : vmin * 5.2;
-            const romajiSize = (i === activeIdx) ? vmin * 6.2 : vmin * 5.2;
-            const transSize = (i === activeIdx) ? vmin * 6.2 : vmin * 5.2;
+            // Inactive lines: fixed vmin-based size (unchanged behaviour).
+            // Active line: scale to fill horizontal space, then clamp.
+            let mainSize;
+            if (i === activeIdx) {
+                mainSize = calculateFitSize(
+                    ctx,
+                    line.text,
+                    `700 {SIZE}px ${userFontFamily}`,
+                    fitWidth,
+                    vmin * 7.5,   // baseline measurement size
+                    activeSizeMin,
+                    activeSizeMax
+                );
+            } else {
+                mainSize = vmin * 5.2;
+            }
+
+            // Romaji and translation for the active line scale with mainSize
+            // so they feel proportionally cohesive rather than jumping to a
+            // fixed vmin value that may be much smaller than the main text.
+            const romajiSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2;
+            const transSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2;
 
             let romajiHeight = 0;
             if (line.romaji) {
@@ -150,16 +183,16 @@ function renderLoop() {
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
             // Top boundary: fixed at half a single line height (anchors the drawn Y position).
-            // When romaji is present, it uses the existing anchored offset instead.
+            // When romaji is present, it uses a proportional gap from romajiSize instead of a fixed vmin offset.
             const singleLineHalf = mainSize * 0.6;
             const topBoundary = line.romaji
-                ? (vmin * 9.2) + romajiHeight
+                ? (romajiSize * 1.5) + romajiHeight
                 : singleLineHalf;
 
             // Bottom boundary: extends downward to cover wrapped rows + translation gap.
             let bottomBoundary = singleLineHalf + mainWrapShift;
             if (showTranslation && line.translation) {
-                bottomBoundary = mainWrapShift + (vmin * 8.2) + transHeight;
+                bottomBoundary = mainWrapShift + (transSize * 1.5) + transHeight;
             }
 
             const baseY = currentYOffset + topBoundary;
@@ -206,9 +239,24 @@ function renderLoop() {
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 8;
 
-        const mainSize = isCurrent ? vmin * 7.2 : vmin * 5.2;
-        const romajiSize = isCurrent ? vmin * 6.2 : vmin * 5.2;
-        const transSize = isCurrent ? vmin * 6.2 : vmin * 5.2;
+        // Mirror the layout block's sizing logic exactly so draw positions
+        // match the pre-computed offsets in cachedLayout.
+        let mainSize;
+        if (isCurrent) {
+            mainSize = calculateFitSize(
+                ctx,
+                line.text,
+                `700 {SIZE}px ${userFontFamily}`,
+                maxWidth * 0.75,
+                vmin * 7.5,
+                vmin * 6.5,
+                vmin * 9.5
+            );
+        } else {
+            mainSize = vmin * 5.2;
+        }
+        const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2;
+        const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2;
 
         // 1. Romaji (Top)
         if (line.romaji) {
@@ -216,7 +264,7 @@ function renderLoop() {
             // Revert inactive romaji to light gray for readability
             ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
             // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (vmin * 9.2), maxWidth, romajiSize * 1.2, true);
+            wrapText(ctx, line.romaji, 0, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
         }
 
         // 2. Original Text (Middle)
@@ -247,7 +295,7 @@ function renderLoop() {
             ctx.font = `600 ${transSize}px ${userFontFamily}`;
             ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
 
-            wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (vmin * 8.2), maxWidth, transSize * 1.2, false);
+            wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
         }
     });
 

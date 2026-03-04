@@ -15,6 +15,7 @@ body {
     user-select: none;
 }
 
+
 #bg-cover {
     position: absolute;
     inset: -20px;
@@ -66,10 +67,10 @@ body:hover #ui-container,
 
 #seeker-container {
     width: 90%;
-    height: 6px;
+    height: 5px;
     background: rgba(255, 255, 255, 0.3);
     border-radius: 3px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     cursor: pointer;
     overflow: hidden;
 }
@@ -86,7 +87,7 @@ body:hover #ui-container,
 #controls {
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 16px;
     align-items: center;
 }
 
@@ -104,8 +105,8 @@ body:hover #ui-container,
 }
 
 .btn svg {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     stroke: white;
     stroke-width: 2;
     stroke-linecap: round;
@@ -115,8 +116,8 @@ body:hover #ui-container,
 }
 
 #playpause svg {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
 }
 
 .btn:hover {
@@ -132,4 +133,105 @@ body:hover #ui-container,
     stroke: var(--vibrant-color, #1DB954);
     fill: var(--vibrant-color, #1DB954);
     fill-opacity: 0.2;
+}
+
+/* --- Size Warning Overlay (Spotify Premium Style) --- */
+#size-warning {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1000;
+    background: linear-gradient(180deg, rgba(30, 30, 30, 1) 0%, rgba(18, 18, 18, 1) 100%);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    text-align: center;
+}
+
+/* Vibrant colour bleed from the top — matches the title bar dynamically */
+#size-warning::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 55%;
+    /* Covers the top half */
+    background: linear-gradient(to bottom,
+            #202124 0%,
+            transparent 100%);
+    opacity: 0.25;
+    /* Subtle glow, not overwhelming */
+    z-index: 1;
+    pointer-events: none;
+}
+
+.warning-pill {
+    background: linear-gradient(90deg, #fce1ed, #ecd0f6, #c4d4fa, #ecd0f6, #fce1ed);
+    background-size: 300% 300%;
+    animation: pill-glow 4s ease infinite;
+    border-radius: 50px;
+    padding: 7px 15px;
+    box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    /* Stack above ::before gradient */
+    z-index: 2;
+}
+
+.warning-pill span {
+    color: #121212;
+    font-size: 22px;
+    font-family: 'Noto Sans ExtraCondensed', 'Segoe UI', sans-serif;
+    font-weight: 1000;
+    line-height: 1.1;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.warning-subtext {
+    color: #ffffff;
+    font-size: 11px;
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    font-weight: 800;
+    line-height: 1.4;
+    max-width: 80%;
+    position: relative;
+    /* Stack above ::before gradient */
+    z-index: 2;
+}
+
+/* Activate Overlay when too small */
+@media (max-width: 199px),
+(max-height: 199px) {
+    #size-warning {
+        display: flex;
+    }
+
+    #lyricCanvas,
+    #ui-container,
+    #sync-indicator,
+    #back-btn {
+        display: none !important;
+    }
+}
+
+@keyframes pill-glow {
+    0% {
+        background-position: 0% 50%;
+        box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    }
+
+    50% {
+        background-position: 100% 50%;
+        box-shadow: 0 0 25px rgba(196, 212, 250, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    }
+
+    100% {
+        background-position: 0% 50%;
+        box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    }
 }

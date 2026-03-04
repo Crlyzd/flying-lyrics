@@ -29,6 +29,14 @@ function injectStructure() {
             <div class="sync-dot"></div>
             <span id="sync-text">UNSYNCED</span>
         </div>
+        <div id="size-warning">
+            <div class="warning-pill">
+                <span>Window too small</span>
+            </div>
+            <div class="warning-subtext">
+                Please resize the window to view lyrics properly.
+            </div>
+        </div>
         <style>
             #back-btn {
                 position: absolute; top: 15px; left: 15px;
@@ -36,7 +44,7 @@ function injectStructure() {
                 color: white; padding: 8px 15px; border-radius: 20px;
                 font-weight: bold; cursor: pointer; backdrop-filter: blur(5px);
                 font-family: ${userFontFamily}; opacity: 0; transition: opacity 0.2s;
-                z-index: 20;
+                z-index: 20; transform: scale(0.7); transform-origin: top left;
             }
             body:hover #back-btn { opacity: 1; }
             #back-btn:hover { background: rgba(255,255,255,0.4); }

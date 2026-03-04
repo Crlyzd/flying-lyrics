@@ -164,6 +164,38 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
     }
 }
 
+/**
+ * Calculates an ideal font size for a text to fill the available width.
+ *
+ * The strategy:
+ *  1. Measure the text at `baseSize`.
+ *  2. Scale proportionally so it would fill `targetWidth`.
+ *  3. Clamp the result between `minSize` and `maxSize`.
+ *
+ * Only call this during layout invalidation (not every frame) — it uses
+ * ctx.measureText which is fast but not free.
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string}  text         - The text to measure
+ * @param {string}  fontTemplate - A CSS font string with a placeholder, e.g. "700 {SIZE}px Noto Sans"
+ * @param {number}  targetWidth  - The width we want the text to fill (e.g. maxWidth)
+ * @param {number}  baseSize     - The fallback/starting size in px
+ * @param {number}  minSize      - The minimum allowed size in px
+ * @param {number}  maxSize      - The maximum allowed size in px
+ * @returns {number} The clamped ideal font size in px
+ */
+function calculateFitSize(ctx, text, fontTemplate, targetWidth, baseSize, minSize, maxSize) {
+    if (!text || targetWidth <= 0) return baseSize;
+
+    ctx.font = fontTemplate.replace('{SIZE}', baseSize);
+    const measuredWidth = ctx.measureText(text).width;
+
+    if (measuredWidth <= 0) return baseSize;
+
+    const idealSize = baseSize * (targetWidth / measuredWidth);
+    return Math.max(minSize, Math.min(maxSize, idealSize));
+}
+
 function parseTime(timeStr) {
     if (!timeStr) return 0;
     const parts = timeStr.split(':').map(Number);
