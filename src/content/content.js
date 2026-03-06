@@ -37,14 +37,22 @@ let lastTimeStr = "";
 let lastTimeValue = 0;
 let lastUpdateMs = performance.now();
 
-// Load initial settings
+// Load initial settings (main + visual customization)
 chrome.storage.local.get({
     showTranslation: true,
     translationLang: 'id',
     globalSyncOffset: 1000,
     autoLaunch: false,
     songOffsets: {},
-    lyricsOverrides: {}
+    lyricsOverrides: {},
+    // Visual customization (mirrors config.js defaults)
+    customFont: "'Noto Sans', 'Segoe UI', sans-serif",
+    fontSize: 18,
+    bgBlur: 12,
+    bgDarkness: 50,
+    coverMode: 'default',
+    glowEnabled: false,
+    glowStyle: 'theme',
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
@@ -53,6 +61,14 @@ chrome.storage.local.get({
     autoLaunch = items.autoLaunch;
     songOffsets = items.songOffsets || {};
     lyricsOverrides = items.lyricsOverrides || {};
+    // Visual settings are stored in config.js globals and applied when PiP opens
+    userFontFamily = items.customFont;
+    userFontSize = items.fontSize;
+    userBgBlur = items.bgBlur;
+    userBgDarkness = items.bgDarkness;
+    userCoverMode = items.coverMode;
+    userGlowEnabled = items.glowEnabled;
+    userGlowStyle = items.glowStyle;
 });
 
 // Listen for updates
@@ -114,6 +130,41 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                     if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch immediately
                 });
             }
+        }
+
+        // --- Visual Customization Settings ---
+        if (p.customFont !== undefined) {
+            userFontFamily = p.customFont;
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.fontSize !== undefined) {
+            userFontSize = p.fontSize;
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+        }
+        if (p.bgBlur !== undefined) {
+            userBgBlur = p.bgBlur;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.bgDarkness !== undefined) {
+            userBgDarkness = p.bgDarkness;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.coverMode !== undefined) {
+            userCoverMode = p.coverMode;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.glowEnabled !== undefined) {
+            userGlowEnabled = p.glowEnabled;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.glowStyle !== undefined) {
+            userGlowStyle = p.glowStyle;
+            if (typeof applyVisualSettings === 'function') applyVisualSettings();
+        }
+        if (p.showLyrics !== undefined) {
+            userShowLyrics = p.showLyrics;
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
         }
     } else if (msg.type === 'GET_SYNC_OFFSET') {
         sendResponse({ syncOffset });

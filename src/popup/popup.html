@@ -6,23 +6,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flying Lyrics Settings</title>
     <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         body {
             width: 300px;
-            padding: 15px;
             font-family: 'Segoe UI', sans-serif;
             background-color: #121212;
             color: white;
             user-select: none;
+            margin: 0;
+            overflow: hidden;
         }
 
-        h2 {
-            margin-top: 0;
-            font-size: 18px;
-            text-align: center;
-            color: #1DB954;
+        /* =========================================================
+         *  SLIDE CONTAINER
+         * ========================================================= */
+        .popup-slides {
+            display: flex;
+            width: 200%;
+            transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slide {
+            width: 50%;
+            /* = 300px */
+            flex-shrink: 0;
+            padding: 15px;
+        }
+
+        /* =========================================================
+         *  HEADER
+         * ========================================================= */
+        .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 20px;
         }
 
+        .popup-header h2 {
+            margin: 0;
+            font-size: 18px;
+            text-align: center;
+            color: #1DB954;
+            flex: 1;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 17px;
+            line-height: 1;
+            transition: background 0.18s, color 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: #282828;
+            color: white;
+        }
+
+        .icon-btn.phantom {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* =========================================================
+         *  CONTROL GROUPS
+         * ========================================================= */
         .control-group {
             margin-bottom: 15px;
             background: #282828;
@@ -43,7 +104,9 @@
             align-items: center;
         }
 
-        /* Toggle Switch */
+        /* =========================================================
+         *  TOGGLE SWITCH
+         * ========================================================= */
         .switch {
             position: relative;
             display: inline-block;
@@ -89,7 +152,9 @@
             transform: translateX(20px);
         }
 
-        /* Dropdown */
+        /* =========================================================
+         *  DROPDOWN
+         * ========================================================= */
         select {
             width: 100%;
             padding: 8px;
@@ -99,43 +164,97 @@
             color: white;
             outline: none;
             cursor: pointer;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 14px;
+            padding-right: 32px;
         }
 
-        /* Sync Offset */
-        .offset-controls {
+        /* =========================================================
+         *  RANGE SLIDERS
+         * ========================================================= */
+        .range-row {
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 10px;
+            gap: 8px;
+            margin-bottom: 10px;
         }
 
-        .btn-small {
+        .range-row:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .range-row input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 4px;
             background: #3E3E3E;
-            border: none;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
+            outline: none;
             cursor: pointer;
-            font-size: 18px;
+        }
+
+        .range-row input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #1DB954;
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(29, 185, 84, 0.5);
+            transition: transform 0.15s;
+        }
+
+        .range-row input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .range-value {
+            font-size: 12px;
+            min-width: 38px;
+            text-align: right;
+            color: #1DB954;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        /* =========================================================
+         *  CUSTOMIZE BUTTON (above Auto-Launch)
+         * ========================================================= */
+        .button-customize {
+            width: 100%;
+            background: #282828;
+            padding: 10px;
+            border-radius: 8px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Segoe UI', sans-serif;
+            transition: background 0.2s, transform 0.1s;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            gap: 6px;
+            margin-bottom: 15px;
         }
 
-        .btn-small:hover {
-            background: #535353;
+        .button-customize:hover {
+            background: #333;
         }
 
-        #offset-display {
-            font-family: monospace;
-            font-size: 16px;
-            min-width: 60px;
-            text-align: center;
+        .button-customize:active {
+            transform: scale(0.98);
         }
 
-        /* --- NEW SEARCH UI STYLES --- */
+        /* =========================================================
+         *  SEARCH UI STYLES
+         * ========================================================= */
         .search-bar-row {
             display: flex;
             gap: 8px;
@@ -244,7 +363,7 @@
             background-color: rgba(29, 185, 84, 0.1);
         }
 
-        /* Small green dot shown at top-right of the currently active lyric card */
+        /* Active lyric dot */
         .active-dot {
             position: absolute;
             top: 6px;
@@ -271,6 +390,38 @@
             }
         }
 
+        /* =========================================================
+         *  SYNC OFFSET
+         * ========================================================= */
+        .btn-small {
+            background: #3E3E3E;
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .btn-small:hover {
+            background: #535353;
+        }
+
+        #offset-display {
+            font-family: monospace;
+            font-size: 16px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* =========================================================
+         *  FOOTER
+         * ========================================================= */
         .footer {
             font-size: 11px;
             color: #888;
@@ -304,6 +455,142 @@
             vertical-align: middle;
         }
 
+        /* =========================================================
+         *  SLIDE 2 – CUSTOMIZATION PANEL
+         * ========================================================= */
+        .cover-mode-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .cover-mode-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: #3E3E3E;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s, background 0.2s;
+            font-size: 13px;
+        }
+
+        .cover-mode-option:hover {
+            background: #4a4a4a;
+        }
+
+        .cover-mode-option.selected {
+            border-color: #1DB954;
+            background: rgba(29, 185, 84, 0.08);
+        }
+
+        .cover-mode-icon {
+            font-size: 16px;
+            width: 22px;
+            text-align: center;
+        }
+
+        .cover-mode-desc {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .cover-mode-desc span {
+            display: block;
+            font-size: 11px;
+            color: #888;
+            font-weight: normal;
+        }
+
+        .cover-radio {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #535353;
+            background: transparent;
+            flex-shrink: 0;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .cover-mode-option.selected .cover-radio {
+            border-color: #1DB954;
+            background: #1DB954;
+        }
+
+
+
+        /* Animated glow preview text */
+        @keyframes lyric-glow-preview {
+            0% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+            }
+
+            50% {
+                text-shadow: 0 0 18px #1ed760, 0 0 30px #1DB954, 0 0 5px #fff;
+            }
+
+            100% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+            }
+        }
+
+        @keyframes rainbow-glow-preview {
+            0% {
+                text-shadow: 0 0 10px #ff0000;
+                color: #ff0000;
+            }
+
+            17% {
+                text-shadow: 0 0 20px #ffff00;
+                color: #ffff00;
+            }
+
+            33% {
+                text-shadow: 0 0 10px #00ff00;
+                color: #00ff00;
+            }
+
+            50% {
+                text-shadow: 0 0 20px #00ffff;
+                color: #00ffff;
+            }
+
+            67% {
+                text-shadow: 0 0 10px #0000ff;
+                color: #0000ff;
+            }
+
+            83% {
+                text-shadow: 0 0 20px #ff00ff;
+                color: #ff00ff;
+            }
+
+            100% {
+                text-shadow: 0 0 10px #ff0000;
+                color: #ff0000;
+            }
+        }
+
+        .glow-preview {
+            font-size: 14px;
+            color: #1DB954;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px 0 15px;
+            letter-spacing: 0.03em;
+            transition: font-size 0.2s, font-family 0.2s;
+        }
+
+        .glow-preview.active {
+            animation: lyric-glow-preview 2s ease-in-out infinite;
+        }
+
+        .glow-preview.active.rainbow {
+            animation: rainbow-glow-preview 3s linear infinite;
+        }
+
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
@@ -319,99 +606,240 @@
 </head>
 
 <body>
-    <h2>Flying Lyrics</h2>
 
-    <!-- SEARCH & SELECT LYRIC VERSION -->
-    <div class="control-group">
-        <label>Manual Lyric Search</label>
+    <!-- =====================================================================
+     SLIDE WRAPPER
+     ===================================================================== -->
+    <div class="popup-slides" id="popup-slides">
 
-        <div class="search-bar-row">
-            <input type="text" class="search-input" id="search-query" placeholder="Artist - Title">
-            <button class="search-btn" id="search-btn">Search</button>
-        </div>
+        <!-- =========================================================
+         SLIDE 1 – MAIN
+         ========================================================= -->
+        <div class="slide" id="slide-main">
 
-        <div class="search-bar-row" style="margin-top: 5px; margin-bottom: 10px; position: relative;">
-            <input type="file" id="local-lyric-upload" accept=".lrc,.txt"
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
-            <button id="local-lyric-btn" class="btn"
-                style="width: 100%; background: #3E3E3E; padding: 6px; border-radius: 4px; color: white; border: none; cursor: pointer; font-size: 12px; transition: background 0.2s; position: relative; z-index: 1;">
-                📁 Load Local .lrc File
-            </button>
-        </div>
-
-        <div class="search-results-container" id="search-results-container">
-            <!-- Results populated by JS -->
-            <div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">
-                Click Search to find lyric versions.
+            <div class="popup-header">
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
+                <h2>Flying Lyrics</h2>
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
             </div>
-        </div>
-    </div>
 
-    <!-- AUTO-LAUNCH TOGGLE -->
-    <div class="control-group">
-        <div class="row">
-            <label for="toggle-autolaunch" style="margin:0">Auto-Launch Lyrics</label>
-            <label class="switch">
-                <input type="checkbox" id="toggle-autolaunch">
-                <span class="slider"></span>
-            </label>
-        </div>
-    </div>
+            <!-- SEARCH & SELECT LYRIC VERSION -->
+            <div class="control-group">
+                <label>Manual Lyric Search</label>
 
-    <div class="control-group">
-        <div class="row">
-            <label for="toggle-translation" style="margin:0">Show Translation</label>
-            <label class="switch">
-                <input type="checkbox" id="toggle-translation">
-                <span class="slider"></span>
-            </label>
-        </div>
-    </div>
+                <div class="search-bar-row">
+                    <input type="text" class="search-input" id="search-query" placeholder="Artist - Title">
+                    <button class="search-btn" id="search-btn">Search</button>
+                </div>
 
-    <div class="control-group">
-        <label for="lang-select">Translation Language</label>
-        <select id="lang-select">
-            <!-- Populated by JS -->
-        </select>
-    </div>
+                <div class="search-bar-row" style="margin-top: 5px; margin-bottom: 10px; position: relative;">
+                    <input type="file" id="local-lyric-upload" accept=".lrc,.txt"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
+                    <button id="local-lyric-btn" class="btn"
+                        style="width: 100%; background: #3E3E3E; padding: 6px; border-radius: 4px; color: white; border: none; cursor: pointer; font-size: 12px; transition: background 0.2s; position: relative; z-index: 1;">
+                        📁 Load Local .lrc File
+                    </button>
+                </div>
 
-    <div class="control-group">
-        <label style="text-align:center; margin-bottom: 15px;">Sync Offset (ms)</label>
+                <div class="search-results-container" id="search-results-container">
+                    <div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">
+                        Click Search to find lyric versions.
+                    </div>
+                </div>
+            </div>
 
-        <!-- Row 1: Current Track Override -->
-        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px;">
-            <button class="btn-small" id="offset-minus">-</button>
-            <span id="offset-display">+1000</span>
-            <button class="btn-small" id="offset-plus">+</button>
-        </div>
+            <!-- CUSTOMIZE VISUALS BUTTON -->
+            <button class="button-customize" id="btn-open-customize">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+                </svg>
+                Customize Visuals
+            </button>
 
-        <div style="height: 1px; background: #3E3E3E; margin: 12px 0;"></div>
+            <!-- AUTO-LAUNCH TOGGLE -->
+            <div class="control-group">
+                <div class="row">
+                    <label for="toggle-autolaunch" style="margin:0">Auto-Launch Lyrics</label>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-autolaunch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
 
-        <!-- Row 2: Global Setting -->
-        <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-            <input type="number" id="global-offset-input" value="1000"
-                style="width: 65px; padding: 7px; border-radius: 4px; border: none; background: #3E3E3E; color: white; text-align: center; font-family: monospace; font-size: 14px; outline: none;" />
-            <button class="search-btn" id="global-offset-set-btn"
-                style="padding: 7px 12px; font-size: 13px; width: 100px;">Set Global</button>
-        </div>
+            <div class="control-group">
+                <div class="row">
+                    <label for="toggle-translation" style="margin:0">Show Translation</label>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-translation">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
 
-    </div>
+            <div class="control-group">
+                <label for="lang-select">Translation Language</label>
+                <select id="lang-select">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
 
-    <div class="footer">
-        <p><span id="app-version"></span> - Enhance your music experience</p>
-        <p>
-            Made with <span class="icon" style="color: #ff5555;"><svg width="12" height="12" viewBox="0 0 24 24"
-                    fill="currentColor">
-                    <path
-                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg></span> by Kaleksanan Bagus
-        </p>
-        <p style="margin-top: 10px;">
-            ☕ Buy me a coffee:
-            <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> /
-            <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a>
-        </p>
-    </div>
+            <div class="control-group">
+                <label style="text-align:center; margin-bottom: 15px;">Sync Offset (ms)</label>
+
+                <!-- Row 1: Current Track Override -->
+                <div
+                    style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 12px;">
+                    <button class="btn-small" id="offset-minus">-</button>
+                    <span id="offset-display">+1000</span>
+                    <button class="btn-small" id="offset-plus">+</button>
+                </div>
+
+                <div style="height: 1px; background: #3E3E3E; margin: 12px 0;"></div>
+
+                <!-- Row 2: Global Setting -->
+                <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
+                    <input type="number" id="global-offset-input" value="1000"
+                        style="width: 65px; padding: 7px; border-radius: 4px; border: none; background: #3E3E3E; color: white; text-align: center; font-family: monospace; font-size: 14px; outline: none;" />
+                    <button class="search-btn" id="global-offset-set-btn"
+                        style="padding: 7px 12px; font-size: 13px; width: 100px;">Set Global</button>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p><span id="app-version"></span> - Enhance your music experience</p>
+                <p>
+                    Made with <span class="icon" style="color: #ff5555;"><svg width="12" height="12" viewBox="0 0 24 24"
+                            fill="currentColor">
+                            <path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                        </svg></span> by Kaleksanan Bagus
+                </p>
+                <p style="margin-top: 10px;">
+                    ☕ Buy me a coffee:
+                    <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> /
+                    <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a>
+                </p>
+            </div>
+
+        </div><!-- /slide-main -->
+
+
+        <!-- =========================================================
+         SLIDE 2 – CUSTOMIZATION
+         ========================================================= -->
+        <div class="slide" id="slide-customize">
+
+            <div class="popup-header">
+                <button class="icon-btn" id="btn-back" title="Back">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+                <h2>Customize Visuals</h2>
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
+            </div>
+
+            <!-- Typography & Background Group -->
+            <div class="control-group">
+
+                <label for="font-family-select" style="margin-bottom: 6px;">Font Family</label>
+                <select id="font-family-select" style="margin-bottom: 15px;">
+                    <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'Roboto', sans-serif">Roboto</option>
+                    <option value="'Poppins', sans-serif">Poppins</option>
+                    <option value="'Montserrat', sans-serif">Montserrat</option>
+                    <option value="'Outfit', sans-serif">Outfit</option>
+                </select>
+
+                <label>Font Size</label>
+                <div class="range-row">
+                    <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
+                    <span class="range-value" id="font-size-value">5</span>
+                </div>
+
+                <label>Blur</label>
+                <div class="range-row">
+                    <input type="range" id="blur-slider" min="0" max="10" step="1" value="6">
+                    <span class="range-value" id="blur-value">6</span>
+                </div>
+
+                <label>Darkness</label>
+                <div class="range-row" style="margin-bottom: 0;">
+                    <input type="range" id="darkness-slider" min="0" max="10" step="1" value="5">
+                    <span class="range-value" id="darkness-value">5</span>
+                </div>
+
+            </div>
+
+            <!-- Cover Background Mode -->
+            <div class="control-group">
+                <label style="margin-bottom: 10px;">Cover Background Mode</label>
+                <div class="cover-mode-group" id="cover-mode-group">
+
+                    <div class="cover-mode-option" data-mode="centered">
+                        <span class="cover-radio"></span>
+                        <div class="cover-mode-desc">Center</div>
+                    </div>
+
+                    <div class="cover-mode-option" data-mode="repeated">
+                        <span class="cover-radio"></span>
+                        <div class="cover-mode-desc">Repeat</div>
+                    </div>
+
+                    <div class="cover-mode-option selected" data-mode="default">
+                        <span class="cover-radio"></span>
+                        <div class="cover-mode-desc">Fill</div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Glowing Lyrics Toggle -->
+            <div class="control-group">
+                <div class="row">
+                    <div>
+                        <label style="margin:0">Glowing Lyrics</label>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-glow">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="glow-style-container"
+                    style="margin-top: 10px; margin-bottom: 5px; display: none; align-items: center; justify-content: space-between;">
+                    <label style="margin: 0; font-size: 13px;">Style</label>
+                    <select id="glow-style-select" style="width: auto; padding: 4px 8px; font-size: 13px;">
+                        <option value="theme">Theme Color</option>
+                        <option value="rainbow">Rainbow</option>
+                    </select>
+                </div>
+
+                <!-- Live preview text that reacts to font & glow settings -->
+                <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
+            </div>
+
+            <!-- Disable Lyrics (New Section) -->
+            <div class="control-group" style="margin-top: 20px;">
+                <div class="row">
+                    <div>
+                        <label style="margin:0">Show Lyrics</label>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-show-lyrics" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+        </div><!-- /slide-customize -->
+
+    </div><!-- /popup-slides -->
 
     <script src="popup.js"></script>
 </body>

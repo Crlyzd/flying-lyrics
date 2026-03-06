@@ -23,12 +23,51 @@ body {
     background-position: center;
     background-repeat: no-repeat;
     filter: blur(2px) brightness(0.5);
-    /* <-- Reduced blur to 3px */
     z-index: 0;
-    /* <-- Ensures the background isn't hidden behind the black body */
     transform: scale(1.2);
-    transition: background-image 0.5s ease-in-out;
+    transition: background-image 0.5s ease-in-out, filter 0.4s ease;
     background-color: #121212;
+}
+
+/* Dark overlay — opacity is controlled at runtime via applyVisualSettings() */
+#bg-darkness {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0.5;
+    /* default; overridden inline by JS */
+    z-index: 2;
+    /* same layer as bg-cover, rendered after it */
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+#center-art {
+    position: absolute;
+    /* Never overflow the window in either axis */
+    width: 100%;
+    height: 100%;
+    /* leaves room for lyrics above and controls below */
+    /* Center horizontally and vertically */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Soft blurred shadow around the cover */
+    filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.65)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+    border-radius: 4px;
+    object-fit: contain;
+    display: none;
+    /* hidden by default, shown only in centered mode */
+    z-index: 1;
+    /* above bg-cover, below lyricCanvas */
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+#center-art.visible {
+    opacity: 1;
+    display: block;
 }
 
 #lyricCanvas {
@@ -38,7 +77,7 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    z-index: 1;
+    z-index: 3;
 }
 
 #ui-container {

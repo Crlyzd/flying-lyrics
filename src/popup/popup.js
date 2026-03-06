@@ -15,7 +15,19 @@ const LANGUAGES = [
     { code: 'th', name: 'Thai' }
 ];
 
+// Maps dropdown values to the font family strings stored in chrome.storage / config.js
+const GOOGLE_FONTS_MAP = {
+    "'Inter', sans-serif": 'Inter',
+    "'Roboto', sans-serif": 'Roboto',
+    "'Poppins', sans-serif": 'Poppins',
+    "'Montserrat', sans-serif": 'Montserrat',
+    "'Outfit', sans-serif": 'Outfit',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+    // =========================================================
+    //  ELEMENT REFERENCES
+    // =========================================================
     const toggleTrans = document.getElementById('toggle-translation');
     const toggleAutolaunch = document.getElementById('toggle-autolaunch');
     const langSelect = document.getElementById('lang-select');
@@ -30,15 +42,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const globalOffsetInput = document.getElementById('global-offset-input');
     const globalOffsetSetBtn = document.getElementById('global-offset-set-btn');
 
-    // Track the current results array so other handlers (e.g. local upload) can reference it
+    // Slide navigation
+    const popupSlides = document.getElementById('popup-slides');
+    const btnOpenCustomize = document.getElementById('btn-open-customize');
+    const btnBack = document.getElementById('btn-back');
+
+    // Customization controls
+    const fontFamilySelect = document.getElementById('font-family-select');
+    const fontSizeSlider = document.getElementById('font-size-slider');
+    const fontSizeValue = document.getElementById('font-size-value');
+    const blurSlider = document.getElementById('blur-slider');
+    const blurValue = document.getElementById('blur-value');
+    const darknessSlider = document.getElementById('darkness-slider');
+    const darknessValue = document.getElementById('darkness-value');
+    const coverModeGroup = document.getElementById('cover-mode-group');
+    const toggleGlow = document.getElementById('toggle-glow');
+    const glowStyleContainer = document.getElementById('glow-style-container');
+    const glowStyleSelect = document.getElementById('glow-style-select');
+    const toggleShowLyrics = document.getElementById('toggle-show-lyrics');
+    const glowPreview = document.getElementById('glow-preview');
+
+    // State
     let currentResults = [];
     let currentActiveTrack = { artist: "", title: "" };
     let currentEffectiveOffset = 1000;
     let currentGlobalOffset = 1000;
-    // The live "receipt" from content.js: { type, id, name } or null
     let activeSource = null;
 
-    // Populate Languages
+    // =========================================================
+    //  LANGUAGE DROPDOWN POPULATION
+    // =========================================================
     LANGUAGES.forEach(lang => {
         const option = document.createElement('option');
         option.value = lang.code;
@@ -46,34 +79,87 @@ document.addEventListener('DOMContentLoaded', () => {
         langSelect.appendChild(option);
     });
 
-    // Set Dynamic Version
+    // =========================================================
+    //  DYNAMIC VERSION
+    // =========================================================
     if (appVersion) {
         const manifest = chrome.runtime.getManifest();
         appVersion.textContent = `v${manifest.version}`;
     }
 
-    // Load Saved Settings
+    // =========================================================
+    //  LOAD SAVED SETTINGS (main + customization)
+    // =========================================================
     chrome.storage.local.get({
         showTranslation: true,
         translationLang: 'id',
         globalSyncOffset: 1000,
-        autoLaunch: false
+        autoLaunch: false,
+        // Customization defaults
+        customFont: "'Noto Sans', 'Segoe UI', sans-serif",
+        fontSize: 18,
+        bgBlur: 2,
+        bgDarkness: 50,
+        coverMode: 'default',
+        glowEnabled: false,
+        glowStyle: 'theme',
+        showLyrics: true,
     }, (items) => {
+        // Main settings
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
         currentGlobalOffset = items.globalSyncOffset;
         globalOffsetInput.value = currentGlobalOffset;
         toggleAutolaunch.checked = items.autoLaunch;
+
+        // Customization settings — populate controls
+        // Map stored raw values back to 1-10 UI scale
+        fontFamilySelect.value = items.customFont;
+
+        // Font: 10 to 28px -> mapped to 1 to 10 step
+        const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 10) / 2) + 1));
+        fontSizeSlider.value = fontStep;
+        fontSizeValue.textContent = fontStep;
+
+        // Blur: 0 to 10px -> naturally matches 0-10 slider
+        const blurStep = Math.max(0, Math.min(10, items.bgBlur));
+        blurSlider.value = blurStep;
+        blurValue.textContent = blurStep;
+
+        // Darkness: 0 to 100% -> mapped to 0 to 10 step (x10)
+        const darkStep = Math.max(0, Math.min(10, Math.round(items.bgDarkness / 10)));
+        darknessSlider.value = darkStep;
+        darknessValue.textContent = darkStep;
+
+        toggleShowLyrics.checked = items.showLyrics;
+        toggleGlow.checked = items.glowEnabled;
+        glowStyleSelect.value = items.glowStyle;
+        glowStyleContainer.style.display = items.glowEnabled ? 'flex' : 'none';
+        glowPreview.classList.toggle('active', items.glowEnabled);
+        glowPreview.classList.toggle('rainbow', items.glowStyle === 'rainbow');
+
+        // Restore cover mode selection
+        document.querySelectorAll('.cover-mode-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.mode === items.coverMode);
+        });
+
+        // Apply font to preview
+        glowPreview.style.fontFamily = items.customFont;
+        glowPreview.style.fontSize = `${items.fontSize}px`;
     });
 
-    // Listen for changes from Content Script (PiP)
+    // =========================================================
+    //  STORAGE CHANGE LISTENER (e.g. from content script)
+    // =========================================================
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace === 'local' && changes.showTranslation) {
             toggleTrans.checked = changes.showTranslation.newValue;
         }
     });
 
-    // Request current effective offset, track info, and active lyric source
+    // =========================================================
+    //  REQUEST CURRENT STATE FROM CONTENT SCRIPT
+    // =========================================================
     chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
         let trackFound = false;
 
@@ -82,13 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             chrome.tabs.sendMessage(tab.id, { type: 'GET_SYNC_OFFSET' }, (response) => {
                 if (chrome.runtime.lastError) return;
-                // Update offset display only if we haven't locked onto a track yet
                 if (response && response.syncOffset !== undefined && !trackFound) {
                     updateOffsetDisplay(response.syncOffset);
                 }
             });
 
-            // Fetch the active lyric source receipt from content.js
             chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_LYRIC' }, (response) => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.source) {
@@ -101,27 +185,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (trackFound) return;
 
                 if (response && response.artist && response.title) {
-                    trackFound = true; // Mark as found to ignore subsequent tabs
+                    trackFound = true;
                     currentActiveTrack = response;
                     const trackKey = `${response.artist} - ${response.title}`;
 
-                    // Restore cached search results if they match the current track
                     chrome.storage.local.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
                         const override = (items.lyricsOverrides || {})[trackKey] || null;
 
                         if (items.lastSearch && items.lastSearch.key === trackKey && items.lastSearch.results?.length) {
-                            // Cached search matches current track — restore it
                             searchInput.value = items.lastSearch.query || trackKey;
                             currentResults = items.lastSearch.results;
                             renderSearchResults(currentResults, override);
                         } else if (override && override.type === 'local') {
-                            // No cached search, but a local file override is active
                             searchInput.value = trackKey;
                             renderSearchResults([], override);
                         } else {
-                            // Nothing to restore, just populate the search box
                             searchInput.value = trackKey;
-                            // Inject a minimal "currently playing" card if we have a source
                             if (activeSource) renderSearchResults([], null);
                         }
                     });
@@ -130,15 +209,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // =====================================================================
-    // Shared renderer — builds the result list in the container.
-    // `results`        : Array of { source, id, name, artistName, albumName, duration, synced, badgeHtml }
-    // `activeOverride`  : The current lyricOverride object for the track (or null)
-    // =====================================================================
+    // =========================================================
+    //  SEARCH RESULTS RENDERER
+    // =========================================================
     function renderSearchResults(results, activeOverride) {
         resultsContainer.innerHTML = '';
 
-        // If a local file override is active, show its indicator at the top
         if (activeOverride && activeOverride.type === 'local') {
             const localItem = document.createElement('div');
             localItem.className = 'result-item active-lyric';
@@ -151,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.appendChild(localItem);
         }
 
-        // "Auto (Best Match)" reset option — show active dot if auto is playing and no override
         const autoItem = document.createElement('div');
         autoItem.className = 'result-item';
         autoItem.style.position = 'relative';
@@ -161,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         autoItem.onclick = () => {
             saveAndNotify({ lyricOverride: null });
-            // Move active dot back to auto
             resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
             resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
             const dot = document.createElement('div');
@@ -171,11 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         resultsContainer.appendChild(autoItem);
 
-        // If no search results yet but we have an active auto-loaded source, show it as a minimal card
         if (results.length === 0 && activeSource && !(activeOverride && activeOverride.type === 'local')) {
             const sourceLabel = activeSource.type === 'netease' ? 'NETEASE' : 'LRCLIB';
             const sourceBadgeColor = activeSource.type === 'netease' ? 'background:#e60026;color:white;' : 'background:#1DB954;color:black;';
-            // Only show synced badge for non-Netease sources (Netease is always unsynced from our perspective)
             const syncBadge = activeSource.type !== 'local'
                 ? (activeSource.synced
                     ? `<span class="result-badge">SYNCED</span>`
@@ -193,7 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Individual result items
         results.forEach(item => {
             const duration = item.duration
                 ? `${Math.floor(item.duration / 60).toString().padStart(2, '0')}:${(item.duration % 60).toString().padStart(2, '0')}`
@@ -203,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'result-item';
             div.style.position = 'relative';
 
-            // Highlight if this item matches the stored override OR the live activeSource
             const isActiveOverride = activeOverride && activeOverride.type !== 'local'
                 && activeOverride.id === item.id && activeOverride.type === item.source;
             const isActiveLive = !activeOverride && activeSource
@@ -226,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             div.onclick = () => {
                 saveAndNotify({ lyricOverride: { type: item.source, id: item.id } });
-                // Optimistically move dot to the clicked item
                 activeSource = { type: item.source, id: item.id, name: item.name };
                 resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
                 resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
@@ -238,14 +307,14 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.appendChild(div);
         });
 
-        // If no override is set at all, put the dot on Auto (Best Match)
         if (!activeOverride && results.length > 0 && !activeSource) {
             autoItem.classList.add('active-lyric');
         }
     }
 
-    // --- SEARCH HANDLER ---
-    // Allow Enter key to trigger search
+    // =========================================================
+    //  SEARCH HANDLER
+    // =========================================================
     searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') searchBtn.click();
     });
@@ -297,18 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Persist the search results for this track
             currentResults = results;
             const trackKey = `${currentActiveTrack.artist} - ${currentActiveTrack.title}`;
             chrome.storage.local.set({
-                lastSearch: {
-                    key: trackKey,
-                    query: query,
-                    results: results
-                }
+                lastSearch: { key: trackKey, query: query, results: results }
             });
 
-            // Determine current override to highlight the active item
             chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
                 const override = (items.lyricsOverrides || {})[trackKey] || null;
                 renderSearchResults(results, override);
@@ -321,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LOCAL FILE UPLOAD ---
+    // =========================================================
+    //  LOCAL FILE UPLOAD
+    // =========================================================
     localUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -330,14 +395,14 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (ev) => {
             const rawText = ev.target.result;
             saveAndNotify({ lyricOverride: { type: 'local', data: rawText } });
-
-            // Re-render with the local override active
             renderSearchResults(currentResults, { type: 'local' });
         };
         reader.readAsText(file);
     });
 
-    // Listen for SETTINGS_UPDATE broadcast from content.js (e.g. song change)
+    // =========================================================
+    //  SETTINGS_UPDATE BROADCAST FROM CONTENT SCRIPT
+    // =========================================================
     chrome.runtime.onMessage.addListener((msg) => {
         if (msg.type === 'SETTINGS_UPDATE') {
             if (msg.payload.syncOffset !== undefined) {
@@ -350,38 +415,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Event Listeners ---
-
-    // 1. Toggle Auto-Launch
+    // =========================================================
+    //  MAIN SETTING LISTENERS
+    // =========================================================
     toggleAutolaunch.addEventListener('change', () => {
-        const val = toggleAutolaunch.checked;
-        saveAndNotify({ autoLaunch: val });
+        saveAndNotify({ autoLaunch: toggleAutolaunch.checked });
     });
 
-    // 2. Toggle Translation
     toggleTrans.addEventListener('change', () => {
-        const val = toggleTrans.checked;
-        saveAndNotify({ showTranslation: val });
+        saveAndNotify({ showTranslation: toggleTrans.checked });
     });
 
-    // 3. Language Change
     langSelect.addEventListener('change', () => {
-        const val = langSelect.value;
-        saveAndNotify({ translationLang: val });
+        saveAndNotify({ translationLang: langSelect.value });
     });
 
-    // 4. Offset Controls
-    offsetMinus.addEventListener('click', () => adjustOffset(-100));
-    offsetPlus.addEventListener('click', () => adjustOffset(100));
+    function setupHoldButton(btnElement, delta) {
+        let intervalId = null;
+        let timeoutId = null;
+
+        const start = (e) => {
+            // Prevent default touch behaviors (like scrolling or double-tap zoom)
+            if (e && e.type === 'touchstart') e.preventDefault();
+
+            // Trigger 1 instant tick
+            adjustOffset(delta);
+
+            // Wait 400ms to see if user is holding
+            timeoutId = setTimeout(() => {
+                // Begin rapid ticking
+                intervalId = setInterval(() => {
+                    adjustOffset(delta);
+                }, 50); // fast continuous speed
+            }, 400);
+        };
+
+        const stop = () => {
+            clearTimeout(timeoutId);
+            clearInterval(intervalId);
+        };
+
+        btnElement.addEventListener('mousedown', start);
+        btnElement.addEventListener('touchstart', start, { passive: false });
+
+        btnElement.addEventListener('mouseup', stop);
+        btnElement.addEventListener('mouseleave', stop);
+        btnElement.addEventListener('touchend', stop);
+    }
+
+    setupHoldButton(offsetMinus, -100);
+    setupHoldButton(offsetPlus, 100);
 
     globalOffsetSetBtn.addEventListener('click', () => {
         const val = parseInt(globalOffsetInput.value, 10);
         if (!isNaN(val)) {
             currentGlobalOffset = val;
             saveAndNotify({ globalSyncOffset: val });
-
-            // Also update the current effective offset to match the new global if user wants it applied immediately
-            // But usually this just sets the background default.
 
             globalOffsetSetBtn.textContent = 'Saved!';
             globalOffsetSetBtn.style.backgroundColor = '#1ed760';
@@ -392,6 +481,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // =========================================================
+    //  SLIDE NAVIGATION
+    // =========================================================
+    btnOpenCustomize.addEventListener('click', () => {
+        popupSlides.style.transform = 'translateX(-50%)';
+    });
+
+    btnBack.addEventListener('click', () => {
+        popupSlides.style.transform = 'translateX(0)';
+    });
+
+    // =========================================================
+    //  CUSTOMIZATION LISTENERS
+    // =========================================================
+
+    // Font Family
+    fontFamilySelect.addEventListener('change', () => {
+        const val = fontFamilySelect.value;
+        glowPreview.style.fontFamily = val;
+        saveAndNotify({ customFont: val });
+    });
+
+    // Font Size (1-10 step maps to 10px-28px)
+    fontSizeSlider.addEventListener('input', () => {
+        const step = parseInt(fontSizeSlider.value, 10);
+        fontSizeValue.textContent = step;
+        const realPx = 10 + ((step - 1) * 2); // 1=10px, 5=18px, 10=28px
+        glowPreview.style.fontSize = `${realPx}px`;
+    });
+    fontSizeSlider.addEventListener('change', () => {
+        const step = parseInt(fontSizeSlider.value, 10);
+        const realPx = 10 + ((step - 1) * 2);
+        saveAndNotify({ fontSize: realPx });
+    });
+
+    // Background Blur (0-10 naturally matches 0-10px max required)
+    blurSlider.addEventListener('input', () => {
+        const step = parseInt(blurSlider.value, 10);
+        blurValue.textContent = step;
+    });
+    blurSlider.addEventListener('change', () => {
+        const step = parseInt(blurSlider.value, 10);
+        saveAndNotify({ bgBlur: step });
+    });
+
+    // Background Darkness (0-10 maps to 0-100%)
+    darknessSlider.addEventListener('input', () => {
+        const step = parseInt(darknessSlider.value, 10);
+        darknessValue.textContent = step;
+    });
+    darknessSlider.addEventListener('change', () => {
+        const step = parseInt(darknessSlider.value, 10);
+        const realPercent = step * 10; // 0=0%, 5=50%, 10=100%
+        saveAndNotify({ bgDarkness: realPercent });
+    });
+
+    // Cover Mode
+    coverModeGroup.addEventListener('click', (e) => {
+        const option = e.target.closest('.cover-mode-option');
+        if (!option) return;
+        document.querySelectorAll('.cover-mode-option').forEach(o => o.classList.remove('selected'));
+        option.classList.add('selected');
+        saveAndNotify({ coverMode: option.dataset.mode });
+    });
+
+    // Glow Toggle
+    toggleGlow.addEventListener('change', () => {
+        glowPreview.classList.toggle('active', toggleGlow.checked);
+        glowStyleContainer.style.display = toggleGlow.checked ? 'flex' : 'none';
+        saveAndNotify({ glowEnabled: toggleGlow.checked });
+    });
+
+    // Glow Style
+    glowStyleSelect.addEventListener('change', () => {
+        const val = glowStyleSelect.value;
+        glowPreview.classList.toggle('rainbow', val === 'rainbow');
+        saveAndNotify({ glowStyle: val });
+    });
+
+    // Show Lyrics Toggle
+    toggleShowLyrics.addEventListener('change', () => {
+        saveAndNotify({ showLyrics: toggleShowLyrics.checked });
+    });
+
+    // =========================================================
+    //  HELPERS
+    // =========================================================
     function adjustOffset(delta) {
         let newOffset = currentEffectiveOffset + delta;
         updateOffsetDisplay(newOffset);
@@ -405,7 +581,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveAndNotify(changes) {
         chrome.storage.local.set(changes, () => {
-            // Notify all music player tabs' content scripts
             chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
                 tabs.forEach(tab => {
                     if (tab.id) {

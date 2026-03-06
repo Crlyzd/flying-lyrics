@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics – Mockup</title>
+    <!-- Pre-load some Google Fonts to demo the preview -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Montserrat:wght@400;700&family=Outfit:wght@400;700&family=Poppins:wght@400;700&family=Roboto:wght@400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* =========================================================
+         *  BASE
+         * ========================================================= */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 300px;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: white;
+            user-select: none;
+            margin: 0;
+            overflow: hidden;
+            /* hide the outgoing slide */
+        }
+
+        /* =========================================================
+         *  SLIDE CONTAINER — holds both slides side by side
+         * ========================================================= */
+        .popup-slides {
+            display: flex;
+            width: 200%;
+            /* 2 panels × 300px = 600px */
+            transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Each slide is exactly 300px wide (half of 200%) */
+        .slide {
+            width: 50%;
+            /* = 300px */
+            min-height: 100%;
+            flex-shrink: 0;
+            padding: 15px;
+        }
+
+        /* =========================================================
+         *  HEADER  (shared look)
+         * ========================================================= */
+        .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .popup-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #1DB954;
+            flex: 1;
+            text-align: center;
+        }
+
+        /* Back / settings icon buttons */
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 17px;
+            line-height: 1;
+            transition: background 0.18s, color 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: #282828;
+            color: white;
+        }
+
+        /* Placeholder so header stays centred even without back button */
+        .icon-btn.phantom {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* =========================================================
+         *  SHARED CONTROL GROUP
+         * ========================================================= */
+        .control-group {
+            margin-bottom: 15px;
+            background: #282828;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* =========================================================
+         *  TOGGLE SWITCH
+         * ========================================================= */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .switch .knob {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #535353;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .switch .knob::before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .switch input:checked+.knob {
+            background-color: #1DB954;
+        }
+
+        .switch input:checked+.knob::before {
+            transform: translateX(20px);
+        }
+
+        /* =========================================================
+         *  DROPDOWN
+         * ========================================================= */
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #3E3E3E;
+            color: white;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Buttons */
+        .btn-full {
+            width: 100%;
+            background: #3E3E3E;
+            padding: 8px;
+            border-radius: 4px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-full:hover {
+            background: #535353;
+        }
+
+        .btn-full:active {
+            transform: scale(0.98);
+        }
+
+        /* =========================================================
+         *  SEARCH (main slide)
+         * ========================================================= */
+        .search-bar-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 8px 10px;
+            border-radius: 4px;
+            border: none;
+            background-color: #3E3E3E;
+            color: white;
+            outline: none;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+        }
+
+        .search-btn {
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-btn:hover {
+            background-color: #1ed760;
+        }
+
+        /* Sync Offset */
+        .btn-small {
+            background: #3E3E3E;
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .btn-small:hover {
+            background: #535353;
+        }
+
+        #offset-display {
+            font-family: monospace;
+            font-size: 16px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* Search results */
+        .search-results-container {
+            max-height: 180px;
+            overflow-y: auto;
+            background-color: #1A1A1A;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .result-item {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-item:hover {
+            background-color: #333;
+        }
+
+        .result-title {
+            font-weight: bold;
+            font-size: 13px;
+            color: white;
+            margin-bottom: 2px;
+        }
+
+        .result-meta {
+            font-size: 11px;
+            color: #AAA;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .result-badge {
+            background: #1DB954;
+            color: #000;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 9px;
+            margin-left: 5px;
+            display: inline-block;
+        }
+
+        .active-lyric {
+            border-left: 3px solid #1DB954;
+            background-color: rgba(29, 185, 84, .1);
+        }
+
+        /* =========================================================
+         *  FOOTER
+         * ========================================================= */
+        .footer {
+            font-size: 11px;
+            color: #888;
+            line-height: 1.5;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .footer p {
+            margin: 4px 0;
+        }
+
+        .footer a {
+            color: #1DB954;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            color: #1ed760;
+            text-decoration: underline;
+        }
+
+        /* =========================================================
+         *  SLIDE 2 – CUSTOMIZATION
+         * ========================================================= */
+
+        /* --- Range slider --- */
+        .range-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .range-row input[type=range] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 4px;
+            border-radius: 4px;
+            background: #3E3E3E;
+            outline: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .range-row input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #1DB954;
+            cursor: pointer;
+            box-shadow: 0 0 4px rgba(29, 185, 84, .5);
+            transition: transform 0.15s;
+        }
+
+        .range-row input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .range-value {
+            font-size: 12px;
+            min-width: 38px;
+            text-align: right;
+            color: #1DB954;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        /* --- Cover Background Mode option cards --- */
+        .cover-mode-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .cover-mode-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            background: #3E3E3E;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s, background 0.2s;
+            font-size: 13px;
+        }
+
+        .cover-mode-option:hover {
+            background: #4a4a4a;
+        }
+
+        .cover-mode-option.selected {
+            border-color: #1DB954;
+            background: rgba(29, 185, 84, .08);
+        }
+
+        .cover-mode-icon {
+            font-size: 16px;
+            width: 22px;
+            text-align: center;
+        }
+
+        .cover-mode-desc {
+            flex: 1;
+        }
+
+        .cover-mode-desc span {
+            display: block;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .cover-radio {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #535353;
+            background: transparent;
+            flex-shrink: 0;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .cover-mode-option.selected .cover-radio {
+            border-color: #1DB954;
+            background: #1DB954;
+        }
+
+        /* --- Glow toggle description --- */
+        .glow-label-desc {
+            font-size: 11px;
+            color: #888;
+            margin-top: 2px;
+            font-weight: normal;
+        }
+
+        /* --- Animated glow preview text --- */
+        @keyframes lyric-glow {
+            0% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+                opacity: 1;
+            }
+
+            50% {
+                text-shadow: 0 0 18px #1ed760, 0 0 30px #1DB954, 0 0 5px #fff;
+                opacity: 0.85;
+            }
+
+            100% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+                opacity: 1;
+            }
+        }
+
+        .glow-preview {
+            font-size: 18px;
+            color: #1DB954;
+            font-weight: bold;
+            text-align: center;
+            padding: 8px 0 2px;
+            letter-spacing: 0.03em;
+            transition: font-size 0.2s, font-family 0.2s;
+        }
+
+        .glow-preview.active {
+            animation: lyric-glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- =====================================================================
+     SLIDE WRAPPER — slides horizontally between main and customization
+     ===================================================================== -->
+    <div class="popup-slides" id="popup-slides">
+
+        <!-- =========================================================
+         SLIDE 1 – MAIN
+         ========================================================= -->
+        <div class="slide" id="slide-main">
+
+            <div class="popup-header">
+                <!-- phantom so h2 stays centred -->
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
+                <h2>Flying Lyrics</h2>
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
+            </div>
+
+            <!-- Manual Lyric Search -->
+            <div class="control-group">
+                <label>Manual Lyric Search</label>
+                <div class="search-bar-row">
+                    <input type="text" class="search-input" placeholder="Artist - Title" value="Dixie Flatline - ジェミニ">
+                    <button class="search-btn">Search</button>
+                </div>
+                <div class="search-bar-row" style="margin-top:5px; margin-bottom:10px;">
+                    <button
+                        style="width:100%; background:#3E3E3E; padding:6px; border-radius:4px; color:white; border:none; cursor:pointer; font-size:12px;">
+                        📁 Load Local .lrc File
+                    </button>
+                </div>
+                <div class="search-results-container">
+                    <div style="padding:10px; text-align:center; font-size:12px; color:#888;">
+                        Click Search to find lyric versions.
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW: Customize Visuals Button (Above Auto-Launch) -->
+            <div style="margin-bottom: 15px;">
+                <button class="btn-full" id="btn-open-customize">
+                    <span style="margin-right: 6px;">🎨</span> Customize Visuals
+                </button>
+            </div>
+
+            <!-- Auto-Launch -->
+            <div class="control-group">
+                <div class="row">
+                    <label style="margin:0">Auto-Launch Lyrics</label>
+                    <label class="switch">
+                        <input type="checkbox"><span class="knob"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Show Translation -->
+            <div class="control-group">
+                <div class="row">
+                    <label style="margin:0">Show Translation</label>
+                    <label class="switch">
+                        <input type="checkbox" checked><span class="knob"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Translation Language -->
+            <div class="control-group">
+                <label>Translation Language</label>
+                <select>
+                    <option>Indonesian</option>
+                    <option>English</option>
+                    <option>Japanese</option>
+                </select>
+            </div>
+
+            <!-- Sync Offset -->
+            <div class="control-group">
+                <label style="text-align:center; margin-bottom:15px;">Sync Offset (ms)</label>
+                <div style="display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:12px;">
+                    <button class="btn-small">−</button>
+                    <span id="offset-display">+1000</span>
+                    <button class="btn-small">+</button>
+                </div>
+                <div style="height:1px; background:#3E3E3E; margin:12px 0;"></div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:20px;">
+                    <input type="number" value="1000"
+                        style="width:65px; padding:7px; border-radius:4px; border:none; background:#3E3E3E; color:white; text-align:center; font-family:monospace; font-size:14px; outline:none;">
+                    <button class="search-btn" style="padding:7px 12px; font-size:13px; width:100px;">Set
+                        Global</button>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>v1.0.0 – Enhance your music experience</p>
+                <p>Made with ❤ by Kaleksanan Bagus</p>
+                <p style="margin-top:10px;">☕ Buy me a coffee:
+                    <a href="#">Saweria</a> / <a href="#">PayPal</a>
+                </p>
+            </div>
+
+        </div><!-- /slide-main -->
+
+
+        <!-- =========================================================
+         SLIDE 2 – CUSTOMIZATION
+         ========================================================= -->
+        <div class="slide" id="slide-customize">
+
+            <div class="popup-header">
+                <button class="icon-btn" id="btn-back" title="Back">
+                    <!-- Left chevron SVG -->
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+                <h2>Customize Visuals</h2>
+                <button class="icon-btn phantom" aria-hidden="true">✕</button>
+            </div>
+
+            <!-- Visual Settings: font family, font size, bg blur, bg darkness -->
+            <div class="control-group">
+
+                <!-- Font Family -->
+                <label>Font Family</label>
+                <select id="font-family-select" style="margin-bottom: 15px;">
+                    <option value="'Noto Sans', 'Segoe UI', sans-serif">Default (Noto Sans/Segoe UI)</option>
+                    <option value="'Inter', sans-serif">Inter</option>
+                    <option value="'Roboto', sans-serif">Roboto</option>
+                    <option value="'Poppins', sans-serif">Poppins</option>
+                    <option value="'Montserrat', sans-serif">Montserrat</option>
+                    <option value="'Outfit', sans-serif">Outfit</option>
+                </select>
+
+                <!-- Font Size -->
+                <label>Lyrics Font Size</label>
+                <div class="range-row">
+                    <input type="range" id="font-slider" min="10" max="36" value="18">
+                    <span class="range-value" id="font-value">18px</span>
+                </div>
+
+                <!-- Background Blur -->
+                <label>Background Blur</label>
+                <div class="range-row">
+                    <input type="range" id="blur-slider" min="0" max="40" value="12">
+                    <span class="range-value" id="blur-value">12px</span>
+                </div>
+
+                <!-- Background Darkness -->
+                <label>Background Darkness</label>
+                <div class="range-row" style="margin-bottom: 0;">
+                    <input type="range" id="darkness-slider" min="0" max="100" value="40">
+                    <span class="range-value" id="darkness-value">40%</span>
+                </div>
+
+            </div>
+
+            <!-- Cover Background Display -->
+            <div class="control-group">
+                <label style="margin-bottom:10px;">Cover Background Mode</label>
+                <div class="cover-mode-group" id="cover-mode-group">
+
+                    <div class="cover-mode-option selected" data-mode="centered">
+                        <span class="cover-radio"></span>
+                        <span class="cover-mode-icon">🎯</span>
+                        <div class="cover-mode-desc">
+                            Centered
+                            <span>Cover centred; bg filled dynamically</span>
+                        </div>
+                    </div>
+
+                    <div class="cover-mode-option" data-mode="repeated">
+                        <span class="cover-radio"></span>
+                        <span class="cover-mode-icon">🔁</span>
+                        <div class="cover-mode-desc">
+                            Repeated
+                            <span>Cover art tiled across background</span>
+                        </div>
+                    </div>
+
+                    <div class="cover-mode-option" data-mode="default">
+                        <span class="cover-radio"></span>
+                        <span class="cover-mode-icon">🖼</span>
+                        <div class="cover-mode-desc">
+                            Default (Blurred BG)
+                            <span>Original full-blurred cover fill</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Glowing Text Toggle -->
+            <div class="control-group">
+                <div class="row">
+                    <div>
+                        <label style="margin:0">Glowing Lyrics</label>
+                        <div class="glow-label-desc">Animated glow on highlighted line</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="glow-toggle"><span class="knob"></span>
+                    </label>
+                </div>
+                <!-- Live glow preview -->
+                <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
+            </div>
+
+        </div><!-- /slide-customize -->
+
+    </div><!-- /popup-slides -->
+
+
+    <script>
+        // =========================================================
+        //  SLIDE NAVIGATION
+        // =========================================================
+        const slides = document.getElementById('popup-slides');
+
+        document.getElementById('btn-open-customize').addEventListener('click', () => {
+            slides.style.transform = 'translateX(-50%)';
+        });
+
+        document.getElementById('btn-back').addEventListener('click', () => {
+            slides.style.transform = 'translateX(0)';
+        });
+
+        // =========================================================
+        //  PREVIEW UPDATES (Font & Glow)
+        // =========================================================
+        const glowToggle = document.getElementById('glow-toggle');
+        const glowPreview = document.getElementById('glow-preview');
+        const fontFamilySelect = document.getElementById('font-family-select');
+
+        glowToggle.addEventListener('change', () => {
+            glowPreview.classList.toggle('active', glowToggle.checked);
+        });
+
+        // =========================================================
+        //  RANGE SLIDERS
+        // =========================================================
+        function bindSlider(sliderId, displayId, suffix, onInputCallback = null) {
+            const slider = document.getElementById(sliderId);
+            const display = document.getElementById(displayId);
+            slider.addEventListener('input', () => {
+                display.textContent = slider.value + suffix;
+                if (onInputCallback) onInputCallback(slider.value);
+            });
+        }
+
+        bindSlider('blur-slider', 'blur-value', 'px');
+        bindSlider('darkness-slider', 'darkness-value', '%');
+
+        // Update the live preview text font size and family
+        bindSlider('font-slider', 'font-value', 'px', (val) => {
+            glowPreview.style.fontSize = val + 'px';
+        });
+
+        fontFamilySelect.addEventListener('change', (e) => {
+            glowPreview.style.fontFamily = e.target.value;
+        });
+
+        // =========================================================
+        //  COVER MODE SELECTION
+        // =========================================================
+        document.getElementById('cover-mode-group').addEventListener('click', (e) => {
+            const option = e.target.closest('.cover-mode-option');
+            if (!option) return;
+            document.querySelectorAll('.cover-mode-option').forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+        });
+
+    </script>
+
+</body>
+
+</html>

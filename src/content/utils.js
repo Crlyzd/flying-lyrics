@@ -20,29 +20,63 @@ async function extractPalette(imgUrl) {
         context.drawImage(img, 0, 0, 50, 50);
 
         const data = context.getImageData(0, 0, 50, 50).data;
-        let r = 0, g = 0, b = 0, count = 0;
 
-        // Simple dominant color sampling (filtering out extremes)
+        // --- Histogram bucketing for dominant color ---
+        // Quantize each pixel into coarse RGB buckets (step = 32 → 8 levels per channel)
+        // then pick the bucket with the most pixels.
+        const STEP = 32;
+        const buckets = {};   // key: "qR,qG,qB" → { r, g, b, count }
+
         for (let i = 0; i < data.length; i += 4) {
             const tr = data[i], tg = data[i + 1], tb = data[i + 2];
             const brightness = (tr * 299 + tg * 587 + tb * 114) / 1000;
-            // Filter out very dark or very light pixels to find "color"
-            if (brightness > 40 && brightness < 220) {
-                r += tr; g += tg; b += tb;
-                count++;
+
+            // Skip very dark / very light pixels (backgrounds, highlights)
+            if (brightness <= 40 || brightness >= 220) continue;
+
+            // Also skip low-saturation (gray) pixels — they dilute the dominant hue
+            const maxC = Math.max(tr, tg, tb), minC = Math.min(tr, tg, tb);
+            if (maxC - minC < 30) continue; // near-gray → skip
+
+            const qR = Math.floor(tr / STEP) * STEP;
+            const qG = Math.floor(tg / STEP) * STEP;
+            const qB = Math.floor(tb / STEP) * STEP;
+            const key = `${qR},${qG},${qB}`;
+
+            if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0 };
+            buckets[key].r += tr;
+            buckets[key].g += tg;
+            buckets[key].b += tb;
+            buckets[key].count++;
+        }
+
+        // Find the bucket with the highest pixel count
+        let best = null;
+        for (const key in buckets) {
+            if (!best || buckets[key].count > best.count) {
+                best = buckets[key];
             }
         }
 
-        if (count > 0) {
-            r = Math.floor(r / count);
-            g = Math.floor(g / count);
-            b = Math.floor(b / count);
+        // Fallback: if no colorful bucket found, use simple average
+        if (!best || best.count === 0) {
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
+            }
+            if (count > 0) best = { r, g, b, count };
+        }
+
+        if (best && best.count > 0) {
+            // Average the actual pixel colors inside the winning bucket for accuracy
+            const r = Math.floor(best.r / best.count);
+            const g = Math.floor(best.g / best.count);
+            const b = Math.floor(best.b / best.count);
 
             // Boost saturation and brightness for the "vibrant" color
             const hsl = rgbToHsl(r, g, b);
             currentPalette.vibrant = hslToRgb(hsl.h, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.6));
             currentPalette.trans = hslToRgb(hsl.h, Math.max(hsl.s, 0.4), Math.max(hsl.l, 0.8));
-            // Fix: hue is 0-1, so shift by 30 degrees is 30/360. Also guarantee high lightness for readability.
             currentPalette.romaji = hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.8));
 
             // Set CSS custom properties for UI controls

@@ -34,6 +34,11 @@ function renderLoop() {
         if (bg.style.backgroundImage !== newBg) {
             bg.style.backgroundImage = newBg;
             extractPalette(art); // Trigger color extraction
+
+            // Also update the centered art (if in centered mode)
+            if (typeof updateCenteredArt === 'function') {
+                updateCenteredArt(art);
+            }
         }
     }
 
@@ -125,12 +130,15 @@ function renderLoop() {
         let currentYOffset = 0;
         const lineOffsets = [];
 
-        // Target width for the active line fit — 75% of maxWidth gives breathing
-        // room so a 2-word lyric doesn't stretch wall-to-wall uncomfortably.
+        // Scale factor derived from the user font size slider.
+        // Default slider value (18) yields scale = 1.0.
+        // Range 10–36 gives roughly 0.56x to 2.0x.
+        const fontScale = userFontSize / 18;
+
+        // Target width for the active line fit
         const fitWidth = maxWidth * 0.75;
-        // Hard floor/ceiling for the active line so it never looks broken.
-        const activeSizeMin = vmin * 6.5;
-        const activeSizeMax = vmin * 9.5;
+        const activeSizeMin = vmin * 6.5 * fontScale;
+        const activeSizeMax = vmin * 9.5 * fontScale;
 
         for (let i = 0; i < lyricLines.length; i++) {
             const line = lyricLines[i];
@@ -144,12 +152,12 @@ function renderLoop() {
                     line.text,
                     `700 {SIZE}px ${userFontFamily}`,
                     fitWidth,
-                    vmin * 7.5,   // baseline measurement size
+                    vmin * 7.5 * fontScale, // baseline measurement size
                     activeSizeMin,
                     activeSizeMax
                 );
             } else {
-                mainSize = vmin * 5.2;
+                mainSize = vmin * 5.2 * fontScale;
             }
 
             // Romaji and translation for the active line scale with mainSize
@@ -215,89 +223,112 @@ function renderLoop() {
     ctx.save();
     ctx.translate(w / 2, (h / 2) - scrollPos);
 
-    lyricLines.forEach((line, i) => {
-        const y = cachedLayout[i];
+    if (userShowLyrics) {
+        lyricLines.forEach((line, i) => {
+            const y = cachedLayout[i];
 
-        // --- CULLING: Skip drawing off-screen lines ---
-        // Calculate where this line will actually render on the screen
-        const screenY = (h / 2) - scrollPos + y;
+            // --- CULLING: Skip drawing off-screen lines ---
+            // Calculate where this line will actually render on the screen
+            const screenY = (h / 2) - scrollPos + y;
 
-        // If it's more than half a full screen-height above or below the view, ignore it.
-        // We give it a generous buffer window so shadows don't abruptly pop in.
-        if (screenY < -h * 0.5 || screenY > h * 1.5) {
-            return;
-        }
+            // If it's more than half a full screen-height above or below the view, ignore it.
+            // We give it a generous buffer window so shadows don't abruptly pop in.
+            if (screenY < -h * 0.5 || screenY > h * 1.5) {
+                return;
+            }
 
-        const dist = Math.abs(i - activeIdx);
-        // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
-        ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
-        ctx.textAlign = "center";
+            const dist = Math.abs(i - activeIdx);
+            // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
+            ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
+            ctx.textAlign = "center";
 
-        const isCurrent = (i === activeIdx);
+            const isCurrent = (i === activeIdx);
 
-        // Universal Dark Shadow for all text
-        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        ctx.shadowBlur = 8;
-
-        // Mirror the layout block's sizing logic exactly so draw positions
-        // match the pre-computed offsets in cachedLayout.
-        let mainSize;
-        if (isCurrent) {
-            mainSize = calculateFitSize(
-                ctx,
-                line.text,
-                `700 {SIZE}px ${userFontFamily}`,
-                maxWidth * 0.75,
-                vmin * 7.5,
-                vmin * 6.5,
-                vmin * 9.5
-            );
-        } else {
-            mainSize = vmin * 5.2;
-        }
-        const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2;
-        const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2;
-
-        // 1. Romaji (Top)
-        if (line.romaji) {
-            ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
-            // Revert inactive romaji to light gray for readability
-            ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
-            // Shift up to make room
-            wrapText(ctx, line.romaji, 0, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
-        }
-
-        // 2. Original Text (Middle)
-        ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
-        // Inactive main text stays white
-        ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
-
-        // Draw main text
-        wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
-
-        // If current, draw a second pass with the vibrant glow to ensure both contrast and vibrancy
-        if (isCurrent) {
-            ctx.shadowColor = currentPalette.vibrant;
-            ctx.shadowBlur = 15;
-            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
-        }
-
-        // 3. Translation (Bottom)
-        if (showTranslation && line.translation) {
-            // Calculate downward baseline shift for wrapped lyrics
-            ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
-            const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
-            const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-
+            // Universal Dark Shadow for all text
             ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
             ctx.shadowBlur = 8;
 
-            ctx.font = `600 ${transSize}px ${userFontFamily}`;
-            ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
+            // Mirror the layout block's sizing logic exactly so draw positions
+            // match the pre-computed offsets in cachedLayout.
+            // fontScale is computed in the layout block above and also needed in the draw pass.
+            const fontScale = userFontSize / 18;
 
-            wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
-        }
-    });
+            let mainSize;
+            if (isCurrent) {
+                mainSize = calculateFitSize(
+                    ctx,
+                    line.text,
+                    `700 {SIZE}px ${userFontFamily}`,
+                    maxWidth * 0.75,
+                    vmin * 7.5 * fontScale,
+                    vmin * 6.5 * fontScale,
+                    vmin * 9.5 * fontScale
+                );
+            } else {
+                mainSize = vmin * 5.2 * fontScale;
+            }
+            const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
+            const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
+
+            // 1. Romaji (Top)
+            if (line.romaji) {
+                ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
+                // Revert inactive romaji to light gray for readability
+                ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
+                // Shift up to make room
+                wrapText(ctx, line.romaji, 0, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
+            }
+
+            // 2. Original Text (Middle)
+            ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
+            // Inactive main text stays white
+            ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
+
+            // Draw main text
+            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+
+            // Draw glow pass for the active line:
+            // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
+            // fixed vibrant glow that already existed (subtle, palette-matched).
+            if (isCurrent) {
+                if (userGlowEnabled && userGlowStyle === 'rainbow') {
+                    const timeSec = performance.now() / 1000;
+                    const hue = (timeSec * 60) % 360;
+                    ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
+                } else {
+                    ctx.shadowColor = currentPalette.vibrant;
+                }
+
+                if (userGlowEnabled) {
+                    // Pulse between 10 and 40 shadow blur over ~2s cycle
+                    const glowTime = performance.now() / 1000;
+                    const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
+                    ctx.shadowBlur = pulsedBlur;
+                    // Request a re-render next frame so the animation is continuous
+                    // (handled by the outer requestAnimationFrame loop in renderLoop)
+                } else {
+                    ctx.shadowBlur = 15;
+                }
+                wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+            }
+
+            // 3. Translation (Bottom)
+            if (showTranslation && line.translation) {
+                // Calculate downward baseline shift for wrapped lyrics
+                ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
+                const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
+                const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
+
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 8;
+
+                ctx.font = `600 ${transSize}px ${userFontFamily}`;
+                ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
+
+                wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
+            }
+        });
+    }
 
     ctx.restore();
 

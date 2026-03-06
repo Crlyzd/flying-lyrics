@@ -11,6 +11,8 @@ function injectStructure() {
     const doc = pipWin.document;
     doc.body.innerHTML = `
         <div id="bg-cover"></div>
+        <div id="bg-darkness"></div>
+        <img id="center-art" src="" alt="">
         <canvas id="lyricCanvas"></canvas>
         <button id="back-btn">⤺ Back to tab</button>
         <div id="ui-container">
@@ -38,6 +40,15 @@ function injectStructure() {
             </div>
         </div>
         <style>
+            #bg-darkness {
+                position: absolute;
+                inset: 0;
+                background: #000;
+                opacity: ${userBgDarkness / 100};
+                z-index: 2;
+                pointer-events: none;
+                transition: opacity 0.4s ease;
+            }
             #back-btn {
                 position: absolute; top: 15px; left: 15px;
                 background: rgba(255,255,255,0.2); border: none;
@@ -69,6 +80,11 @@ function injectStructure() {
             }
             #sync-indicator.is-synced {
                 color: rgba(255, 255, 255, 0.9); border-color: rgba(29, 185, 84, 0.3);
+            }
+            @keyframes lyric-glow {
+                0%   { text-shadow: 0 0 8px currentColor, 0 0 16px currentColor; }
+                50%  { text-shadow: 0 0 24px currentColor, 0 0 40px currentColor, 0 0 6px #fff; }
+                100% { text-shadow: 0 0 8px currentColor, 0 0 16px currentColor; }
             }
         </style>
     `;
@@ -176,6 +192,139 @@ function updateSyncIndicator() {
     }
 }
 
+/**
+ * Applies all current visual customization settings to the open PiP window.
+ * Safe to call at any time — bails out immediately if the window isn't open.
+ */
+function applyVisualSettings() {
+    if (!pipWin || pipWin.closed) return;
+    const doc = pipWin.document;
+
+    const bgCover = doc.getElementById('bg-cover');
+    const centerArt = doc.getElementById('center-art');
+    const blurPx = userBgBlur;
+
+    if (userCoverMode === 'centered') {
+        // Hide the blurred full-cover bleeding background
+        if (bgCover) bgCover.style.display = 'none';
+
+        if (centerArt) {
+            centerArt.classList.add('visible');
+            // Apply the user's blur to the center art, but keep it fully bright
+            centerArt.style.filter = `drop-shadow(0 8px 32px rgba(0,0,0,0.65)) drop-shadow(0 2px 8px rgba(0,0,0,0.45)) blur(${blurPx}px)`;
+        }
+
+        // Set body background to a palette-derived gradient (lighter at top, darker at bottom)
+        if (currentPalette && currentPalette.vibrant) {
+            const baseBg = deriveDarkBg(currentPalette.vibrant);
+            const topBg = deriveLightBg(currentPalette.vibrant);
+            doc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
+        } else {
+            doc.body.style.background = '#121212';
+        }
+
+        updateCenteredArt(getCoverArt());
+
+    } else {
+        // Restore default blurred background behavior
+        if (bgCover) {
+            bgCover.style.display = '';
+            if (userCoverMode === 'repeated') {
+                bgCover.style.backgroundSize = '400px 400px';
+                bgCover.style.backgroundRepeat = 'repeat';
+                bgCover.style.backgroundPosition = 'center';
+            } else {
+                // 'default' — original blurred full-cover
+                bgCover.style.backgroundSize = 'cover';
+                bgCover.style.backgroundRepeat = 'no-repeat';
+                bgCover.style.backgroundPosition = 'center';
+            }
+            bgCover.style.filter = `blur(${blurPx}px)`;
+        }
+
+        if (centerArt) {
+            centerArt.classList.remove('visible');
+        }
+        doc.body.style.background = ''; // clear gradient
+    }
+
+    // --- Background Darkness Overlay ---
+    const bgDark = doc.getElementById('bg-darkness');
+    if (bgDark) {
+        bgDark.style.opacity = String(userBgDarkness / 100);
+    }
+
+    // --- Font Family (reload Google Font if needed) ---
+    const systemFontNames = ['noto sans', 'segoe ui', 'sans-serif', 'arial', 'helvetica', 'serif', 'monospace'];
+    const primaryFont = userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().toLowerCase();
+    const isSystemFont = systemFontNames.some(sf => primaryFont.includes(sf));
+
+    // Remove any previously injected Google Font links so we don't pile them up
+    doc.querySelectorAll('link[data-fl-font]').forEach(el => el.remove());
+
+    if (!isSystemFont) {
+        const formattedFontName = userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().replace(/ /g, '+');
+        const fontLink = doc.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.dataset.flFont = '1'; // marker so we can remove it later
+        fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
+        doc.head.appendChild(fontLink);
+    }
+
+    // Trigger layout recalculation so the canvas re-draws with the new font
+    if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+}
+
+/**
+ * Derives a dark-ish background color from a vibrant rgb string.
+ * Used as the bottom of the gradient in centered mode.
+ */
+function deriveDarkBg(vibrantColorStr) {
+    if (!vibrantColorStr) return '#121212';
+    const match = vibrantColorStr.match(/\d+/g);
+    if (!match || match.length < 3) return '#121212';
+    const [r, g, b] = match.map(Number);
+    const hsl = rgbToHsl(r, g, b);
+    // Lightness 40%, high saturation 75% — rich and clearly colored
+    return hslToRgb(hsl.h, Math.max(hsl.s, 0.75), 0.40);
+}
+
+/**
+ * Derives a lighter version of the palette color.
+ * Used as the top of the gradient in centered mode.
+ */
+function deriveLightBg(vibrantColorStr) {
+    if (!vibrantColorStr) return '#2a2a2a';
+    const match = vibrantColorStr.match(/\d+/g);
+    if (!match || match.length < 3) return '#2a2a2a';
+    const [r, g, b] = match.map(Number);
+    const hsl = rgbToHsl(r, g, b);
+    // Lightness 60%, saturation 65% — lighter band at top, still clearly colored
+    return hslToRgb(hsl.h, Math.max(hsl.s, 0.65), 0.60);
+}
+
+/**
+ * Updates the <img id="center-art"> source and the body background color.
+ */
+function updateCenteredArt(artUrl) {
+    if (!pipWin || pipWin.closed || userCoverMode !== 'centered') return;
+
+    const img = pipWin.document.getElementById('center-art');
+    if (img && artUrl) {
+        img.src = artUrl;
+    }
+
+    // Delay slightly to let extractPalette finish async processing
+    setTimeout(() => {
+        if (!pipWin || pipWin.closed || userCoverMode !== 'centered') return;
+        if (currentPalette && currentPalette.vibrant) {
+            const baseBg = deriveDarkBg(currentPalette.vibrant);
+            const topBg = deriveLightBg(currentPalette.vibrant);
+            pipWin.document.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
+        }
+    }, 250);
+}
+
 const createLauncher = () => {
     const host = window.location.hostname;
     const isSpotify = host.includes('spotify');
@@ -244,6 +393,7 @@ const createLauncher = () => {
             }
 
             injectStructure();
+            applyVisualSettings();
             fetchLyrics();
 
             pipWin.requestAnimationFrame(renderLoop);
