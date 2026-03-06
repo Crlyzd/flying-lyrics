@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const glowStyleContainer = document.getElementById('glow-style-container');
     const glowStyleSelect = document.getElementById('glow-style-select');
     const toggleShowLyrics = document.getElementById('toggle-show-lyrics');
+    const alignSelect = document.getElementById('align-select');
     const glowPreview = document.getElementById('glow-preview');
 
     // State
@@ -104,6 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         glowEnabled: false,
         glowStyle: 'theme',
         showLyrics: true,
+        lyricAlignment: 'center',
     }, (items) => {
         // Main settings
         toggleTrans.checked = items.showTranslation;
@@ -132,6 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
         darknessValue.textContent = darkStep;
 
         toggleShowLyrics.checked = items.showLyrics;
+        alignSelect.value = items.lyricAlignment;
         toggleGlow.checked = items.glowEnabled;
         glowStyleSelect.value = items.glowStyle;
         glowStyleContainer.style.display = items.glowEnabled ? 'flex' : 'none';
@@ -563,6 +566,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show Lyrics Toggle
     toggleShowLyrics.addEventListener('change', () => {
         saveAndNotify({ showLyrics: toggleShowLyrics.checked });
+    });
+
+    // Lyric Alignment
+    alignSelect.addEventListener('change', () => {
+        saveAndNotify({ lyricAlignment: alignSelect.value });
     });
 
     // =========================================================

@@ -240,7 +240,17 @@ function renderLoop() {
             const dist = Math.abs(i - activeIdx);
             // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
             ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
-            ctx.textAlign = "center";
+
+            let drawX = 0;
+            if (userLyricAlignment === 'left') {
+                ctx.textAlign = 'left';
+                drawX = -(maxWidth / 2);
+            } else if (userLyricAlignment === 'right') {
+                ctx.textAlign = 'right';
+                drawX = maxWidth / 2;
+            } else {
+                ctx.textAlign = 'center';
+            }
 
             const isCurrent = (i === activeIdx);
 
@@ -276,7 +286,7 @@ function renderLoop() {
                 // Revert inactive romaji to light gray for readability
                 ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
                 // Shift up to make room
-                wrapText(ctx, line.romaji, 0, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
+                wrapText(ctx, line.romaji, drawX, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
             }
 
             // 2. Original Text (Middle)
@@ -285,7 +295,7 @@ function renderLoop() {
             ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
 
             // Draw main text
-            wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+            wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
 
             // Draw glow pass for the active line:
             // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
@@ -309,7 +319,7 @@ function renderLoop() {
                 } else {
                     ctx.shadowBlur = 15;
                 }
-                wrapText(ctx, line.text, 0, y, maxWidth, mainSize * 1.2, false);
+                wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
             }
 
             // 3. Translation (Bottom)
@@ -325,7 +335,7 @@ function renderLoop() {
                 ctx.font = `600 ${transSize}px ${userFontFamily}`;
                 ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
 
-                wrapText(ctx, `(${line.translation})`, 0, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
+                wrapText(ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
             }
         });
     }

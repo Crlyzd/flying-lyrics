@@ -11,6 +11,7 @@ let userCoverMode = 'default'; // 'default' | 'centered' | 'repeated'
 let userGlowEnabled = false;    // animated glow on the active lyric
 let userGlowStyle = 'theme';    // 'theme' | 'rainbow'
 let userShowLyrics = true;      // toggle to display/hide lyrics completely
+let userLyricAlignment = 'center'; // 'left' | 'center' | 'right' | 'justify'
 
 // Load all user preferences from storage on script init
 const loadUserPreferences = () => {
@@ -23,6 +24,7 @@ const loadUserPreferences = () => {
         glowEnabled: false,
         glowStyle: 'theme',
         showLyrics: true,
+        lyricAlignment: 'center',
     }, (result) => {
         userFontFamily = result.customFont;
         userFontSize = result.fontSize;
@@ -32,6 +34,7 @@ const loadUserPreferences = () => {
         userGlowEnabled = result.glowEnabled;
         userGlowStyle = result.glowStyle;
         userShowLyrics = result.showLyrics;
+        userLyricAlignment = result.lyricAlignment;
 
         // Force layout update if PiP window is already active
         if (typeof needsLayoutUpdate !== 'undefined') {

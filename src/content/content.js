@@ -166,6 +166,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             userShowLyrics = p.showLyrics;
             if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
         }
+        if (p.lyricAlignment !== undefined) {
+            userLyricAlignment = p.lyricAlignment;
+            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+        }
     } else if (msg.type === 'GET_SYNC_OFFSET') {
         sendResponse({ syncOffset });
     } else if (msg.type === 'GET_CURRENT_TRACK') {
