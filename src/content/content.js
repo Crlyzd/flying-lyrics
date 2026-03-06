@@ -1,174 +1,198 @@
-﻿// --- GLOBAL STATE & INIT ---
-let currentTrack = "";
-let lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
-let isCurrentLyricSynced = false;
-let scrollPos = 0;
-let targetScroll = 0;
-let pipWin = null;
+﻿(() => {
+    const fl = window.FLYING_LYRICS || {};
+    window.FLYING_LYRICS = fl;
 
-// Settings
-let showTranslation = true;
-let translationLang = 'id';
-let globalSyncOffset = 1000;
-let syncOffset = 1000;
-let autoLaunch = false; // Auto-open lyrics window on first user interaction
-let songOffsets = {}; // Dictionary: "Artist - Title" -> offset
-let lyricsOverrides = {}; // Dictionary: "Artist - Title" -> { type: 'api', id: 1234 } OR { type: 'local', data: string }
+    // --- GLOBAL STATE & INIT ---
+    fl.currentTrack = "";
+    fl.lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
+    fl.isCurrentLyricSynced = false;
+    fl.scrollPos = 0;
+    fl.targetScroll = 0;
+    fl.pipWin = null;
 
-// Cache State
-let cachedLyrics = { key: "", lines: [], isSynced: false };
+    // Settings
+    fl.showTranslation = fl.defaults.showTranslation;
+    fl.translationLang = fl.defaults.translationLang;
+    fl.globalSyncOffset = fl.defaults.globalSyncOffset;
+    fl.syncOffset = fl.globalSyncOffset;
+    fl.autoLaunch = fl.defaults.autoLaunch;
+    fl.songOffsets = fl.defaults.songOffsets;
+    fl.lyricsOverrides = fl.defaults.lyricsOverrides;
 
-// Active Lyric Source — set by services.js after each successful lyric load.
-// type: 'lrclib' | 'netease' | 'local' | 'auto' | null
-let activeLyricSource = null;
+    // Visual Settings
+    fl.userFontFamily = fl.defaults.customFont;
+    fl.userFontSize = fl.defaults.fontSize;
+    fl.userBgBlur = fl.defaults.bgBlur;
+    fl.userBgDarkness = fl.defaults.bgDarkness;
+    fl.userCoverMode = fl.defaults.coverMode;
+    fl.userGlowEnabled = fl.defaults.glowEnabled;
+    fl.userGlowStyle = fl.defaults.glowStyle;
+    fl.userShowLyrics = fl.defaults.showLyrics;
+    fl.userLyricAlignment = fl.defaults.lyricAlignment;
 
-// Dynamic Colors State
-let currentPalette = {
-    vibrant: "#1DB954", // Default Spotify Green
-    trans: "#A0C0E0",   // Default Translation Blue
-    romaji: "#F5AF19"   // Default Romaji Orange
-};
-let lastExtractedArt = "";
+    // Cache State
+    fl.cachedLyrics = { key: "", lines: [], isSynced: false };
 
-let canvas, ctx;
+    // Active Lyric Source
+    fl.activeLyricSource = null;
 
-// For Spotify Time Interpolation
-let lastTimeStr = "";
-let lastTimeValue = 0;
-let lastUpdateMs = performance.now();
+    // Dynamic Colors State
+    fl.currentPalette = {
+        vibrant: "#1DB954", // Default Spotify Green
+        trans: "#A0C0E0",   // Default Translation Blue
+        romaji: "#F5AF19"   // Default Romaji Orange
+    };
+    fl.lastExtractedArt = "";
 
-// Load initial settings (main + visual customization)
-chrome.storage.local.get({
-    showTranslation: true,
-    translationLang: 'id',
-    globalSyncOffset: 1000,
-    autoLaunch: false,
-    songOffsets: {},
-    lyricsOverrides: {}
-}, (items) => {
-    showTranslation = items.showTranslation;
-    translationLang = items.translationLang;
-    globalSyncOffset = items.globalSyncOffset;
-    syncOffset = globalSyncOffset; // Fallback init
-    autoLaunch = items.autoLaunch;
-    songOffsets = items.songOffsets || {};
-    lyricsOverrides = items.lyricsOverrides || {};
-});
+    fl.canvas = null;
+    fl.ctx = null;
 
-// Listen for updates
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === 'SETTINGS_UPDATE') {
-        const p = msg.payload;
-        if (p.autoLaunch !== undefined) {
-            autoLaunch = p.autoLaunch;
+    // For Spotify Time Interpolation
+    fl.lastTimeStr = "";
+    fl.lastTimeValue = 0;
+    fl.lastUpdateMs = performance.now();
+    fl.needsLayoutUpdate = false;
+
+    // Load initial settings (main + visual customization) ONCE
+    chrome.storage.local.get(fl.defaults, (items) => {
+        // Functional
+        fl.showTranslation = items.showTranslation;
+        fl.translationLang = items.translationLang;
+        fl.globalSyncOffset = items.globalSyncOffset;
+        fl.syncOffset = fl.globalSyncOffset; // Fallback init
+        fl.autoLaunch = items.autoLaunch;
+        fl.songOffsets = items.songOffsets;
+        fl.lyricsOverrides = items.lyricsOverrides;
+
+        // Visual
+        fl.userFontFamily = items.customFont;
+        fl.userFontSize = items.fontSize;
+        fl.userBgBlur = items.bgBlur;
+        fl.userBgDarkness = items.bgDarkness;
+        fl.userCoverMode = items.coverMode;
+        fl.userGlowEnabled = items.glowEnabled;
+        fl.userGlowStyle = items.glowStyle;
+        fl.userShowLyrics = items.showLyrics;
+        fl.userLyricAlignment = items.lyricAlignment;
+
+        fl.needsLayoutUpdate = true;
+        if (typeof fl.applyVisualSettings === 'function') {
+            fl.applyVisualSettings();
         }
-        if (p.showTranslation !== undefined) {
-            showTranslation = p.showTranslation;
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-            if (showTranslation && typeof translateExistingLyrics === 'function') translateExistingLyrics();
-            if (typeof updateCCButtonState === 'function') updateCCButtonState();
-        }
-        if (p.translationLang !== undefined) {
-            translationLang = p.translationLang;
-            // Clear existing translations so they get refetched with the new language
-            lyricLines.forEach(line => line.translation = "");
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-            if (showTranslation && typeof translateExistingLyrics === 'function') translateExistingLyrics();
-        }
-        if (p.globalSyncOffset !== undefined) {
-            globalSyncOffset = p.globalSyncOffset;
-            // Eagerly apply if there's no explicitly set song offset for the current track
-            const meta = navigator.mediaSession.metadata;
-            if (meta && meta.title && meta.artist) {
-                const key = `${meta.artist} - ${meta.title}`;
-                if (songOffsets[key] === undefined) {
-                    syncOffset = globalSyncOffset;
+    });
+
+    // Listen for updates
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+        if (msg.type === 'SETTINGS_UPDATE') {
+            const p = msg.payload;
+            if (p.autoLaunch !== undefined) {
+                fl.autoLaunch = p.autoLaunch;
+            }
+            if (p.showTranslation !== undefined) {
+                fl.showTranslation = p.showTranslation;
+                fl.needsLayoutUpdate = true;
+                if (fl.showTranslation && typeof fl.translateExistingLyrics === 'function') fl.translateExistingLyrics();
+                if (typeof fl.updateCCButtonState === 'function') fl.updateCCButtonState();
+            }
+            if (p.translationLang !== undefined) {
+                fl.translationLang = p.translationLang;
+                fl.lyricLines.forEach(line => line.translation = "");
+                fl.needsLayoutUpdate = true;
+                if (fl.showTranslation && typeof fl.translateExistingLyrics === 'function') fl.translateExistingLyrics();
+            }
+            if (p.globalSyncOffset !== undefined) {
+                fl.globalSyncOffset = p.globalSyncOffset;
+                const meta = navigator.mediaSession.metadata;
+                if (meta && meta.title && meta.artist) {
+                    const key = `${meta.artist} - ${meta.title}`;
+                    if (fl.songOffsets[key] === undefined) {
+                        fl.syncOffset = fl.globalSyncOffset;
+                    }
                 }
             }
-        }
-        if (p.syncOffset !== undefined) {
-            syncOffset = p.syncOffset;
+            if (p.syncOffset !== undefined) {
+                fl.syncOffset = p.syncOffset;
+                const meta = navigator.mediaSession.metadata;
+                if (meta && meta.title && meta.artist) {
+                    const key = `${meta.artist} - ${meta.title}`;
+                    chrome.storage.local.get({ songOffsets: {} }, (items) => {
+                        const latestOffsets = items.songOffsets || {};
+                        latestOffsets[key] = fl.syncOffset;
+                        fl.songOffsets = latestOffsets;
+                        chrome.storage.local.set({ songOffsets: latestOffsets });
+                    });
+                }
+            }
+            if (p.lyricOverride !== undefined) {
+                const meta = navigator.mediaSession.metadata;
+                if (meta && meta.title && meta.artist) {
+                    const key = `${meta.artist} - ${meta.title}`;
+                    chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
+                        const latestOverrides = items.lyricsOverrides || {};
+                        latestOverrides[key] = p.lyricOverride;
+                        fl.lyricsOverrides = latestOverrides;
+                        chrome.storage.local.set({ lyricsOverrides: latestOverrides });
+                        fl.cachedLyrics.key = "";
+                        if (typeof fl.fetchLyrics === 'function') fl.fetchLyrics();
+                    });
+                }
+            }
 
-            // Save offset for current song (Fetch latest storage first to avoid overwrite)
+            // --- Visual Customization Settings ---
+            if (p.customFont !== undefined) {
+                fl.userFontFamily = p.customFont;
+                fl.needsLayoutUpdate = true;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.fontSize !== undefined) {
+                fl.userFontSize = p.fontSize;
+                fl.needsLayoutUpdate = true;
+            }
+            if (p.bgBlur !== undefined) {
+                fl.userBgBlur = p.bgBlur;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.bgDarkness !== undefined) {
+                fl.userBgDarkness = p.bgDarkness;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.coverMode !== undefined) {
+                fl.userCoverMode = p.coverMode;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.glowEnabled !== undefined) {
+                fl.userGlowEnabled = p.glowEnabled;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.glowStyle !== undefined) {
+                fl.userGlowStyle = p.glowStyle;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.showLyrics !== undefined) {
+                fl.userShowLyrics = p.showLyrics;
+                fl.needsLayoutUpdate = true;
+            }
+            if (p.lyricAlignment !== undefined) {
+                fl.userLyricAlignment = p.lyricAlignment;
+                fl.needsLayoutUpdate = true;
+            }
+        } else if (msg.type === 'GET_SYNC_OFFSET') {
+            sendResponse({ syncOffset: fl.syncOffset });
+        } else if (msg.type === 'GET_CURRENT_TRACK') {
             const meta = navigator.mediaSession.metadata;
             if (meta && meta.title && meta.artist) {
-                const key = `${meta.artist} - ${meta.title}`;
-                chrome.storage.local.get({ songOffsets: {} }, (items) => {
-                    const latestOffsets = items.songOffsets || {};
-                    latestOffsets[key] = syncOffset;
-                    songOffsets = latestOffsets; // Update local cache
-                    chrome.storage.local.set({ songOffsets: latestOffsets });
-                });
+                sendResponse({ artist: meta.artist, title: meta.title });
+            } else {
+                sendResponse({ error: 'No active track' });
             }
+        } else if (msg.type === 'GET_ACTIVE_LYRIC') {
+            sendResponse({ source: fl.activeLyricSource });
         }
-        if (p.lyricOverride !== undefined) {
-            const meta = navigator.mediaSession.metadata;
-            if (meta && meta.title && meta.artist) {
-                const key = `${meta.artist} - ${meta.title}`;
-                chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
-                    const latestOverrides = items.lyricsOverrides || {};
-                    latestOverrides[key] = p.lyricOverride;
-                    lyricsOverrides = latestOverrides; // Update local cache
-                    chrome.storage.local.set({ lyricsOverrides: latestOverrides });
-                    cachedLyrics.key = ""; // Invalidate cache for new explicit override
-                    if (typeof fetchLyrics === 'function') fetchLyrics(); // Re-fetch immediately
-                });
-            }
-        }
+    });
 
-        // --- Visual Customization Settings ---
-        if (p.customFont !== undefined) {
-            userFontFamily = p.customFont;
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.fontSize !== undefined) {
-            userFontSize = p.fontSize;
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-        }
-        if (p.bgBlur !== undefined) {
-            userBgBlur = p.bgBlur;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.bgDarkness !== undefined) {
-            userBgDarkness = p.bgDarkness;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.coverMode !== undefined) {
-            userCoverMode = p.coverMode;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.glowEnabled !== undefined) {
-            userGlowEnabled = p.glowEnabled;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.glowStyle !== undefined) {
-            userGlowStyle = p.glowStyle;
-            if (typeof applyVisualSettings === 'function') applyVisualSettings();
-        }
-        if (p.showLyrics !== undefined) {
-            userShowLyrics = p.showLyrics;
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-        }
-        if (p.lyricAlignment !== undefined) {
-            userLyricAlignment = p.lyricAlignment;
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-        }
-    } else if (msg.type === 'GET_SYNC_OFFSET') {
-        sendResponse({ syncOffset });
-    } else if (msg.type === 'GET_CURRENT_TRACK') {
-        const meta = navigator.mediaSession.metadata;
-        if (meta && meta.title && meta.artist) {
-            sendResponse({ artist: meta.artist, title: meta.title });
-        } else {
-            sendResponse({ error: 'No active track' });
-        }
-    } else if (msg.type === 'GET_ACTIVE_LYRIC') {
-        sendResponse({ source: activeLyricSource });
-    }
-});
+    // Bootstrapper
+    setInterval(() => {
+        if (typeof fl.createLauncher === 'function') fl.createLauncher();
+    }, 2000);
 
-// Bootstrapper
-setInterval(() => {
-    if (typeof createLauncher === 'function') createLauncher();
-}, 2000);
+})();
