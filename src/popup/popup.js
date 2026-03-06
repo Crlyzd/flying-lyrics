@@ -52,7 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const customFontContainer = document.getElementById('custom-font-container');
     const customFontInput = document.getElementById('custom-font-input');
     const applyCustomFontBtn = document.getElementById('apply-custom-font');
+    const suggestFontsBtn = document.getElementById('btn-suggest-fonts');
+    const fontChipsContainer = document.getElementById('font-chips-container');
+    const fontResultsContainer = document.getElementById('font-results-container');
     const customFontLinkHint = document.getElementById('custom-font-link-hint');
+    const recentFontsBtn = document.getElementById('btn-recent-fonts');
+    const recentFontsPanel = document.getElementById('recent-fonts-panel');
     const fontSizeSlider = document.getElementById('font-size-slider');
     const fontSizeValue = document.getElementById('font-size-value');
     const blurSlider = document.getElementById('blur-slider');
@@ -126,18 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (matchedOption) {
             fontFamilySelect.value = items.customFont;
             customFontContainer.style.display = 'none';
-            customFontLinkHint.style.display = 'none';
         } else {
-            // It's a custom font
+            // It's a custom font — show the search UI and load it for preview
             fontFamilySelect.value = 'custom';
-            customFontContainer.style.display = 'flex';
-            customFontLinkHint.style.display = 'block';
+            customFontContainer.style.display = 'block';
 
-            // Extract font name from '"Font Name", sans-serif'
             let rawFontName = items.customFont.split(',')[0].replace(/['"]/g, '').trim();
             customFontInput.value = rawFontName;
 
-            // Load it for the preview
             const formattedFontName = rawFontName.replace(/ /g, '+');
             const link = document.createElement('link');
             link.id = 'fl-custom-font-preview';
@@ -531,22 +532,51 @@ document.addEventListener('DOMContentLoaded', () => {
     fontFamilySelect.addEventListener('change', () => {
         const val = fontFamilySelect.value;
         if (val === 'custom') {
-            customFontContainer.style.display = 'flex';
-            customFontLinkHint.style.display = 'block';
+            customFontContainer.style.display = 'block';
             customFontInput.focus();
         } else {
             customFontContainer.style.display = 'none';
-            customFontLinkHint.style.display = 'none';
             glowPreview.style.fontFamily = val;
             saveAndNotify({ customFont: val });
         }
     });
 
-    const applyCustomFont = () => {
-        const fontName = customFontInput.value.trim();
-        if (!fontName) return;
+    // =========================================================
+    //  FONT FUZZY SEARCH / SUGGESTION ENGINE
+    // =========================================================
 
-        // Load the font dynamically for the preview
+    /**
+     * Scores how well `font` matches `query` (both lowercased).
+     * Returns a number — higher is better, 0 means no match.
+     */
+    function fuzzyFontScore(font, query) {
+        const f = font.toLowerCase();
+        const q = query.toLowerCase();
+        if (f === q) return 100;                    // exact match
+        if (f.startsWith(q)) return 80;            // starts with query
+        if (f.includes(q)) return 50;              // substring match
+
+        // Character-sequence proximity: all query chars appear in order?
+        let fi = 0;
+        let penalty = 0;
+        let lastIdx = -1;
+        for (const ch of q) {
+            const idx = f.indexOf(ch, fi);
+            if (idx === -1) return 0;               // char not found – no match
+            penalty += (idx - lastIdx - 1);         // penalise gaps between chars
+            lastIdx = idx;
+            fi = idx + 1;
+        }
+        const score = Math.max(1, 30 - penalty);
+        return score;
+    }
+
+    /**
+     * Applies a font by name: loads the Google Font stylesheet and
+     * persists the value. Returns the css font-family string.
+     */
+    function applyFontByName(fontName) {
+        if (!fontName) return;
         const formattedFontName = fontName.replace(/ /g, '+');
         const fontUrl = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@400;600;700&display=swap`;
 
@@ -561,21 +591,162 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const familyValue = `"${fontName}", sans-serif`;
         glowPreview.style.fontFamily = familyValue;
-        saveAndNotify({ customFont: familyValue }); // Save custom font to storage
+        saveAndNotify({ customFont: familyValue });
 
-        // UI Feedback
-        const ogText = applyCustomFontBtn.textContent;
-        applyCustomFontBtn.textContent = '✓';
-        applyCustomFontBtn.style.backgroundColor = '#1ed760';
-        setTimeout(() => {
-            applyCustomFontBtn.textContent = ogText;
-            applyCustomFontBtn.style.backgroundColor = '';
-        }, 1000);
-    };
+        // Track in recent fonts (max 10, no duplicates)
+        chrome.storage.local.get({ recentFonts: [] }, ({ recentFonts }) => {
+            const updated = [fontName, ...recentFonts.filter(f => f !== fontName)].slice(0, 10);
+            chrome.storage.local.set({ recentFonts: updated });
+        });
 
-    applyCustomFontBtn.addEventListener('click', applyCustomFont);
+        return familyValue;
+    }
+
+    /** Renders clickable font result cards inside fontResultsContainer. */
+    function renderFontResults(results, activeFont) {
+        fontResultsContainer.innerHTML = '';
+        if (results.length === 0) {
+            fontResultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No fonts found</div>';
+            fontResultsContainer.style.display = 'block';
+            return;
+        }
+
+        results.forEach(name => {
+            const card = document.createElement('div');
+            card.style.cssText = 'padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; font-size: 13px; transition: background 0.15s;';
+            card.onmouseover = () => card.style.background = '#2a2a2a';
+            card.onmouseout = () => card.style.background = '';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = name;
+
+            const checkSpan = document.createElement('span');
+            checkSpan.textContent = '✓';
+            checkSpan.style.cssText = 'color: #1DB954; font-weight: bold; display: ' + (activeFont === name ? 'inline' : 'none') + ';';
+
+            card.appendChild(nameSpan);
+            card.appendChild(checkSpan);
+
+            card.onclick = () => {
+                applyFontByName(name);
+                customFontInput.value = name;
+                // Clear all previous checkmarks, set ours
+                fontResultsContainer.querySelectorAll('span:last-child').forEach(s => s.style.display = 'none');
+                checkSpan.style.display = 'inline';
+            };
+
+            fontResultsContainer.appendChild(card);
+        });
+
+        fontResultsContainer.style.display = 'block';
+    }
+
+    /** Runs the fuzzy search and updates the results list. */
+    function searchFonts() {
+        const query = customFontInput.value.trim();
+        if (!query) return;
+
+        const fontList = typeof GOOGLE_FONTS !== 'undefined' ? GOOGLE_FONTS : [];
+
+        // Build scored list and sort — cap at 20 results
+        const scored = fontList
+            .map(name => ({ name, score: fuzzyFontScore(name, query) }))
+            .filter(x => x.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 20)
+            .map(x => x.name);
+
+        // Find active font name (strip quotes/weight from stored value)
+        const activeFontRaw = customFontInput.value.trim();
+        renderFontResults(scored, activeFontRaw);
+    }
+
+    /** Picks 5 random popular fonts and shows them as chips. */
+    function generateFontSuggestions() {
+        const popularFonts = [
+            'Poppins', 'Roboto', 'Lato', 'Montserrat', 'Open Sans', 'Raleway', 'Nunito',
+            'Oswald', 'Playfair Display', 'Merriweather', 'Bebas Neue', 'Josefin Sans',
+            'Pacifico', 'Dancing Script', 'Lobster', 'Caveat', 'Quicksand', 'Rubik',
+            'Kanit', 'Exo 2', 'Orbitron', 'Space Grotesk', 'DM Sans', 'Syne',
+            'Work Sans', 'Libre Baskerville', 'Barlow', 'Figtree', 'Plus Jakarta Sans',
+            'Outfit', 'Inter', 'Boogaloo', 'Righteous', 'Fredoka', 'Indie Flower',
+            'Shadows Into Light', 'Patrick Hand', 'Kalam', 'Handlee', 'Permanent Marker'
+        ];
+
+        // Shuffle and take first 5
+        const shuffled = [...popularFonts].sort(() => Math.random() - 0.5).slice(0, 5);
+
+        fontChipsContainer.innerHTML = '';
+        shuffled.forEach(name => {
+            const chip = document.createElement('button');
+            chip.textContent = name;
+            chip.style.cssText = 'background: #2a2a2a; border: 1px solid #444; color: #ddd; border-radius: 50px; padding: 4px 10px; font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap;';
+            chip.onmouseover = () => { chip.style.background = '#1DB954'; chip.style.color = '#000'; };
+            chip.onmouseout = () => { chip.style.background = '#2a2a2a'; chip.style.color = '#ddd'; };
+            chip.onclick = () => {
+                customFontInput.value = name;
+                applyFontByName(name);
+                searchFonts();
+            };
+            fontChipsContainer.appendChild(chip);
+        });
+
+        fontChipsContainer.style.display = 'flex';
+    }
+
+    // Hook up Search button + Enter key
+    applyCustomFontBtn.addEventListener('click', searchFonts);
     customFontInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') applyCustomFont();
+        if (e.key === 'Enter') searchFonts();
+    });
+
+    // Hook up Suggest button
+    suggestFontsBtn.addEventListener('click', generateFontSuggestions);
+
+    // =========================================================
+    //  RECENT FONTS DROPDOWN
+    // =========================================================
+
+    /** Renders the recent fonts dropdown panel. */
+    function renderRecentFontsPanel(recentFonts) {
+        recentFontsPanel.innerHTML = '';
+        if (!recentFonts || recentFonts.length === 0) {
+            recentFontsPanel.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #666;">No recent fonts yet</div>';
+            return;
+        }
+        recentFonts.forEach(name => {
+            const card = document.createElement('div');
+            card.style.cssText = 'padding: 9px 14px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #2a2a2a; transition: background 0.15s;';
+            card.textContent = name;
+            card.onmouseover = () => card.style.background = '#2a2a2a';
+            card.onmouseout = () => card.style.background = '';
+            card.onclick = () => {
+                customFontInput.value = name;
+                applyFontByName(name);
+                searchFonts();
+                recentFontsPanel.style.display = 'none';
+            };
+            recentFontsPanel.appendChild(card);
+        });
+    }
+
+    // Toggle Recent panel on button click
+    recentFontsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = recentFontsPanel.style.display !== 'none';
+        if (isVisible) {
+            recentFontsPanel.style.display = 'none';
+        } else {
+            chrome.storage.local.get({ recentFonts: [] }, ({ recentFonts }) => {
+                renderRecentFontsPanel(recentFonts);
+                recentFontsPanel.style.display = 'block';
+            });
+        }
+    });
+
+    // Close Recent panel when clicking anywhere else
+    document.addEventListener('click', () => {
+        if (recentFontsPanel) recentFontsPanel.style.display = 'none';
     });
 
     // Font Size (1-10 step maps to 10px-28px)

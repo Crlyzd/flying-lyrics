@@ -54,7 +54,7 @@ function injectStructure() {
                 background: rgba(255,255,255,0.2); border: none;
                 color: white; padding: 8px 15px; border-radius: 20px;
                 font-weight: bold; cursor: pointer; backdrop-filter: blur(5px);
-                font-family: ${userFontFamily}; opacity: 0; transition: opacity 0.2s;
+                font-family: 'Noto Sans', 'Segoe UI', sans-serif; opacity: 0; transition: opacity 0.2s;
                 z-index: 20; transform: scale(0.7); transform-origin: top left;
             }
             body:hover #back-btn { opacity: 1; }

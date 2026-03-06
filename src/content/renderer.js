@@ -133,10 +133,12 @@ function renderLoop() {
         // Scale factor derived from the user font size slider.
         // Default slider value (18) yields scale = 1.0.
         // Range 10–36 gives roughly 0.56x to 2.0x.
-        const fontScale = userFontSize / 18;
+        const isSystemMessage = lyricLines.length === 1 && ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"].includes(lyricLines[0].text);
+        const fontScale = isSystemMessage ? 1 : (userFontSize / 18);
 
         // Target width for the active line fit
         const fitWidth = maxWidth * 0.75;
+        const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : userFontFamily;
         const activeSizeMin = vmin * 6.5 * fontScale;
         const activeSizeMax = vmin * 9.5 * fontScale;
 
@@ -150,7 +152,7 @@ function renderLoop() {
                 mainSize = calculateFitSize(
                     ctx,
                     line.text,
-                    `700 {SIZE}px ${userFontFamily}`,
+                    `700 {SIZE}px ${displayFontFamily}`,
                     fitWidth,
                     vmin * 7.5 * fontScale, // baseline measurement size
                     activeSizeMin,
@@ -168,16 +170,16 @@ function renderLoop() {
 
             let romajiHeight = 0;
             if (line.romaji) {
-                ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
+                ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
                 romajiHeight = getWrapLines(ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
             }
 
-            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
             let mainHeight = getWrapLines(ctx, line.text, maxWidth).length * (mainSize * 1.2);
 
             let transHeight = 0;
             if (showTranslation && line.translation) {
-                ctx.font = `600 ${transSize}px ${userFontFamily}`;
+                ctx.font = `600 ${transSize}px ${displayFontFamily}`;
                 transHeight = getWrapLines(ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
             }
 
@@ -185,7 +187,7 @@ function renderLoop() {
             // Text always grows DOWNWARD when it wraps, never upward.
             // So topBoundary is fixed to a single-line anchor, and
             // bottomBoundary expands to cover any extra wrapped rows.
-            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
+            ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
             const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
             // Extra downward shift when the main lyric wraps beyond one line
             const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
@@ -241,8 +243,11 @@ function renderLoop() {
             // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
             ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
 
+            const isSystemMessage = lyricLines.length === 1 && ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"].includes(line.text);
             let drawX = 0;
-            if (userLyricAlignment === 'left') {
+            if (isSystemMessage) {
+                ctx.textAlign = 'center';
+            } else if (userLyricAlignment === 'left') {
                 ctx.textAlign = 'left';
                 drawX = -(maxWidth / 2);
             } else if (userLyricAlignment === 'right') {
@@ -253,6 +258,7 @@ function renderLoop() {
             }
 
             const isCurrent = (i === activeIdx);
+            const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : userFontFamily;
 
             // Universal Dark Shadow for all text
             ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
@@ -261,14 +267,14 @@ function renderLoop() {
             // Mirror the layout block's sizing logic exactly so draw positions
             // match the pre-computed offsets in cachedLayout.
             // fontScale is computed in the layout block above and also needed in the draw pass.
-            const fontScale = userFontSize / 18;
+            const fontScale = isSystemMessage ? 1 : (userFontSize / 18);
 
             let mainSize;
             if (isCurrent) {
                 mainSize = calculateFitSize(
                     ctx,
                     line.text,
-                    `700 {SIZE}px ${userFontFamily}`,
+                    `700 {SIZE}px ${displayFontFamily}`,
                     maxWidth * 0.75,
                     vmin * 7.5 * fontScale,
                     vmin * 6.5 * fontScale,
@@ -282,7 +288,7 @@ function renderLoop() {
 
             // 1. Romaji (Top)
             if (line.romaji) {
-                ctx.font = `italic 600 ${romajiSize}px ${userFontFamily}`;
+                ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
                 // Revert inactive romaji to light gray for readability
                 ctx.fillStyle = isCurrent ? currentPalette.romaji : "#DDDDDD";
                 // Shift up to make room
@@ -290,9 +296,9 @@ function renderLoop() {
             }
 
             // 2. Original Text (Middle)
-            ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
-            // Inactive main text stays white
-            ctx.fillStyle = isCurrent ? currentPalette.vibrant : "#FFFFFF";
+            ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
+            // Inactive main text stays white, active main text glows (white core if neon)
+            ctx.fillStyle = (isCurrent && !userGlowEnabled) ? currentPalette.vibrant : "#FFFFFF";
 
             // Draw main text
             wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
@@ -305,34 +311,38 @@ function renderLoop() {
                     const timeSec = performance.now() / 1000;
                     const hue = (timeSec * 60) % 360;
                     ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
+                    ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
                 } else {
                     ctx.shadowColor = currentPalette.vibrant;
+                    ctx.strokeStyle = currentPalette.vibrant;
                 }
 
                 if (userGlowEnabled) {
+                    ctx.lineWidth = Math.max(2, mainSize * 0.04);
                     // Pulse between 10 and 40 shadow blur over ~2s cycle
                     const glowTime = performance.now() / 1000;
                     const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
                     ctx.shadowBlur = pulsedBlur;
                     // Request a re-render next frame so the animation is continuous
                     // (handled by the outer requestAnimationFrame loop in renderLoop)
+                    wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
                 } else {
                     ctx.shadowBlur = 15;
+                    wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
                 }
-                wrapText(ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
             }
 
             // 3. Translation (Bottom)
             if (showTranslation && line.translation) {
                 // Calculate downward baseline shift for wrapped lyrics
-                ctx.font = isCurrent ? `700 ${mainSize}px ${userFontFamily}` : `600 ${mainSize}px ${userFontFamily}`;
+                ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
                 const mainLineCount = getWrapLines(ctx, line.text, maxWidth).length;
                 const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
                 ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
                 ctx.shadowBlur = 8;
 
-                ctx.font = `600 ${transSize}px ${userFontFamily}`;
+                ctx.font = `600 ${transSize}px ${displayFontFamily}`;
                 ctx.fillStyle = isCurrent ? currentPalette.trans : "#CCCCCC";
 
                 wrapText(ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);

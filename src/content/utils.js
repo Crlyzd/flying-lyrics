@@ -15,45 +15,53 @@ async function extractPalette(imgUrl) {
 
         const canvas_element = document.createElement('canvas');
         const context = canvas_element.getContext('2d');
-        canvas_element.width = 50; // Small for performance
-        canvas_element.height = 50;
-        context.drawImage(img, 0, 0, 50, 50);
+        canvas_element.width = 100; // Increased sample size for better coverage
+        canvas_element.height = 100;
+        context.drawImage(img, 0, 0, 100, 100);
 
-        const data = context.getImageData(0, 0, 50, 50).data;
+        const data = context.getImageData(0, 0, 100, 100).data;
 
-        // --- Histogram bucketing for dominant color ---
-        // Quantize each pixel into coarse RGB buckets (step = 32 → 8 levels per channel)
-        // then pick the bucket with the most pixels.
-        const STEP = 32;
-        const buckets = {};   // key: "qR,qG,qB" → { r, g, b, count }
+        // --- HSL-based weighted bucketing for dominant color ---
+        // Rather than strictly discarding bright sky pixels or dark contrasting
+        // elements, we group pixels by hue and score them based on saturation 
+        // and a lightness curve. This allows large swaths of vibrant blue sky 
+        // to outvote smaller patches of brownish sand.
+        const buckets = {}; // key: "hueBucket" -> { r, g, b, weight, count }
 
         for (let i = 0; i < data.length; i += 4) {
             const tr = data[i], tg = data[i + 1], tb = data[i + 2];
-            const brightness = (tr * 299 + tg * 587 + tb * 114) / 1000;
 
-            // Skip very dark / very light pixels (backgrounds, highlights)
-            if (brightness <= 40 || brightness >= 220) continue;
+            // Skip nearly pure white or pure black pixels from counting entirely
+            if ((tr > 245 && tg > 245 && tb > 245) || (tr < 10 && tg < 10 && tb < 10)) {
+                continue;
+            }
 
-            // Also skip low-saturation (gray) pixels — they dilute the dominant hue
-            const maxC = Math.max(tr, tg, tb), minC = Math.min(tr, tg, tb);
-            if (maxC - minC < 30) continue; // near-gray → skip
+            const hsl = rgbToHsl(tr, tg, tb);
 
-            const qR = Math.floor(tr / STEP) * STEP;
-            const qG = Math.floor(tg / STEP) * STEP;
-            const qB = Math.floor(tb / STEP) * STEP;
-            const key = `${qR},${qG},${qB}`;
+            // Score weight: Strongly favor saturation.
+            // Lightness penalty: peaks at 0.5 (perfectly bright color), drops at 0 (black) and 1 (white)
+            const lightnessArc = 1 - Math.abs(hsl.l - 0.5) * 2;
+            const score = (hsl.s * 3) + lightnessArc;
 
-            if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0 };
+            // We'll bucket the colors by their Hue value (0.0 to 1.0 mapped to 36 chunks of 10 degrees)
+            // If saturation is incredibly low (gray/mud), group them into a single low-impact bucket 
+            let key = -1;
+            if (hsl.s > 0.15) {
+                key = Math.floor(hsl.h * 36);
+            }
+
+            if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, weight: 0, count: 0 };
             buckets[key].r += tr;
             buckets[key].g += tg;
             buckets[key].b += tb;
+            buckets[key].weight += score;
             buckets[key].count++;
         }
 
-        // Find the bucket with the highest pixel count
+        // Find the hue bucket with the highest accumulated weight
         let best = null;
         for (const key in buckets) {
-            if (!best || buckets[key].count > best.count) {
+            if (!best || buckets[key].weight > best.weight) {
                 best = buckets[key];
             }
         }
@@ -188,11 +196,12 @@ function getWrapLines(ctx, text, maxWidth) {
     return lines;
 }
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false) {
+function wrapText(ctx, text, x, y, maxWidth, lineHeight, growUpwards = false, doStroke = false) {
     const lines = getWrapLines(ctx, text, maxWidth);
     let currentY = growUpwards ? y - ((lines.length - 1) * lineHeight) : y;
 
     for (let k = 0; k < lines.length; k++) {
+        if (doStroke) ctx.strokeText(lines[k], x, currentY);
         ctx.fillText(lines[k], x, currentY);
         currentY += lineHeight;
     }

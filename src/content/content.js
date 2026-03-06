@@ -44,15 +44,7 @@ chrome.storage.local.get({
     globalSyncOffset: 1000,
     autoLaunch: false,
     songOffsets: {},
-    lyricsOverrides: {},
-    // Visual customization (mirrors config.js defaults)
-    customFont: "'Noto Sans', 'Segoe UI', sans-serif",
-    fontSize: 18,
-    bgBlur: 12,
-    bgDarkness: 50,
-    coverMode: 'default',
-    glowEnabled: false,
-    glowStyle: 'theme',
+    lyricsOverrides: {}
 }, (items) => {
     showTranslation = items.showTranslation;
     translationLang = items.translationLang;
@@ -61,14 +53,6 @@ chrome.storage.local.get({
     autoLaunch = items.autoLaunch;
     songOffsets = items.songOffsets || {};
     lyricsOverrides = items.lyricsOverrides || {};
-    // Visual settings are stored in config.js globals and applied when PiP opens
-    userFontFamily = items.customFont;
-    userFontSize = items.fontSize;
-    userBgBlur = items.bgBlur;
-    userBgDarkness = items.bgDarkness;
-    userCoverMode = items.coverMode;
-    userGlowEnabled = items.glowEnabled;
-    userGlowStyle = items.glowStyle;
 });
 
 // Listen for updates
