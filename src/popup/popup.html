@@ -747,14 +747,29 @@
             <div class="control-group">
 
                 <label for="font-family-select" style="margin-bottom: 6px;">Font Family</label>
-                <select id="font-family-select" style="margin-bottom: 15px;">
+                <select id="font-family-select" style="margin-bottom: 5px;">
                     <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
-                    <option value="'Inter', sans-serif">Inter</option>
-                    <option value="'Roboto', sans-serif">Roboto</option>
-                    <option value="'Poppins', sans-serif">Poppins</option>
-                    <option value="'Montserrat', sans-serif">Montserrat</option>
-                    <option value="'Outfit', sans-serif">Outfit</option>
+                    <option value="'Indie Flower', cursive">Indie Flower</option>
+                    <option value="'Gaegu', cursive">Gaegu</option>
+                    <option value="'Patrick Hand', cursive">Patrick Hand</option>
+                    <option value="'Gochi Hand', cursive">Gochi Hand</option>
+                    <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
+                    <option value="custom">★ Custom Google Font...</option>
                 </select>
+
+                <!-- Custom Font Input (Hidden by default) -->
+                <div class="custom-font-input-container" id="custom-font-container"
+                    style="display: none; gap: 6px; margin-top: 8px;">
+                    <input type="text" id="custom-font-input" class="search-input" placeholder="e.g. Dancing Script"
+                        style="flex-grow: 1;">
+                    <button class="search-btn" id="apply-custom-font">Apply</button>
+                </div>
+
+                <div id="custom-font-link-hint"
+                    style="display: none; text-align: right; margin-top: 4px; margin-bottom: 15px; font-size: 11px;">
+                    <a href="https://fonts.google.com/" target="_blank"
+                        style="color: #1DB954; text-decoration: none;">Browse Google Fonts ↗</a>
+                </div>
 
                 <label for="align-select" style="margin-bottom: 6px;">Lyric Alignment</label>
                 <select id="align-select" style="margin-bottom: 15px;">

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics – Mockup with Custom Font</title>
+    <!-- Pre-load some Google Fonts to demo the preview -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gochi+Hand&family=Indie+Flower&family=Nanum+Pen+Script&family=Patrick+Hand&display=swap"
+        rel="stylesheet">
+    <style>
+        /* BASE STYLES COPIED FOR MOCKUP */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 300px;
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #121212;
+            color: white;
+            user-select: none;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .slide {
+            width: 300px;
+            min-height: 100vh;
+            flex-shrink: 0;
+            padding: 15px;
+        }
+
+        .popup-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .popup-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: #1DB954;
+            flex: 1;
+            text-align: center;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 17px;
+            line-height: 1;
+            transition: background 0.18s, color 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: #282828;
+            color: white;
+        }
+
+        .icon-btn.phantom {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+            background: #282828;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        select,
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: none;
+            background-color: #3E3E3E;
+            color: white;
+            outline: none;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .custom-font-input-container {
+            display: none;
+            margin-top: 8px;
+        }
+
+        .custom-font-input-container.active {
+            display: flex;
+            gap: 6px;
+        }
+
+        input[type="text"]::placeholder {
+            color: #888;
+        }
+
+        .apply-btn {
+            background-color: #1DB954;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .apply-btn:hover {
+            background-color: #1ed760;
+        }
+
+        @keyframes lyric-glow {
+            0% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+                opacity: 1;
+            }
+
+            50% {
+                text-shadow: 0 0 18px #1ed760, 0 0 30px #1DB954, 0 0 5px #fff;
+                opacity: 0.85;
+            }
+
+            100% {
+                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
+                opacity: 1;
+            }
+        }
+
+        .glow-preview {
+            font-size: 18px;
+            color: #1DB954;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px 0 10px;
+            letter-spacing: 0.03em;
+            transition: font-size 0.2s, font-family 0.2s;
+        }
+
+        .glow-preview.active {
+            animation: lyric-glow 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="slide" id="slide-customize">
+
+        <div class="popup-header">
+            <button class="icon-btn" id="btn-back" title="Back">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+            </button>
+            <h2>Customize Visuals</h2>
+            <button class="icon-btn phantom" aria-hidden="true">✕</button>
+        </div>
+
+        <div class="control-group">
+
+            <!-- Font Family Selection -->
+            <label style="margin-bottom: 6px;">Font Family</label>
+            <select id="font-family-select" style="margin-bottom: 5px;">
+                <option value="'Noto Sans', 'Segoe UI', sans-serif">Default (Noto Sans/Segoe UI)</option>
+                <option value="'Indie Flower', cursive">Indie Flower</option>
+                <option value="'Gaegu', cursive">Gaegu</option>
+                <option value="'Patrick Hand', cursive">Patrick Hand</option>
+                <option value="'Gochi Hand', cursive">Gochi Hand</option>
+                <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
+                <option value="custom">★ Custom Google Font...</option>
+            </select>
+
+            <!-- Custom Font Input (Hidden by default) -->
+            <div class="custom-font-input-container" id="custom-font-container">
+                <input type="text" id="custom-font-input" placeholder="e.g. Dancing Script">
+                <button class="apply-btn" id="apply-custom-font">Apply</button>
+            </div>
+
+            <div id="custom-font-link-hint" style="display: none; text-align: right; margin-top: 4px; font-size: 11px;">
+                <a href="https://fonts.google.com/" target="_blank"
+                    style="color: #1DB954; text-decoration: none;">Browse Google Fonts ↗</a>
+            </div>
+
+            <!-- Spacer -->
+            <div style="height: 15px;"></div>
+
+        </div>
+
+        <div class="control-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="margin: 0;">Preview Layout</label>
+            </div>
+            <!-- Live glow preview -->
+            <div class="glow-preview active" id="glow-preview">♪ Now Playing Lyrics ♪</div>
+        </div>
+
+        <div style="padding: 10px; font-size: 12px; color: #aaa; text-align: center; line-height: 1.5;">
+            Select <strong>★ Custom Google Font...</strong> to see the new input field in action. Type a valid font name
+            like <span style="color: #fff">'Oswald'</span> or <span style="color: #fff">'Dancing Script'</span> and
+            click Apply.
+        </div>
+
+    </div>
+
+    <script>
+        const fontFamilySelect = document.getElementById('font-family-select');
+        const customFontContainer = document.getElementById('custom-font-container');
+        const customFontInput = document.getElementById('custom-font-input');
+        const applyCustomFontBtn = document.getElementById('apply-custom-font');
+        const glowPreview = document.getElementById('glow-preview');
+
+        // Toggle custom font input visibility
+        fontFamilySelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                customFontContainer.classList.add('active');
+                document.getElementById('custom-font-link-hint').style.display = 'block';
+                customFontInput.focus();
+            } else {
+                customFontContainer.classList.remove('active');
+                document.getElementById('custom-font-link-hint').style.display = 'none';
+                glowPreview.style.fontFamily = e.target.value;
+            }
+        });
+
+        // Handle Apply Custom Font
+        const applyFont = () => {
+            const fontName = customFontInput.value.trim();
+            if (!fontName) return;
+
+            // Load from Google Fonts
+            const formattedFontName = fontName.replace(/ /g, '+');
+            const fontUrl = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@400;600;700&display=swap`;
+
+            // Check if already loaded to prevent duplicates
+            let link = document.getElementById('custom-font-link');
+            if (!link) {
+                link = document.createElement('link');
+                link.id = 'custom-font-link';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+            }
+            link.href = fontUrl;
+
+            // Use quote wrappers just in case there are spaces
+            glowPreview.style.fontFamily = `"${fontName}", sans-serif`;
+
+            // Give button brief green feedback
+            const ogText = applyCustomFontBtn.textContent;
+            applyCustomFontBtn.textContent = '✓';
+            setTimeout(() => { applyCustomFontBtn.textContent = ogText; }, 1000);
+        };
+
+        applyCustomFontBtn.addEventListener('click', applyFont);
+        customFontInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') applyFont();
+        });
+    </script>
+</body>
+
+</html>

@@ -17,11 +17,11 @@ const LANGUAGES = [
 
 // Maps dropdown values to the font family strings stored in chrome.storage / config.js
 const GOOGLE_FONTS_MAP = {
-    "'Inter', sans-serif": 'Inter',
-    "'Roboto', sans-serif": 'Roboto',
-    "'Poppins', sans-serif": 'Poppins',
-    "'Montserrat', sans-serif": 'Montserrat',
-    "'Outfit', sans-serif": 'Outfit',
+    "'Indie Flower', cursive": 'Indie Flower',
+    "'Gaegu', cursive": 'Gaegu',
+    "'Patrick Hand', cursive": 'Patrick Hand',
+    "'Gochi Hand', cursive": 'Gochi Hand',
+    "'Nanum Pen Script', cursive": 'Nanum Pen Script',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -49,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Customization controls
     const fontFamilySelect = document.getElementById('font-family-select');
+    const customFontContainer = document.getElementById('custom-font-container');
+    const customFontInput = document.getElementById('custom-font-input');
+    const applyCustomFontBtn = document.getElementById('apply-custom-font');
+    const customFontLinkHint = document.getElementById('custom-font-link-hint');
     const fontSizeSlider = document.getElementById('font-size-slider');
     const fontSizeValue = document.getElementById('font-size-value');
     const blurSlider = document.getElementById('blur-slider');
@@ -116,7 +120,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Customization settings — populate controls
         // Map stored raw values back to 1-10 UI scale
-        fontFamilySelect.value = items.customFont;
+
+        // Handle custom fonts correctly on load
+        const matchedOption = Array.from(fontFamilySelect.options).find(opt => opt.value === items.customFont);
+        if (matchedOption) {
+            fontFamilySelect.value = items.customFont;
+            customFontContainer.style.display = 'none';
+            customFontLinkHint.style.display = 'none';
+        } else {
+            // It's a custom font
+            fontFamilySelect.value = 'custom';
+            customFontContainer.style.display = 'flex';
+            customFontLinkHint.style.display = 'block';
+
+            // Extract font name from '"Font Name", sans-serif'
+            let rawFontName = items.customFont.split(',')[0].replace(/['"]/g, '').trim();
+            customFontInput.value = rawFontName;
+
+            // Load it for the preview
+            const formattedFontName = rawFontName.replace(/ /g, '+');
+            const link = document.createElement('link');
+            link.id = 'fl-custom-font-preview';
+            link.rel = 'stylesheet';
+            link.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@400;600;700&display=swap`;
+            document.head.appendChild(link);
+        }
 
         // Font: 10 to 28px -> mapped to 1 to 10 step
         const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 10) / 2) + 1));
@@ -502,8 +530,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // Font Family
     fontFamilySelect.addEventListener('change', () => {
         const val = fontFamilySelect.value;
-        glowPreview.style.fontFamily = val;
-        saveAndNotify({ customFont: val });
+        if (val === 'custom') {
+            customFontContainer.style.display = 'flex';
+            customFontLinkHint.style.display = 'block';
+            customFontInput.focus();
+        } else {
+            customFontContainer.style.display = 'none';
+            customFontLinkHint.style.display = 'none';
+            glowPreview.style.fontFamily = val;
+            saveAndNotify({ customFont: val });
+        }
+    });
+
+    const applyCustomFont = () => {
+        const fontName = customFontInput.value.trim();
+        if (!fontName) return;
+
+        // Load the font dynamically for the preview
+        const formattedFontName = fontName.replace(/ /g, '+');
+        const fontUrl = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@400;600;700&display=swap`;
+
+        let link = document.getElementById('fl-custom-font-preview');
+        if (!link) {
+            link = document.createElement('link');
+            link.id = 'fl-custom-font-preview';
+            link.rel = 'stylesheet';
+            document.head.appendChild(link);
+        }
+        link.href = fontUrl;
+
+        const familyValue = `"${fontName}", sans-serif`;
+        glowPreview.style.fontFamily = familyValue;
+        saveAndNotify({ customFont: familyValue }); // Save custom font to storage
+
+        // UI Feedback
+        const ogText = applyCustomFontBtn.textContent;
+        applyCustomFontBtn.textContent = '✓';
+        applyCustomFontBtn.style.backgroundColor = '#1ed760';
+        setTimeout(() => {
+            applyCustomFontBtn.textContent = ogText;
+            applyCustomFontBtn.style.backgroundColor = '';
+        }, 1000);
+    };
+
+    applyCustomFontBtn.addEventListener('click', applyCustomFont);
+    customFontInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyCustomFont();
     });
 
     // Font Size (1-10 step maps to 10px-28px)
