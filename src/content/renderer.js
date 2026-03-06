@@ -12,7 +12,11 @@
     fl.cachedLayout = [];           // Pre-computed Y offsets for each lyric line
 
     fl.renderLoop = function () {
-        if (!fl.pipWin || fl.pipWin.closed) return;
+        if (!fl.pipWin || fl.pipWin.closed) {
+            fl.isRenderLoopRunning = false;
+            return;
+        }
+        fl.isRenderLoopRunning = true;
 
         const meta = navigator.mediaSession.metadata;
         const nowTitle = meta?.title || "";

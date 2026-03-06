@@ -418,6 +418,13 @@
             try {
                 fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
 
+                // --- SANITIZE PIP WINDOW (Fixes Spotify white background bleed) ---
+                fl.pipWin.document.head.replaceChildren();
+                fl.pipWin.document.documentElement.removeAttribute('style');
+                fl.pipWin.document.documentElement.removeAttribute('class');
+                fl.pipWin.document.body.removeAttribute('style');
+                fl.pipWin.document.body.removeAttribute('class');
+
                 const link = fl.pipWin.document.createElement('link');
                 link.rel = 'stylesheet';
                 link.href = chrome.runtime.getURL('src/content/styles.css');
@@ -444,7 +451,10 @@
                 fl.applyVisualSettings();
                 fl.fetchLyrics();
 
-                fl.pipWin.requestAnimationFrame(fl.renderLoop);
+                if (!fl.isRenderLoopRunning) {
+                    fl.isRenderLoopRunning = true;
+                    fl.pipWin.requestAnimationFrame(fl.renderLoop);
+                }
             } catch (e) {
                 console.error("Launch Failed:", e);
             }
