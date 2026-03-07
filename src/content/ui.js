@@ -342,6 +342,8 @@
         if (!match || match.length < 3) return '#121212';
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
+        // If the cover is essentially monochromatic (B&W), skip colorizing
+        if (hsl.s < 0.17) return '#1e1e1e';
         return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.20), 0.40);
     }
 
@@ -351,6 +353,8 @@
         if (!match || match.length < 3) return '#2a2a2a';
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
+        // If the cover is essentially monochromatic (B&W), skip colorizing
+        if (hsl.s < 0.17) return '#3a3a3a';
         return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), 0.60);
     }
 
@@ -377,7 +381,7 @@
             } else {
                 fl.pipWin.document.body.style.background = '#121212';
             }
-        }, 250);
+        }, 0); // Delay removed: background is now applied immediately after Vibrant resolves in extractPalette
     }
 
     fl.createLauncher = function () {

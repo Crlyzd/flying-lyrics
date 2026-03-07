@@ -49,6 +49,8 @@
 
                 if (fl.pipWin && fl.pipWin.document) {
                     fl.pipWin.document.body.style.setProperty('--vibrant-color', fl.currentPalette.vibrant);
+                    // Apply background immediately — no need for the 250ms setTimeout workaround
+                    if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
                 }
             }
         } catch (e) {

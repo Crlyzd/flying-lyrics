@@ -174,14 +174,15 @@
                         activeSizeMax
                     );
                 } else {
-                    mainSize = vmin * 5.2 * fontScale;
+                    mainSize = vmin * 6.0 * fontScale; // Bumped from 5.2 for better readability
                 }
 
                 // Romaji and translation for the active line scale with mainSize
                 // so they feel proportionally cohesive rather than jumping to a
                 // fixed vmin value that may be much smaller than the main text.
-                const romajiSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2;
-                const transSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2;
+                // NOTE: fontScale applied here to stay in sync with the draw pass.
+                const romajiSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2 * fontScale;
+                const transSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2 * fontScale;
 
                 let romajiHeight = 0;
                 if (line.romaji) {
@@ -209,7 +210,8 @@
 
                 // Top boundary: fixed at half a single line height (anchors the drawn Y position).
                 // When romaji is present, it uses a proportional gap from romajiSize instead of a fixed vmin offset.
-                const singleLineHalf = mainSize * 0.6;
+                // Reduced from 0.6 to 0.45 to shift the active line anchor upward
+                const singleLineHalf = mainSize * 0.45;
                 const topBoundary = line.romaji
                     ? (romajiSize * 1.5) + romajiHeight
                     : singleLineHalf;
@@ -296,7 +298,7 @@
                         vmin * 9.5 * fontScale
                     );
                 } else {
-                    mainSize = vmin * 5.2 * fontScale;
+                    mainSize = vmin * 6.0 * fontScale; // Bumped from 5.2 to match layout pass
                 }
                 const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
                 const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
