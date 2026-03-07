@@ -16,66 +16,36 @@
                 img.src = imgUrl;
             });
 
-            const canvas_element = document.createElement('canvas');
-            const context = canvas_element.getContext('2d');
-            canvas_element.width = 100; // Increased sample size for better coverage
-            canvas_element.height = 100;
-            context.drawImage(img, 0, 0, 100, 100);
+            const v = new Vibrant(img, {
+                colorCount: 32, // Increase for better accuracy on sparse accents
+                quality: 3,
+                useAlphas: false
+            });
+            const palette = await v.getPalette();
 
-            const data = context.getImageData(0, 0, 100, 100).data;
+            // 1. Try Vibrant profile (the bright accent color like pink hair)
+            let best = palette.Vibrant;
 
-            // --- HSL-based weighted bucketing for dominant color ---
-            const buckets = {}; // key: "hueBucket" -> { r, g, b, weight, count }
-
-            for (let i = 0; i < data.length; i += 32) {
-                const tr = data[i], tg = data[i + 1], tb = data[i + 2];
-
-                if ((tr > 245 && tg > 245 && tb > 245) || (tr < 10 && tg < 10 && tb < 10)) {
-                    continue;
-                }
-
-                const hsl = fl.rgbToHsl(tr, tg, tb);
-
-                const lightnessArc = 1 - Math.abs(hsl.l - 0.5) * 2;
-                const score = (hsl.s * 3) + lightnessArc;
-
-                let key = -1;
-                if (hsl.s > 0.15) {
-                    key = Math.floor(hsl.h * 36);
-                }
-
-                if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, weight: 0, count: 0 };
-                buckets[key].r += tr;
-                buckets[key].g += tg;
-                buckets[key].b += tb;
-                buckets[key].weight += score;
-                buckets[key].count++;
-            }
-
-            let best = null;
-            for (const key in buckets) {
-                if (!best || buckets[key].weight > best.weight) {
-                    best = buckets[key];
+            // 2. Fallbacks: If Muted drastically outweighs Vibrant, it's likely a B&W cover. 
+            // We want to avoid tiny JPEG color artifacts overriding the main vibe.
+            if (palette.Muted && palette.Vibrant) {
+                if (palette.Muted.population > (palette.Vibrant.population * 10)) {
+                    best = palette.Muted || palette.DarkMuted;
                 }
             }
 
-            if (!best || best.count === 0) {
-                let r = 0, g = 0, b = 0, count = 0;
-                for (let i = 0; i < data.length; i += 4) {
-                    r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
-                }
-                if (count > 0) best = { r, g, b, count };
+            if (!best) {
+                best = palette.Vibrant || palette.LightVibrant || palette.DarkVibrant || palette.Muted;
             }
 
-            if (best && best.count > 0) {
-                const r = Math.floor(best.r / best.count);
-                const g = Math.floor(best.g / best.count);
-                const b = Math.floor(best.b / best.count);
-
+            if (best) {
+                const [r, g, b] = best.getRgb();
                 const hsl = fl.rgbToHsl(r, g, b);
-                fl.currentPalette.vibrant = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.6));
-                fl.currentPalette.trans = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.4), Math.max(hsl.l, 0.8));
-                fl.currentPalette.romaji = fl.hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.6), Math.max(hsl.l, 0.8));
+
+                // Lowering minimum saturation floor to 0.2 to allow realistic grey/B&W covers
+                fl.currentPalette.vibrant = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.6));
+                fl.currentPalette.trans = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), Math.max(hsl.l, 0.8));
+                fl.currentPalette.romaji = fl.hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.8));
 
                 if (fl.pipWin && fl.pipWin.document) {
                     fl.pipWin.document.body.style.setProperty('--vibrant-color', fl.currentPalette.vibrant);

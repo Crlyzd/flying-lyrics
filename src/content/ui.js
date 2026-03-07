@@ -342,7 +342,7 @@
         if (!match || match.length < 3) return '#121212';
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
-        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.75), 0.40);
+        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.20), 0.40);
     }
 
     fl.deriveLightBg = function (vibrantColorStr) {
@@ -351,7 +351,7 @@
         if (!match || match.length < 3) return '#2a2a2a';
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
-        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.65), 0.60);
+        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), 0.60);
     }
 
     fl.updateCenteredArt = function (artUrl) {
