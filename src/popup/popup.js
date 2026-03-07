@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleShowLyrics = document.getElementById('toggle-show-lyrics');
     const alignSelect = document.getElementById('align-select');
     const glowPreview = document.getElementById('glow-preview');
+    const fontSizeWarning = document.getElementById('font-size-warning');
 
     // State
     let currentResults = [];
@@ -144,6 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 10) / 2) + 1));
         fontSizeSlider.value = fontStep;
         fontSizeValue.textContent = fontStep;
+        if (fontSizeWarning) {
+            fontSizeWarning.style.display = fontStep >= 7 ? 'inline-block' : 'none';
+        }
 
         // Blur: 0 to 10px -> naturally matches 0-10 slider
         const blurStep = Math.max(0, Math.min(10, items.bgBlur));
@@ -782,6 +786,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fontSizeValue.textContent = step;
         const realPx = 10 + ((step - 1) * 2); // 1=10px, 5=18px, 10=28px
         glowPreview.style.fontSize = `${realPx}px`;
+
+        if (fontSizeWarning) {
+            fontSizeWarning.style.display = step >= 7 ? 'inline-block' : 'none';
+        }
     });
     fontSizeSlider.addEventListener('change', () => {
         const step = parseInt(fontSizeSlider.value, 10);

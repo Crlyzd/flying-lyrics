@@ -853,7 +853,13 @@
                     <option value="right">Right</option>
                 </select>
 
-                <label>Font Size</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
+                    <label style="margin-bottom: 0;">Font Size</label>
+                    <span id="font-size-warning"
+                        style="display: none; color: #ffaa00; font-size: 9px; text-align: right; font-style: italic; line-height: 1.2;">
+                        Higher values may cause text to overlap
+                    </span>
+                </div>
                 <div class="range-row">
                     <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
                     <span class="range-value" id="font-size-value">5</span>
