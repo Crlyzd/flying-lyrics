@@ -415,6 +415,8 @@
         btn.onmouseup = () => btn.style.transform = 'scale(1)';
 
         btn.onclick = async () => {
+            if (fl.isLaunchingPip || window.documentPictureInPicture.window) return;
+            fl.isLaunchingPip = true;
             try {
                 fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
 
@@ -457,6 +459,8 @@
                 }
             } catch (e) {
                 console.error("Launch Failed:", e);
+            } finally {
+                setTimeout(() => { fl.isLaunchingPip = false; }, 500);
             }
         };
 
