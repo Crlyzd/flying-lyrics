@@ -54,7 +54,10 @@
                 }
             }
         } catch (e) {
-            console.warn("Color extraction failed:", e);
+            // Silently swallow extraction failures so they don't pollute the 
+            // Chrome Extension Errors dashboard. The UI gracefully falls back 
+            // to the default dark theme anyway.
+            console.debug("Color extraction skipped/failed.", e);
         }
     }
 

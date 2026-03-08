@@ -283,20 +283,23 @@
     }
 
     fl.getCoverArt = function () {
+        const isValid = (src) => src && src !== window.location.href && src !== window.location.origin + '/';
+
         // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
         const meta = navigator.mediaSession?.metadata;
         if (meta && meta.artwork && meta.artwork.length > 0) {
-            return meta.artwork[meta.artwork.length - 1].src;
+            const src = meta.artwork[meta.artwork.length - 1].src;
+            if (isValid(src)) return src;
         }
 
         // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
         const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
             document.querySelector('img[data-testid="cover-art-image"]');
-        if (spotiImg) return spotiImg.src;
+        if (spotiImg && isValid(spotiImg.src)) return spotiImg.src;
 
         // 3. YouTube Music DOM Fallback
         const ytImg = document.querySelector('.ytmusic-player-bar img');
-        if (ytImg) return ytImg.src;
+        if (ytImg && isValid(ytImg.src)) return ytImg.src;
 
         return "";
     }
