@@ -12,7 +12,7 @@
             img.crossOrigin = "Anonymous";
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
-                img.onerror = reject;
+                img.onerror = () => reject(new Error(`Image failed to load: ${imgUrl}`));
                 img.src = imgUrl;
             });
 

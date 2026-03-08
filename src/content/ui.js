@@ -173,7 +173,20 @@
 
         prevBtn.addEventListener('click', () => click('[data-testid="control-button-skip-back"], .previous-button'));
         nextBtn.addEventListener('click', () => click('[data-testid="control-button-skip-forward"], .next-button'));
-        playBtn.addEventListener('click', () => click('[data-testid="control-button-playpause"], .play-pause-button'));
+        playBtn.addEventListener('click', () => {
+            // Guard: do not forward click to YTM if no track is loaded.
+            // Without this, clicking play with no active media triggers YTM's
+            // own error handler.
+            const isYTM = window.location.hostname.includes('music.youtube.com');
+            const media = document.querySelector('video, audio');
+
+            // Only block if on YTM and the media length is invalid
+            if (isYTM && (!media || !media.duration || isNaN(media.duration))) {
+                return;
+            }
+
+            click('[data-testid="control-button-playpause"], .play-pause-button');
+        });
 
         backBtn.addEventListener('click', () => {
             chrome.runtime.sendMessage({ type: 'FOCUS_TAB' });
@@ -282,7 +295,8 @@
             }
 
             const artUrl = fl.getCoverArt();
-            if (artUrl && fl.currentPalette && fl.currentPalette.vibrant) {
+            // Only apply palette gradient if art has actually been extracted (not the default palette)
+            if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
                 const baseBg = fl.deriveDarkBg(fl.currentPalette.vibrant);
                 const topBg = fl.deriveLightBg(fl.currentPalette.vibrant);
                 doc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
@@ -367,21 +381,23 @@
                 img.src = artUrl;
                 img.classList.add('visible');
             } else {
-                img.removeAttribute('src');
+                // Set src to empty string instead of removeAttribute — prevents broken image icon
+                img.src = '';
                 img.classList.remove('visible');
             }
         }
 
         setTimeout(() => {
             if (!fl.pipWin || fl.pipWin.closed || fl.userCoverMode !== 'centered') return;
-            if (artUrl && fl.currentPalette && fl.currentPalette.vibrant) {
+            // Only apply palette-based gradient if there is actual art playing
+            if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
                 const baseBg = fl.deriveDarkBg(fl.currentPalette.vibrant);
                 const topBg = fl.deriveLightBg(fl.currentPalette.vibrant);
                 fl.pipWin.document.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
             } else {
                 fl.pipWin.document.body.style.background = '#121212';
             }
-        }, 0); // Delay removed: background is now applied immediately after Vibrant resolves in extractPalette
+        }, 0);
     }
 
     fl.createLauncher = function () {
@@ -457,10 +473,15 @@
                 fl.applyVisualSettings();
                 fl.fetchLyrics();
 
-                if (!fl.isRenderLoopRunning) {
-                    fl.isRenderLoopRunning = true;
-                    fl.pipWin.requestAnimationFrame(fl.renderLoop);
-                }
+                // Reset session state so the render loop always detects the
+                // current track as "new" on the first tick — even if the same
+                // song was playing in a previous PiP session. This fixes:
+                //   • Play button stuck in ⏸ after reopen
+                //   • Lyrics not loading when music plays after a no-music open
+                fl.currentTrack = "";
+                fl.lastExtractedArt = "";
+
+                fl.pipWin.requestAnimationFrame(fl.renderLoop);
             } catch (e) {
                 console.error("Launch Failed:", e);
             } finally {
