@@ -15,8 +15,13 @@
             const key = `${meta.artist} - ${meta.title}`;
             fl.applySavedSyncOffset(key);
 
+            // Tier 1: in-memory cache (instant, same session)
             if (fl.checkLyricsCache(key)) return;
 
+            // Tier 2: chrome.storage.local (survives tab refreshes and browser restarts)
+            if (await fl.loadFromPersistentCache(key)) return;
+
+            // Tier 3: network fetch
             let raw = await fl.resolveManualOverride(key);
 
             // --- ADVANCED PIPELINE: Prioritize Synced Lyrics Across Providers ---
@@ -71,15 +76,20 @@
             const lines = raw.split('\n');
             fl.parseLrcOrGeneratePseudoSync(lines, raw);
 
-            // Save to Cache immediately
+            // Warm the in-memory cache immediately so fast navigation is instant
             fl.cachedLyrics.key = key;
             fl.cachedLyrics.lines = fl.lyricLines;
             fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
+            fl.cachedLyrics.translationLang = fl.translationLang;
 
-            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true; // Invalidate cached layout
+            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
-            // Fire off translations in the background without awaiting them
-            fl.translateExistingLyrics();
+            // Await translations so the persistent entry is always fully-enriched
+            // (romaji + translations baked in — no re-fetch on future loads).
+            await fl.translateExistingLyrics();
+
+            // Persist the enriched entry to chrome.storage.local (fire-and-forget).
+            fl.saveToPersistentCache(key);
         } catch (e) {
             fl.lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
             fl.isCurrentLyricSynced = false;
@@ -87,6 +97,93 @@
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         }
     }
+
+    // --- PERSISTENT LYRICS CACHE (chrome.storage.local) ---
+
+    /**
+     * Tier-2 cache read: looks up `key` in chrome.storage.local.
+     * On hit, populates fl.lyricLines + the in-memory cache and fires
+     * translateExistingLyrics() to fill any missing translations (e.g. if
+     * CC was off during the original fetch).
+     *
+     * @param {string} key - "Artist - Title" cache key.
+     * @returns {Promise<boolean>} true if the cache was hit.
+     */
+    fl.loadFromPersistentCache = async function (key) {
+        return new Promise(resolve => {
+            chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+                const entry = lyricsCache?.entries?.[key];
+                if (!entry || !Array.isArray(entry.lines) || entry.lines.length === 0) {
+                    return resolve(false);
+                }
+
+                fl.lyricLines = entry.lines;
+                fl.isCurrentLyricSynced = entry.isSynced;
+
+                if (entry.translationLang !== fl.translationLang) {
+                    fl.lyricLines.forEach(l => l.translation = "");
+                }
+
+                // Warm the in-memory cache so subsequent same-session skips are instant
+                fl.cachedLyrics.key = key;
+                fl.cachedLyrics.lines = entry.lines;
+                fl.cachedLyrics.isSynced = entry.isSynced;
+                fl.cachedLyrics.translationLang = fl.translationLang;
+
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+
+                // Fill any missing translations/romaji without blocking the resolve
+                // (This will also fetch the new language if we just wiped it above)
+                fl.translateExistingLyrics();
+
+                // Fire-and-forget save back to storage to persist the new language
+                if (entry.translationLang !== fl.translationLang) {
+                    // We wait 3 seconds to give translateExistingLyrics a head start
+                    setTimeout(() => fl.saveToPersistentCache(key), 3000);
+                }
+
+                resolve(true);
+            });
+        });
+    };
+
+    /**
+     * Tier-2 cache write: persists the current fl.lyricLines (including romaji
+     * and translations) to chrome.storage.local under an LRU map.
+     * Evicts the oldest entry when the cap of 200 songs is reached.
+     *
+     * Called fire-and-forget after translateExistingLyrics() resolves so the
+     * stored entry always contains the fully-enriched data.
+     *
+     * @param {string} key - "Artist - Title" cache key.
+     */
+    fl.saveToPersistentCache = function (key) {
+        const MAX_ENTRIES = 200;
+
+        chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+            const cache = lyricsCache ?? { order: [], entries: {} };
+
+            // Move key to front (most recently used)
+            cache.order = cache.order.filter(k => k !== key);
+
+            // Evict oldest entries until we're under the cap
+            while (cache.order.length >= MAX_ENTRIES) {
+                const oldest = cache.order.pop();
+                delete cache.entries[oldest];
+            }
+
+            cache.order.unshift(key);
+            cache.entries[key] = {
+                lines: fl.lyricLines,       // array of {time, text, romaji, translation}
+                isSynced: fl.isCurrentLyricSynced,
+                translationLang: fl.translationLang,
+                savedAt: Date.now()
+            };
+
+            chrome.storage.local.set({ lyricsCache: cache });
+        });
+    };
 
     // --- fetchLyrics Pipeline Helpers ---
 
@@ -118,8 +215,21 @@
         if (fl.cachedLyrics.key === key && fl.cachedLyrics.lines.length > 0) {
             fl.lyricLines = fl.cachedLyrics.lines;
             fl.isCurrentLyricSynced = fl.cachedLyrics.isSynced;
+
+            if (fl.cachedLyrics.translationLang !== fl.translationLang) {
+                fl.lyricLines.forEach(l => l.translation = "");
+                fl.cachedLyrics.translationLang = fl.translationLang;
+            }
+
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+            // Always attempt translation after a cache hit.
+            // translateExistingLyrics() skips lines that already have translations
+            // (checks !item.translation), so this is a no-op for fully-translated caches.
+            // It covers two real scenarios that previously required the user to toggle CC:
+            //   1. CC was OFF during first play → cached lines have no translations
+            //   2. Translation was still in-flight when the song was re-detected
+            fl.translateExistingLyrics();
             return true;
         }
         return false;
@@ -374,57 +484,65 @@
     }
 
     /**
-     * Batches translation requests to prevent Google Translate API 429 Too Many Requests errors.
-     * Joins ~15 lines using a delimiter mapping, fetching them as a single block.
+     * Sends all chunks to Google Translate in parallel (Promise.all) rather than
+     * serially. For a 100-line song this collapses 7 sequential ~2s round-trips
+     * into a single ~2s wait, which is why translations now appear all at once
+     * instead of trickling in over 15+ seconds.
+     *
+     * A 150ms staggered start per chunk is used so requests don't all hit the
+     * API at exactly the same millisecond, reducing the chance of a 429.
      */
     fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
-        const CHUNK_SIZE = 15; // Max lines per single fetch request
+        const CHUNK_SIZE = 15;
         const DELIMITER = ' ||| ';
 
+        // Build all chunks up-front so we can dispatch them all in parallel.
+        const chunks = [];
         for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
-            const chunk = queue.slice(i, i + CHUNK_SIZE);
-            const combinedText = chunk.map(q => q.text).join(DELIMITER);
-
-            try {
-                const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`);
-                if (!res.ok) continue;
-
-                const data = await res.json();
-
-                let translatedCombo = "";
-                if (dtMode === 'rm') {
-                    // Romaji format is slightly different. Punctuation doesn't get romaji and returns null.
-                    // We fallback to x[0] to preserve our ' ||| ' delimiters.
-                    translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
-                } else if (dtMode === 't' && data && data[0]) {
-                    // Standard translation sentences are split into multiple arrays if long
-                    translatedCombo = data[0].map(x => x[0] || "").join('');
-                }
-
-                if (!translatedCombo) continue;
-
-                // Split back by our delimiter
-                // The API often adds spaces around punctuation (e.g. converting '|||' into '| | |') so we split flexibly.
-                const translatedLines = translatedCombo.split(/\s*\|\s*\|\s*\|\s*/);
-
-                // Apply back to the original indexes
-                for (let j = 0; j < chunk.length; j++) {
-                    if (translatedLines[j]) {
-                        applyCallback(chunk[j].index, translatedLines[j].trim());
-                    }
-                }
-
-                // Trigger layout recalculation immediately so the canvas allocates
-                // vertical space for the newly fetched translations. Without this,
-                // the canvas blindly draws them on top of existing text until the
-                // active lyric advances.
-                if (typeof fl.needsLayoutUpdate !== 'undefined') {
-                    fl.needsLayoutUpdate = true;
-                }
-            } catch (e) {
-                console.log("Batch translation failed:", e);
-            }
+            chunks.push(queue.slice(i, i + CHUNK_SIZE));
         }
+
+        // Fire all chunks concurrently with a small ramp-up stagger.
+        await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
+            setTimeout(async () => {
+                const combinedText = chunk.map(q => q.text).join(DELIMITER);
+                try {
+                    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`);
+                    if (!res.ok) return resolve();
+
+                    const data = await res.json();
+
+                    let translatedCombo = "";
+                    if (dtMode === 'rm') {
+                        // Romaji format: punctuation tokens return null for x[3], fall back to x[0].
+                        translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
+                    } else if (dtMode === 't' && data && data[0]) {
+                        // Standard translation: sentences may be split across multiple sub-arrays.
+                        translatedCombo = data[0].map(x => x[0] || "").join('');
+                    }
+
+                    if (!translatedCombo) return resolve();
+
+                    // Split back by our delimiter (API may add spaces around |||).
+                    const translatedLines = translatedCombo.split(/\s*\|\s*\|\s*\|\s*/);
+
+                    for (let j = 0; j < chunk.length; j++) {
+                        if (translatedLines[j]) {
+                            applyCallback(chunk[j].index, translatedLines[j].trim());
+                        }
+                    }
+
+                    // Trigger a layout refresh so the canvas allocates space for
+                    // the newly arrived translations immediately.
+                    if (typeof fl.needsLayoutUpdate !== 'undefined') {
+                        fl.needsLayoutUpdate = true;
+                    }
+                } catch (e) {
+                    console.log("Batch translation failed:", e);
+                }
+                resolve();
+            }, chunkIdx * 150); // 150ms stagger per chunk to be kind to the rate limiter
+        })));
     }
 
 })();
