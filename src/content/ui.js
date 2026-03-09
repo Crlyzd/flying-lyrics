@@ -470,6 +470,7 @@
                 }
 
                 fl.injectStructure();
+                fl._refreshEls(); // OPT-4: pre-cache DOM element refs for the render loop
                 fl.applyVisualSettings();
                 fl.fetchLyrics();
 
@@ -480,6 +481,7 @@
                 //   • Lyrics not loading when music plays after a no-music open
                 fl.currentTrack = "";
                 fl.lastExtractedArt = "";
+                fl._mediaEl = null; // OPT-5: clear stale media cache on session start
 
                 fl.pipWin.requestAnimationFrame(fl.renderLoop);
             } catch (e) {

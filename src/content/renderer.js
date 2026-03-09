@@ -9,7 +9,22 @@
     fl.lastActiveIdx = -1;          // Last active lyric line index
     fl.lastLyricsLen = 0;           // Last known lyric count
     fl.needsLayoutUpdate = true;    // Dirty flag (true on first run)
-    fl.cachedLayout = [];           // Pre-computed Y offsets for each lyric line
+    fl.cachedLayout = [];           // Pre-computed {y, mainSize} for each lyric line
+
+    // OPT-4: Cached PiP DOM element references (populated by injectStructure via _refreshEls).
+    // Avoids getElementById on every frame once the PiP structure is stable.
+    fl._els = null;
+
+    fl._refreshEls = function () {
+        if (!fl.pipWin) { fl._els = null; return; }
+        const doc = fl.pipWin.document;
+        fl._els = {
+            bgCover: doc.getElementById('bg-cover'),
+            seeker: doc.getElementById('seeker-bar'),
+            ppBtn: doc.getElementById('playpause'),
+            muteBtn: doc.getElementById('mute-btn'),
+        };
+    };
 
     fl.renderLoop = function () {
         if (!fl.pipWin || fl.pipWin.closed) return;
@@ -25,14 +40,18 @@
             fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
             fl.isCurrentLyricSynced = false;
             fl.needsLayoutUpdate = true;
+            fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
 
             fl.fetchLyrics();
         }
 
+        // OPT-4: Refresh element cache if not yet populated or canvas was replaced.
+        if (!fl._els) fl._refreshEls();
+
         // --- CONTINUOUS BACKGROUND IMAGE SYNC ---
         const art = fl.getCoverArt();
-        const bg = fl.pipWin.document.getElementById('bg-cover');
+        const bg = fl._els?.bgCover;
 
         if (bg && art) {
             const newBg = `url("${art}")`;
@@ -60,6 +79,7 @@
             fl.ctx = null;
             fl.lastW = -1; // Force resize for the new canvas
             fl.lastH = -1;
+            fl._els = null; // Canvass replaced — re-cache all elements
         }
         if (!fl.canvas) return fl.pipWin.requestAnimationFrame(fl.renderLoop);
         if (!fl.ctx) fl.ctx = fl.canvas.getContext('2d');
@@ -90,10 +110,11 @@
             state.currentTime += (fl.syncOffset / 1000);
         }
 
-        const seeker = fl.pipWin.document.getElementById('seeker-bar');
+        // --- OPT-4: Use cached element refs for per-frame DOM writes ---
+        const seeker = fl._els?.seeker;
         if (seeker) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
 
-        const ppBtn = fl.pipWin.document.getElementById('playpause');
+        const ppBtn = fl._els?.ppBtn;
         if (ppBtn) {
             const targetState = state.paused ? 'paused' : 'playing';
             if (ppBtn.dataset.state !== targetState) {
@@ -103,7 +124,7 @@
         }
 
         // Update mute button icon if changed externally (or by our toggle)
-        const muteBtn = fl.pipWin.document.getElementById('mute-btn');
+        const muteBtn = fl._els?.muteBtn;
         if (muteBtn) {
             // Empirically verified via live DOM inspection:
             // Mute button aria-label = "Unmute" when muted, "Mute" when unmuted.
@@ -146,7 +167,9 @@
             // Scale factor derived from the user font size slider.
             // Default slider value (18) yields scale = 1.0.
             // Range 10–36 gives roughly 0.56x to 2.0x.
-            const isSystemMessage = fl.lyricLines.length === 1 && ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"].includes(fl.lyricLines[0].text);
+
+            // OPT-1: O(1) Set lookup instead of Array.includes() for system message detection.
+            const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text);
             const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
             // Target width for the active line fit
@@ -160,6 +183,9 @@
 
                 // Inactive lines: fixed vmin-based size (unchanged behaviour).
                 // Active line: scale to fill horizontal space, then clamp.
+                // OPT-2: Store computed mainSize in the layout object so the draw
+                // pass can reuse it — eliminating the duplicate calculateFitSize /
+                // measureText call that previously happened every frame for the active line.
                 let mainSize;
                 if (i === activeIdx) {
                     mainSize = fl.calculateFitSize(
@@ -221,7 +247,8 @@
                 }
 
                 const baseY = currentYOffset + topBoundary;
-                lineOffsets.push(baseY);
+                // OPT-2: store {y, mainSize} so the draw pass can read mainSize directly.
+                lineOffsets.push({ y: baseY, mainSize });
 
                 const totalBlockHeight = topBoundary + bottomBoundary;
                 currentYOffset += totalBlockHeight + defaultSpacing;
@@ -230,19 +257,28 @@
             fl.cachedLayout = lineOffsets;
             // Update scroll target inside the invalidation block so the lerp always
             // chases the new position, even when scrollPos is mid-animation.
-            fl.targetScroll = fl.cachedLayout[activeIdx] || 0;
+            fl.targetScroll = (fl.cachedLayout[activeIdx]?.y) || 0;
             fl.lastActiveIdx = activeIdx;
             fl.lastLyricsLen = fl.lyricLines.length;
             fl.needsLayoutUpdate = false;
         }
         fl.scrollPos += (fl.targetScroll - fl.scrollPos) * 0.1;
 
+        // --- OPT-3: IDLE THROTTLE ---
+        // When the track is paused AND the scroll animation has fully settled,
+        // the canvas content is static. Drop to ~4fps to save CPU/battery.
+        // The threshold of 0.5px is imperceptible in the PiP window.
+        const scrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
+        const isIdle = state.paused && scrollDelta < 0.5 && !fl.needsLayoutUpdate;
+
         fl.ctx.save();
         fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos);
 
         if (fl.userShowLyrics) {
             fl.lyricLines.forEach((line, i) => {
-                const y = fl.cachedLayout[i];
+                const entry = fl.cachedLayout[i];
+                if (!entry) return;
+                const y = entry.y;
 
                 // --- CULLING: Skip drawing off-screen lines ---
                 // Calculate where this line will actually render on the screen
@@ -258,7 +294,8 @@
                 // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
                 fl.ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
 
-                const isSystemMessage = fl.lyricLines.length === 1 && ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"].includes(line.text);
+                // OPT-1: O(1) Set lookup for system message detection in the draw pass.
+                const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(line.text);
                 let drawX = 0;
                 if (isSystemMessage) {
                     fl.ctx.textAlign = 'center';
@@ -281,23 +318,11 @@
 
                 // Mirror the layout block's sizing logic exactly so draw positions
                 // match the pre-computed offsets in cachedLayout.
-                // fontScale is computed in the layout block above and also needed in the draw pass.
                 const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
-                let mainSize;
-                if (isCurrent) {
-                    mainSize = fl.calculateFitSize(
-                        fl.ctx,
-                        line.text,
-                        `700 {SIZE}px ${displayFontFamily}`,
-                        maxWidth * 0.75,
-                        vmin * 7.5 * fontScale,
-                        vmin * 6.5 * fontScale,
-                        vmin * 9.5 * fontScale
-                    );
-                } else {
-                    mainSize = vmin * 6.0 * fontScale; // Bumped from 5.2 to match layout pass
-                }
+                // OPT-2: Reuse the mainSize already computed in the layout pass.
+                // For the active line this avoids a second calculateFitSize → measureText call.
+                const mainSize = entry.mainSize;
                 const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
                 const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
 
@@ -367,7 +392,17 @@
 
         fl.ctx.restore();
 
-        fl.pipWin.requestAnimationFrame(fl.renderLoop);
+        // OPT-3: If truly idle (paused + scroll settled + no layout dirty), sleep for
+        // ~250ms before the next rAF tick. This cuts CPU wakeups from ~60/s to ~4/s.
+        // Glow animations bypass the throttle because needsLayoutUpdate stays false
+        // while glow is active — but glow forces a repaint via the continuous rAF loop
+        // below. When glow is on and the track is paused we still want smooth glow,
+        // so we skip throttling if glow is enabled too.
+        if (isIdle && !fl.userGlowEnabled) {
+            fl.pipWin.setTimeout(() => fl.pipWin.requestAnimationFrame(fl.renderLoop), 250);
+        } else {
+            fl.pipWin.requestAnimationFrame(fl.renderLoop);
+        }
     }
 
 })();

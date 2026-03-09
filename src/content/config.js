@@ -23,3 +23,13 @@ window.FLYING_LYRICS.defaults = {
     showLyrics: true,
     lyricAlignment: 'center'
 };
+
+// O(1) set used by renderer and services to identify non-lyric status messages.
+// Kept here so both modules share exactly one instance and one definition.
+window.FLYING_LYRICS.SYSTEM_MSG_SET = new Set([
+    "Waiting for music...",
+    "No lyrics found",
+    "Network Error",
+    "Wait for it...",
+    "No Lyrics Available"
+]);

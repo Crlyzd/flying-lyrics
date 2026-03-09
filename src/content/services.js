@@ -90,6 +90,24 @@
 
     // --- fetchLyrics Pipeline Helpers ---
 
+    /**
+     * Wraps fetch() with a hard timeout using AbortController.
+     * When lrclib.net is down the TCP connection can hang for 30+ seconds before the
+     * browser gives up, blocking the entire lyrics pipeline. This caps the wait to
+     * `ms` milliseconds and rejects with a descriptive error so the caller can fall
+     * back to Netease immediately.
+     *
+     * @param {string} url - URL to fetch.
+     * @param {number} [ms=5000] - Timeout in milliseconds.
+     * @returns {Promise<Response>}
+     */
+    fl._fetchWithTimeout = function (url, ms = 5000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        return fetch(url, { signal: controller.signal })
+            .finally(() => clearTimeout(timer));
+    };
+
     fl.applySavedSyncOffset = function (key) {
         fl.activeLyricSource = null;
         fl.syncOffset = fl.songOffsets[key] !== undefined ? fl.songOffsets[key] : fl.globalSyncOffset;
@@ -115,7 +133,7 @@
             fl.activeLyricSource = { type: 'local', id: null, name: key };
             return override.data;
         } else if (override.type === 'api' && override.id) {
-            const res = await fetch(`https://lrclib.net/api/get/${override.id}`);
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`);
             const data = await res.json();
             const raw = data.syncedLyrics || data.plainLyrics || "";
             if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
@@ -135,7 +153,7 @@
         try {
             const actualDuration = fl.getPlayerState().duration || 0;
             const searchQuery = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
-            const res = await fetch(`https://lrclib.net/api/search?${searchQuery}`);
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`);
 
             if (!res.ok) return "";
             const candidates = await res.json();
@@ -159,7 +177,9 @@
                 return best.plainLyrics;
             }
         } catch (err) {
-            console.log("LRCLIB ranked search failed:", err);
+            // AbortError = our 5s timeout fired; any other error = network/API failure.
+            // Either way, log it and let the caller fall through to Netease.
+            console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (5s)' : err);
         }
         return "";
     }
@@ -264,17 +284,24 @@
 
         // --- NON-SPOTIFY: Use media element (YouTube Music, etc.) ---
         // These sites use standard HTML5 audio/video whose native properties are reliable.
-        const mediaElements = Array.from(document.querySelectorAll('video, audio'));
+        // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
+        // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
+        // is gone or the element is no longer ready (e.g. after a page navigation).
+        if (!fl._mediaEl || fl._mediaEl.readyState < 1) {
+            const mediaElements = Array.from(document.querySelectorAll('video, audio'));
 
-        // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
-        // while still avoiding accidental matches on silent background videos elsewhere.
-        const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
-        const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
-        const pool = audioEls.length > 0 ? audioEls : videoEls;
+            // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
+            // while still avoiding accidental matches on silent background videos elsewhere.
+            const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
+            const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
+            const pool = audioEls.length > 0 ? audioEls : videoEls;
 
-        const activeMedia = pool.find(m => m.readyState >= 2 && !m.paused)
-            || pool.find(m => m.readyState >= 2);
+            fl._mediaEl = pool.find(m => m.readyState >= 2 && !m.paused)
+                || pool.find(m => m.readyState >= 2)
+                || null;
+        }
 
+        const activeMedia = fl._mediaEl;
         if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
             return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
         }

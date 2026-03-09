@@ -147,6 +147,12 @@
 
         if (line.trim().length > 0) lines.push(line.trim());
 
+        // OPT-6: Prevent unbounded cache growth. With many songs, font sizes, and
+        // window resizes the cache can accumulate thousands of stale entries.
+        // Maps preserve insertion order, so deleting the first key evicts the oldest entry.
+        if (fl.wrapCache.size >= 500) {
+            fl.wrapCache.delete(fl.wrapCache.keys().next().value);
+        }
         fl.wrapCache.set(key, lines);
         return lines;
     }

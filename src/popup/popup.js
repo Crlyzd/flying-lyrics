@@ -692,20 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFontResults(scored, activeFontRaw);
     }
 
-    /** Picks 5 random popular fonts and shows them as chips. */
+    /** Picks 5 random fonts from the full Google Fonts catalogue and shows them as chips. */
     function generateFontSuggestions() {
-        const popularFonts = [
-            'Poppins', 'Roboto', 'Lato', 'Montserrat', 'Open Sans', 'Raleway', 'Nunito',
-            'Oswald', 'Playfair Display', 'Merriweather', 'Bebas Neue', 'Josefin Sans',
-            'Pacifico', 'Dancing Script', 'Lobster', 'Caveat', 'Quicksand', 'Rubik',
-            'Kanit', 'Exo 2', 'Orbitron', 'Space Grotesk', 'DM Sans', 'Syne',
-            'Work Sans', 'Libre Baskerville', 'Barlow', 'Figtree', 'Plus Jakarta Sans',
-            'Outfit', 'Inter', 'Boogaloo', 'Righteous', 'Fredoka', 'Indie Flower',
-            'Shadows Into Light', 'Patrick Hand', 'Kalam', 'Handlee', 'Permanent Marker'
-        ];
+        const fontList = typeof GOOGLE_FONTS !== 'undefined' ? GOOGLE_FONTS : [];
 
-        // Shuffle and take first 5
-        const shuffled = [...popularFonts].sort(() => Math.random() - 0.5).slice(0, 5);
+        // Reservoir-sample 5 fonts without cloning or fully shuffling the entire array.
+        // Pick 5 random indices (no repeats) then read the names at those positions.
+        const picked = new Set();
+        while (picked.size < 5 && picked.size < fontList.length) {
+            picked.add(Math.floor(Math.random() * fontList.length));
+        }
+        const shuffled = [...picked].map(i => fontList[i]);
 
         fontChipsContainer.innerHTML = '';
         shuffled.forEach(name => {
