@@ -127,13 +127,34 @@
                 const meta = navigator.mediaSession.metadata;
                 if (meta && meta.title && meta.artist) {
                     const key = `${meta.artist} - ${meta.title}`;
-                    chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
+
+                    // Retrieve BOTH overrides and the persistence cache
+                    chrome.storage.local.get(['lyricsOverrides', 'lyricsCache'], (items) => {
                         const latestOverrides = items.lyricsOverrides || {};
                         latestOverrides[key] = p.lyricOverride;
                         fl.lyricsOverrides = latestOverrides;
-                        chrome.storage.local.set({ lyricsOverrides: latestOverrides });
-                        fl.cachedLyrics.key = "";
-                        if (typeof fl.fetchLyrics === 'function') fl.fetchLyrics();
+
+                        const updates = { lyricsOverrides: latestOverrides };
+
+                        // If the old wrong lyrics are in Tier 2 cache, obliterate them
+                        if (items.lyricsCache) {
+                            const cache = items.lyricsCache;
+                            const hasEntry = cache.entries && cache.entries[key];
+                            const inOrder = cache.order && cache.order.includes(key);
+
+                            if (hasEntry || inOrder) {
+                                if (hasEntry) delete cache.entries[key];
+                                if (inOrder) cache.order = cache.order.filter(k => k !== key);
+                                updates.lyricsCache = cache;
+                            }
+                        }
+
+                        chrome.storage.local.set(updates, () => {
+                            // Clear Tier 1 active memory
+                            fl.cachedLyrics.key = "";
+                            // Trigger full fetch (Tier 3 Network check)
+                            if (typeof fl.fetchLyrics === 'function') fl.fetchLyrics();
+                        });
                     });
                 }
             }
