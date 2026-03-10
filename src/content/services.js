@@ -494,7 +494,11 @@
      */
     fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
         const CHUNK_SIZE = 15;
-        const DELIMITER = ' ||| ';
+        // Romaji (dt=rm) uses '|||': its flat phonetic token-stream doesn't preserve \n,
+        // but ASCII pipe characters pass through verbatim in the token output.
+        // Translation (dt=t) uses '\n': Google's NLP engine treats it as a sentence boundary
+        // and always preserves it, making splits reliable and immune to NLP mangling.
+        const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
 
         // Build all chunks up-front so we can dispatch them all in parallel.
         const chunks = [];
@@ -523,8 +527,10 @@
 
                     if (!translatedCombo) return resolve();
 
-                    // Split back by our delimiter (API may add spaces around |||).
-                    const translatedLines = translatedCombo.split(/\s*\|\s*\|\s*\|\s*/);
+                    // Split back using the mode-appropriate delimiter.
+                    const translatedLines = (dtMode === 'rm')
+                        ? translatedCombo.split(/\s*\|\s*\|\s*\|\s*/)
+                        : translatedCombo.split('\n');
 
                     for (let j = 0; j < chunk.length; j++) {
                         if (translatedLines[j]) {
