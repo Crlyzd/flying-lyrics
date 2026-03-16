@@ -1,73 +1,67 @@
-﻿# Flying Lyrics 🎵 - Romanize Your Lyrics ✨✨
+# Flying Lyrics 🎵 - Romanize Your Lyrics ✨✨
 
 > [!NOTE]
 > ALL LYRICS PANEL FOR SPOTIFY AND YOUTUBE MUSIC IN THE WHOLE INTERNET IS TRASH (IF YOU FOUND A BETTER ONE PLEASE TELL ME SO I CAN DITCH MY RELEASE) BECAUSE THEY COULD NOT EVEN ROMANIZED JAPANESE OR KOREAN LETTERS SO I MADE THIS SIMPLE EXTENSION FOR CHROMIUM BROWSER
 
-<img width="718" height="999" alt="{66951E42-7909-471D-A05E-720B011B7545}" src="https://github.com/user-attachments/assets/7096f7b6-882f-4e19-a1d2-a8e8747ffd67" />
+
 
 # 🎵 Flying Lyrics - Romanize Your Lyrics
-**Lyrics that follow you wherever you go, Flying Lyrics is a floating browser extension that pulls in synchronized lyrics, romanization, and translations so you can sing along while multitasking without ever switching tabs.**
+**Lyrics that follow you wherever you go. Flying Lyrics is a floating browser extension that pulls in synchronized lyrics, romanization, and translations so you can sing along while multitasking without ever switching tabs.**
 
 ## ✨ Key Features
 
 ### 🚀 The "Always-on-Top" Player
 * **Floating Window:** Watch your lyrics in a small, resizable window that stays on top of everything else on your screen.
-* **Spotify & YouTube Music:** It works perfectly with both the Spotify Web Player and YouTube Music.
-* **No Setup Required:** The app automatically finds and downloads the right lyrics for your song as soon as you hit play.
+* **Spotify & YouTube Music:** Works perfectly with both Spotify Web Player and YouTube Music.
+* **No Setup Required:** Automatically finds and downloads the right lyrics as soon as you hit play.
 * **Multi-Source Support:** Automatically fetches from LRCLIB (Default), Netease, or your Local Files.
+* **Local LRC Support:** Have a rare track? Load your own `.lrc` files directly into the player.
+* **Auto-Launch:** Enable "Auto-Launch Lyrics" in settings to have the player open automatically when music starts.
 
 ### 🌍 Read & Understand Everything
-* **Triple-Layer View:** See the original lyrics, the romanization (supporting **Japanese, Korean, or Mandarin**), and the translation into your language—all at the same time.
-* **Instant Translation:** If a song doesn't have a translation, the app uses Google Translate to create one for you on the fly.
-* **Cinematic Feel:** The current line glows and stays in focus, while the rest of the lyrics fade out slightly so you always know where you are.
-* **Smart "Pseudo-Scroll":** If a song only has unsynced lyrics (no timestamps), the panel automatically scrolls based on the song duration and line count so you're never lost.
-* **Sync Indicators:** Easily see at a glance whether you are viewing Synced or Unsynced lyrics directly on the panel.
+* **Triple-Layer View:** See original lyrics, romanization (supporting **Japanese, Korean, or Mandarin**), and translations—all at the same time.
+* **Instant Translation:** Uses Google Translate to provide translations on the fly if none are available.
+* **Cinematic Feel:** The current line glows and stays in focus, while inactive lines fade out.
+* **Smart "Pseudo-Scroll":** For unsynced lyrics, the panel automatically scrolls based on song duration and line count.
+* **Sync Indicators:** Easily see whether you are viewing Synced or Unsynced lyrics at a glance.
 
-<img width="138" height="135" alt="{07850A56-3750-4ADE-BA60-B7BB4F47A1F0}" src="https://github.com/user-attachments/assets/db46a459-24a1-4b2e-a0ae-90d81ceb5c3a" />
+<img width="138" height="135" alt="Sync Indicator" src="https://github.com/user-attachments/assets/db46a459-24a1-4b2e-a0ae-90d81ceb5c3a" />
 
 ### 🎨 Beautiful & Adaptive Design
-* **Matching Colors:** The window looks at your song's album art and changes its colors to match the "vibe" of the music.
-* **Crystal Clear:** Special shadows and brightness adjustments make sure the text is always easy to read, even against bright or busy album covers.
-* **Perfect Fit:** The text automatically resizes and wraps so it never looks messy or overlaps, no matter how you stretch the window.
+* **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
+* **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
+* **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size** and **Alignment** (Left, Center, Right) to your liking.
+* **Show/Hide Lyrics Toggle:** Want to just vibe with the album art? Use the "Show Lyrics" toggle to hide the text and see only the cover.
+* **Background Modes:** Choose how your background looks with **Center**, **Repeat**, or **Fill** modes.
 
 ### 🕹️ Full Control at Your Fingertips
+* **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
+* **Built-in Controls:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
+* **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
+* **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 
-* **Manual Cloud Search:** Can't find the right match? Search for lyrics via the extension button, browse the cloud results, and pick the perfect version yourself.
-* **Built-in Buttons:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
-* **Quick Toggles:** Instantly mute the music or turn the translated lyrics on and off with a single click.
-* **Jump Back:** One click takes you straight back to the original music tab, even if it's buried under ten other windows.
-
-### ⚙️ Personalize Your Experience
-* **Quick-Access Popup:** Manage all your settings by clicking the Flying Lyrics icon in your browser's extension menu.
-* **Pick Your Language:** Use the dropdown menu in the popup to choose your preferred translation language (e.g., Indonesian, English).
-* **Fix the Timing:** Use the Sync Offset buttons to perfectly line up lyrics that are too fast or slow.
-* **Global Sync Offset:** Set a universal timing adjustment using the intuitive two-row layout; this acts as a baseline without overriding individual song fixes.
-* **Smart Memory:** The extension automatically remembers your timing fixes for every song, so you only ever have to fix it once!
-
-<img width="419" height="658" alt="image" src="https://github.com/user-attachments/assets/f21104db-ffbc-46f6-a2f0-27434dcba43e" />
+<img width="419" height="658" alt="Settings Menu" src="https://github.com/user-attachments/assets/f21104db-ffbc-46f6-a2f0-27434dcba43e" />
 
 ---
 
 ## 🚀 Installation
 1. Install the extension.
-2. Navigate to [Spotify Web Player](https://open.spotify.com/) or [YouTube Music](https://music.youtube.com/).
+2. Navigate to [Spotify Web Player](http://googleusercontent.com/spotify.com/4) or [YouTube Music](https://music.youtube.com/).
 3. Locate the green "♫ FLYING LYRICS" button:
-- On YouTube Music: The button appears in the top right corner of the page.
-- On Spotify: The button is now located in the bottom playback bar, specifically to the left of the shuffle/previous track controls.
-4. Click the button to launch the Picture-in-Picture lyrics window and enjoy!
+   - **YouTube Music:** Top right corner of the page.
+   - **Spotify:** Bottom right corner of the playback bar, next to the volume and queue icons.
+4. Click to launch the Picture-in-Picture window and enjoy!
 
-<img width="620" height="430" alt="image" src="https://github.com/user-attachments/assets/2b0c0b54-bb32-48d6-84e7-6f4db47e5a4d" />
-<br></br>
-<img width="858" height="186" alt="image" src="https://github.com/user-attachments/assets/75ac1e05-a925-4209-9952-69b57d929ac3" />
-
+<img width="620" height="430" alt="YT Music Location" src="https://github.com/user-attachments/assets/2b0c0b54-bb32-48d6-84e7-6f4db47e5a4d" />
+<br>
+<img width="858" height="186" alt="Spotify Location" src="https://github.com/user-attachments/assets/75ac1e05-a925-4209-9952-69b57d929ac3" />
 
 ---
 
 ## ⚠️ Known Limitations & Tips
-
-* **Browser-Specific UI Bug:** When your Spotify Web PLayer using language other than English, although the player controls (Play, Pause, and Mute) remain functional, the button icons may fail to visually toggle their state when clicked.
-* **Translation Speed:** Because the app uses a free version of the Google Translate API to keep the extension free for everyone, lyrics might take an extra second or two to load when translating.
-* **API Protection:** To keep things running smoothly, try not to switching the translation too rapidly. Switching it too often might cause the Google Translate API to temporarily block requests.
+* **Browser UI Bug:** In Spotify Web Player (Non-English languages), player icons may occasionally fail to visually toggle, though the controls remain functional.
+* **Translation Speed:** Due to the free Google Translate API, translations may take 1-2 seconds to load.
+* **API Protection:** Avoid switching translation languages too rapidly to prevent temporary API rate-limiting.
 
 ---
 
