@@ -1,52 +1,35 @@
 // src/content/config.js
 
-// Default system fonts (Baseline)
-let userFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
+window.FLYING_LYRICS = window.FLYING_LYRICS || {};
 
-// Visual customization defaults — synced from chrome.storage
-let userFontSize = 18;   // px — scale factor for vmin calculations
-let userBgBlur = 2;   // px — backdrop blur on #bg-cover
-let userBgDarkness = 50;   // 0-100 — opacity of dark overlay on #bg-cover
-let userCoverMode = 'default'; // 'default' | 'centered' | 'repeated'
-let userGlowEnabled = false;    // animated glow on the active lyric
-let userGlowStyle = 'theme';    // 'theme' | 'rainbow'
-let userShowLyrics = true;      // toggle to display/hide lyrics completely
-let userLyricAlignment = 'center'; // 'left' | 'center' | 'right' | 'justify'
+// Unified User Preferences Defaults
+window.FLYING_LYRICS.defaults = {
+    // Functional Settings
+    showTranslation: true,
+    translationLang: 'id',
+    globalSyncOffset: 1000,
+    autoLaunch: false,
+    songOffsets: {},
+    lyricsOverrides: {},
 
-// Load all user preferences from storage on script init
-const loadUserPreferences = () => {
-    chrome.storage.local.get({
-        customFont: "'Noto Sans', 'Segoe UI', sans-serif",
-        fontSize: 18,
-        bgBlur: 2,
-        bgDarkness: 50,
-        coverMode: 'default',
-        glowEnabled: false,
-        glowStyle: 'theme',
-        showLyrics: true,
-        lyricAlignment: 'center',
-    }, (result) => {
-        userFontFamily = result.customFont;
-        userFontSize = result.fontSize;
-        userBgBlur = result.bgBlur;
-        userBgDarkness = result.bgDarkness;
-        userCoverMode = result.coverMode;
-        userGlowEnabled = result.glowEnabled;
-        userGlowStyle = result.glowStyle;
-        userShowLyrics = result.showLyrics;
-        userLyricAlignment = result.lyricAlignment;
-
-        // Force layout update if PiP window is already active
-        if (typeof needsLayoutUpdate !== 'undefined') {
-            needsLayoutUpdate = true;
-        }
-
-        // Apply visual settings to PiP if already open
-        if (typeof applyVisualSettings === 'function') {
-            applyVisualSettings();
-        }
-    });
+    // Visual Settings
+    customFont: "'Noto Sans', 'Segoe UI', sans-serif",
+    fontSize: 18,
+    bgBlur: 2,
+    bgDarkness: 50,
+    coverMode: 'default',
+    glowEnabled: false,
+    glowStyle: 'theme',
+    showLyrics: true,
+    lyricAlignment: 'center'
 };
 
-// Run immediately when script loads
-loadUserPreferences();
+// O(1) set used by renderer and services to identify non-lyric status messages.
+// Kept here so both modules share exactly one instance and one definition.
+window.FLYING_LYRICS.SYSTEM_MSG_SET = new Set([
+    "Waiting for music...",
+    "No lyrics found",
+    "Network Error",
+    "Wait for it...",
+    "No Lyrics Available"
+]);

@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Flying Lyrics - Romanize Your Lyrics",
+  "name": "Flying Lyrics PRO - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
   "version": "3.6",
   "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
@@ -31,6 +31,7 @@
         "*://music.youtube.com/*"
       ],
       "js": [
+        "src/lib/vibrant.min.js",
         "src/content/config.js",
         "src/content/content.js",
         "src/content/utils.js",

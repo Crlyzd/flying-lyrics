@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleShowLyrics = document.getElementById('toggle-show-lyrics');
     const alignSelect = document.getElementById('align-select');
     const glowPreview = document.getElementById('glow-preview');
+    const fontSizeWarning = document.getElementById('font-size-warning');
 
     // State
     let currentResults = [];
@@ -100,22 +101,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     //  LOAD SAVED SETTINGS (main + customization)
     // =========================================================
-    chrome.storage.local.get({
-        showTranslation: true,
-        translationLang: 'id',
-        globalSyncOffset: 1000,
-        autoLaunch: false,
-        // Customization defaults
-        customFont: "'Noto Sans', 'Segoe UI', sans-serif",
-        fontSize: 18,
-        bgBlur: 2,
-        bgDarkness: 50,
-        coverMode: 'default',
-        glowEnabled: false,
-        glowStyle: 'theme',
-        showLyrics: true,
-        lyricAlignment: 'center',
-    }, (items) => {
+
+    // Fallbacks if config.js somehow isn't loaded yet into the background context
+    const fallbackDefaults = {
+        showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
+        customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 18, bgBlur: 2, bgDarkness: 50,
+        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center'
+    };
+
+    chrome.storage.local.get(fallbackDefaults, (items) => {
         // Main settings
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
@@ -151,6 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 10) / 2) + 1));
         fontSizeSlider.value = fontStep;
         fontSizeValue.textContent = fontStep;
+        if (fontSizeWarning) {
+            fontSizeWarning.style.display = fontStep >= 7 ? 'inline-block' : 'none';
+        }
 
         // Blur: 0 to 10px -> naturally matches 0-10 slider
         const blurStep = Math.max(0, Math.min(10, items.bgBlur));
@@ -244,37 +241,69 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     //  SEARCH RESULTS RENDERER
     // =========================================================
+
+    // Event Delegation: Attach one click listener to the entire container
+    resultsContainer.addEventListener('click', (e) => {
+        const item = e.target.closest('.result-item');
+        if (!item || item.id === 'local-file-card') return; // Ignore clicks that aren't on result items or are on the read-only local card
+
+        if (item.id === 'auto-match-card') {
+            saveAndNotify({ lyricOverride: null });
+            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
+            resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+            const dot = document.createElement('div');
+            dot.className = 'active-dot';
+            item.appendChild(dot);
+            item.classList.add('active-lyric');
+            return;
+        }
+
+        // It's a standard result
+        const source = item.dataset.source;
+        const id = item.dataset.id;
+        const name = item.dataset.name;
+
+        if (source && id) {
+            saveAndNotify({ lyricOverride: { type: source, id: id } });
+            activeSource = { type: source, id: id, name: name };
+            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
+            resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
+            const dot = document.createElement('div');
+            dot.className = 'active-dot';
+            item.appendChild(dot);
+            item.classList.add('active-lyric');
+        }
+    });
+
     function renderSearchResults(results, activeOverride) {
         resultsContainer.innerHTML = '';
 
         if (activeOverride && activeOverride.type === 'local') {
             const localItem = document.createElement('div');
+            localItem.id = 'local-file-card';
             localItem.className = 'result-item active-lyric';
             localItem.style.position = 'relative';
             localItem.innerHTML = `
                 <div class="active-dot"></div>
-                <div class="result-title">📁 Local File Loaded <span class="result-badge">CUSTOM</span></div>
+                <div class="result-title" style="display: flex; align-items: center; gap: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="14" height="14" fill="currentColor">
+                        <path d="M5 1C3.3 1 2 2.3 2 4v17c0 1.7 1.3 3 3 3h20c1.7 0 3-1.3 3-3V7c0-1.7-1.3-3-3-3H13c0-1.7-1.3-3-3-3H5zm0 5h20c.6 0 1 .4 1 1v14c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1z" />
+                    </svg>
+                    Local File Loaded <span class="result-badge">CUSTOM</span>
+                </div>
                 <div class="result-meta"><span>Custom .lrc file</span></div>
             `;
             resultsContainer.appendChild(localItem);
         }
 
         const autoItem = document.createElement('div');
+        autoItem.id = 'auto-match-card';
         autoItem.className = 'result-item';
         autoItem.style.position = 'relative';
         autoItem.innerHTML = `
             <div class="result-title">↳ Auto (Best Match)</div>
             <div class="result-meta">Reset to original search</div>
         `;
-        autoItem.onclick = () => {
-            saveAndNotify({ lyricOverride: null });
-            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
-            resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
-            const dot = document.createElement('div');
-            dot.className = 'active-dot';
-            autoItem.appendChild(dot);
-            autoItem.classList.add('active-lyric');
-        };
         resultsContainer.appendChild(autoItem);
 
         if (results.length === 0 && activeSource && !(activeOverride && activeOverride.type === 'local')) {
@@ -306,10 +335,15 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'result-item';
             div.style.position = 'relative';
 
+            // Store data for Event Delegation
+            div.dataset.source = item.source;
+            div.dataset.id = item.id;
+            div.dataset.name = item.name;
+
             const isActiveOverride = activeOverride && activeOverride.type !== 'local'
-                && activeOverride.id === item.id && activeOverride.type === item.source;
+                && String(activeOverride.id) === String(item.id) && activeOverride.type === item.source;
             const isActiveLive = !activeOverride && activeSource
-                && activeSource.id === item.id && activeSource.type === item.source;
+                && String(activeSource.id) === String(item.id) && activeSource.type === item.source;
 
             if (isActiveOverride || isActiveLive) {
                 div.classList.add('active-lyric');
@@ -326,16 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span>${duration}</span>
                 </div>
             `;
-            div.onclick = () => {
-                saveAndNotify({ lyricOverride: { type: item.source, id: item.id } });
-                activeSource = { type: item.source, id: item.id, name: item.name };
-                resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
-                resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
-                const dot = document.createElement('div');
-                dot.className = 'active-dot';
-                div.appendChild(dot);
-                div.classList.add('active-lyric');
-            };
             resultsContainer.appendChild(div);
         });
 
@@ -513,6 +537,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    globalOffsetInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            globalOffsetSetBtn.click();
+        }
+    });
+
     // =========================================================
     //  SLIDE NAVIGATION
     // =========================================================
@@ -661,20 +692,17 @@ document.addEventListener('DOMContentLoaded', () => {
         renderFontResults(scored, activeFontRaw);
     }
 
-    /** Picks 5 random popular fonts and shows them as chips. */
+    /** Picks 5 random fonts from the full Google Fonts catalogue and shows them as chips. */
     function generateFontSuggestions() {
-        const popularFonts = [
-            'Poppins', 'Roboto', 'Lato', 'Montserrat', 'Open Sans', 'Raleway', 'Nunito',
-            'Oswald', 'Playfair Display', 'Merriweather', 'Bebas Neue', 'Josefin Sans',
-            'Pacifico', 'Dancing Script', 'Lobster', 'Caveat', 'Quicksand', 'Rubik',
-            'Kanit', 'Exo 2', 'Orbitron', 'Space Grotesk', 'DM Sans', 'Syne',
-            'Work Sans', 'Libre Baskerville', 'Barlow', 'Figtree', 'Plus Jakarta Sans',
-            'Outfit', 'Inter', 'Boogaloo', 'Righteous', 'Fredoka', 'Indie Flower',
-            'Shadows Into Light', 'Patrick Hand', 'Kalam', 'Handlee', 'Permanent Marker'
-        ];
+        const fontList = typeof GOOGLE_FONTS !== 'undefined' ? GOOGLE_FONTS : [];
 
-        // Shuffle and take first 5
-        const shuffled = [...popularFonts].sort(() => Math.random() - 0.5).slice(0, 5);
+        // Reservoir-sample 5 fonts without cloning or fully shuffling the entire array.
+        // Pick 5 random indices (no repeats) then read the names at those positions.
+        const picked = new Set();
+        while (picked.size < 5 && picked.size < fontList.length) {
+            picked.add(Math.floor(Math.random() * fontList.length));
+        }
+        const shuffled = [...picked].map(i => fontList[i]);
 
         fontChipsContainer.innerHTML = '';
         shuffled.forEach(name => {
@@ -755,6 +783,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fontSizeValue.textContent = step;
         const realPx = 10 + ((step - 1) * 2); // 1=10px, 5=18px, 10=28px
         glowPreview.style.fontSize = `${realPx}px`;
+
+        if (fontSizeWarning) {
+            fontSizeWarning.style.display = step >= 7 ? 'inline-block' : 'none';
+        }
     });
     fontSizeSlider.addEventListener('change', () => {
         const step = parseInt(fontSizeSlider.value, 10);

@@ -1,318 +1,554 @@
-// --- SERVICES ---
+(() => {
+    const fl = window.FLYING_LYRICS;
 
-async function fetchLyrics(retryCount = 0) {
-    const meta = navigator.mediaSession.metadata;
+    // --- SERVICES ---
 
-    if (!meta || !meta.title) {
-        if (retryCount < 5) setTimeout(() => fetchLyrics(retryCount + 1), 1000);
-        return;
-    }
+    fl.fetchLyrics = async function (retryCount = 0) {
+        const meta = navigator.mediaSession.metadata;
 
-    try {
-        const query = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
-
-        // --- APPLY SAVED OFFSET ---
-        const key = `${meta.artist} - ${meta.title}`;
-
-        // Reset receipt — ensures popup never shows a stale previous-song source
-        activeLyricSource = null;
-        if (songOffsets[key] !== undefined) {
-            syncOffset = songOffsets[key];
-        } else {
-            syncOffset = globalSyncOffset; // Default if no custom offset
-        }
-        // Broadcast new offset to Popup (so UI updates if open)
-        chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset } }).catch(() => { });
-
-        // --- CACHE EARLY RETURN ---
-        if (cachedLyrics.key === key && cachedLyrics.lines.length > 0) {
-            lyricLines = cachedLyrics.lines;
-            isCurrentLyricSynced = cachedLyrics.isSynced;
-
-            if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
-            if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+        if (!meta || !meta.title) {
+            if (retryCount < 5) setTimeout(() => fl.fetchLyrics(retryCount + 1), 1000);
             return;
         }
 
-        let raw = "";
+        try {
+            const key = `${meta.artist} - ${meta.title}`;
+            fl.applySavedSyncOffset(key);
 
-        // --- CHECK FOR MANUAL OVERRIDES ---
-        const override = lyricsOverrides[key];
-        if (override) {
-            if (override.type === 'local') {
-                raw = override.data; // Use the provided local text directly
-                activeLyricSource = { type: 'local', id: null, name: key };
-            } else if (override.type === 'api' && override.id) {
-                const res = await fetch(`https://lrclib.net/api/get/${override.id}`);
-                const data = await res.json();
-                raw = data.syncedLyrics || data.plainLyrics || "";
-                if (raw) activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
-            } else if (override.type === 'netease' && override.id) {
-                const resMsg = await new Promise(resolve => {
-                    chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
-                });
-                raw = resMsg?.lyric || "";
-                if (raw) activeLyricSource = { type: 'netease', id: resMsg?.id || override.id, name: resMsg?.name || key };
+            // Tier 1: in-memory cache (instant, same session)
+            if (fl.checkLyricsCache(key)) return;
+
+            // Tier 2: chrome.storage.local (survives tab refreshes and browser restarts)
+            if (await fl.loadFromPersistentCache(key)) return;
+
+            // Tier 3: network fetch
+            let raw = await fl.resolveManualOverride(key);
+
+            // --- ADVANCED PIPELINE: Prioritize Synced Lyrics Across Providers ---
+            let lrcLibPlainFallback = null;
+            let lrcLibSourceFallback = null;
+
+            if (!raw) {
+                raw = await fl.fetchFromLrcLib(meta, key);
+
+                // If LRCLIB returned lyrics, but they are NOT synced, save them as a fallback
+                // and force the system to check Netease to see if it has *synced* versions.
+                if (raw && fl.activeLyricSource && !fl.activeLyricSource.synced) {
+                    lrcLibPlainFallback = raw;
+                    lrcLibSourceFallback = { ...fl.activeLyricSource };
+                    raw = null; // Clear raw to force Netease check
+                }
             }
-        }
 
-        // --- RANKED SEARCH via LRCLIB ---
-        if (!raw) {
-            try {
-                // Read the actual playing song duration to aid ranking
-                const actualDuration = getPlayerState().duration || 0;
-                const searchQuery = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
-                const res = await fetch(`https://lrclib.net/api/search?${searchQuery}`);
+            if (!raw) {
+                let neteaseRaw = await fl.fetchFromNeteaseFallback(meta, key);
 
-                if (res.ok) {
-                    const candidates = await res.json();
+                if (neteaseRaw) {
+                    // Determine if Netease returned synced lyrics by checking for timestamps like [00:12.34]
+                    const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
 
-                    if (Array.isArray(candidates) && candidates.length > 0) {
-                        // --- RANKING ALGORITHM ---
-                        // Score each candidate: huge bonus for synced lyrics,
-                        // then penalize by how far the duration deviates from the actual song.
-                        const scored = candidates.map(c => {
-                            const isSynced = !!c.syncedLyrics;
-                            const durationDelta = actualDuration > 0
-                                ? Math.abs((c.duration || 0) - actualDuration)
-                                : 0;
-                            // 10000 point bonus for being synced, minus 1 point per second off
-                            const score = (isSynced ? 10000 : 0) - durationDelta;
-                            return { c, score };
-                        });
-                        scored.sort((a, b) => b.score - a.score);
-                        const best = scored[0].c;
-
-                        const syncedRaw = best.syncedLyrics || "";
-                        const plainFallback = best.plainLyrics || "";
-
-                        if (syncedRaw) {
-                            // Best candidate has synced lyrics — best possible result
-                            raw = syncedRaw;
-                            activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: true };
-                        } else if (plainFallback) {
-                            // Best candidate only has plain text — try Netease first
-                            console.log("LRCLIB best match has only plain lyrics. Attempting Netease...");
-                            const neteaseMsg = await new Promise(resolve => {
-                                chrome.runtime.sendMessage({
-                                    type: 'FETCH_NETEASE',
-                                    payload: { query: `${meta.artist} ${meta.title}`, duration: actualDuration }
-                                }, resolve);
-                            });
-                            const neteaseRaw = neteaseMsg?.lyric || "";
-                            if (neteaseRaw) {
-                                raw = neteaseRaw;
-                                activeLyricSource = { type: 'netease', id: neteaseMsg?.id || null, name: neteaseMsg?.name || key, synced: false };
-                            } else {
-                                raw = plainFallback;
-                                activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: false };
-                            }
+                    if (isNeteaseSynced) {
+                        raw = neteaseRaw;
+                        fl.activeLyricSource.synced = true;
+                    } else {
+                        // Netease found lyrics, but they are ALSO plain text.
+                        // Prefer LRCLIB's plain text (if we had it) because LRCLIB is dedicated to lyrics.
+                        if (lrcLibPlainFallback) {
+                            raw = lrcLibPlainFallback;
+                            fl.activeLyricSource = lrcLibSourceFallback;
+                        } else {
+                            raw = neteaseRaw;
+                            fl.activeLyricSource.synced = false;
                         }
                     }
+                } else if (lrcLibPlainFallback) {
+                    // Netease completely failed or returned nothing. Safely revert to LRCLIB's plain text.
+                    raw = lrcLibPlainFallback;
+                    fl.activeLyricSource = lrcLibSourceFallback;
                 }
-            } catch (err) {
-                console.log("LRCLIB ranked search failed:", err);
             }
-        }
 
-        // --- FALLBACK TO NETEASE (lrclib returned nothing at all) ---
-        if (!raw) {
-            const actualDuration = getPlayerState().duration || 0;
-            const neteaseQuery = `${meta.artist} ${meta.title}`;
-            console.log("LRCLIB empty/failed. Falling back to Netease for:", neteaseQuery);
-            const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({
-                    type: 'FETCH_NETEASE',
-                    payload: { query: neteaseQuery, duration: actualDuration }
-                }, resolve);
+            if (!raw) {
+                fl.handleMissingLyrics();
+                return;
+            }
+
+            const lines = raw.split('\n');
+            fl.parseLrcOrGeneratePseudoSync(lines, raw);
+
+            // Warm the in-memory cache immediately so fast navigation is instant
+            fl.cachedLyrics.key = key;
+            fl.cachedLyrics.lines = fl.lyricLines;
+            fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
+            fl.cachedLyrics.translationLang = fl.translationLang;
+
+            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+
+            // Await translations so the persistent entry is always fully-enriched
+            // (romaji + translations baked in — no re-fetch on future loads).
+            await fl.translateExistingLyrics();
+
+            // Persist the enriched entry to chrome.storage.local (fire-and-forget).
+            fl.saveToPersistentCache(key);
+        } catch (e) {
+            fl.lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
+            fl.isCurrentLyricSynced = false;
+            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+            if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+        }
+    }
+
+    // --- PERSISTENT LYRICS CACHE (chrome.storage.local) ---
+
+    /**
+     * Tier-2 cache read: looks up `key` in chrome.storage.local.
+     * On hit, populates fl.lyricLines + the in-memory cache and fires
+     * translateExistingLyrics() to fill any missing translations (e.g. if
+     * CC was off during the original fetch).
+     *
+     * @param {string} key - "Artist - Title" cache key.
+     * @returns {Promise<boolean>} true if the cache was hit.
+     */
+    fl.loadFromPersistentCache = async function (key) {
+        return new Promise(resolve => {
+            chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+                const entry = lyricsCache?.entries?.[key];
+                if (!entry || !Array.isArray(entry.lines) || entry.lines.length === 0) {
+                    return resolve(false);
+                }
+
+                fl.lyricLines = entry.lines;
+                fl.isCurrentLyricSynced = entry.isSynced;
+
+                if (entry.translationLang !== fl.translationLang) {
+                    fl.lyricLines.forEach(l => l.translation = "");
+                }
+
+                // Warm the in-memory cache so subsequent same-session skips are instant
+                fl.cachedLyrics.key = key;
+                fl.cachedLyrics.lines = entry.lines;
+                fl.cachedLyrics.isSynced = entry.isSynced;
+                fl.cachedLyrics.translationLang = fl.translationLang;
+
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+
+                // Fill any missing translations/romaji without blocking the resolve
+                // (This will also fetch the new language if we just wiped it above)
+                fl.translateExistingLyrics();
+
+                // Fire-and-forget save back to storage to persist the new language
+                if (entry.translationLang !== fl.translationLang) {
+                    // We wait 3 seconds to give translateExistingLyrics a head start
+                    setTimeout(() => fl.saveToPersistentCache(key), 3000);
+                }
+
+                resolve(true);
             });
-            raw = resMsg?.lyric || "";
-            if (raw) activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
-        }
+        });
+    };
 
-        if (!raw) {
-            activeLyricSource = null; // Nothing was found for this song
-            lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
-            isCurrentLyricSynced = false;
-            if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
-            return;
-        }
+    /**
+     * Tier-2 cache write: persists the current fl.lyricLines (including romaji
+     * and translations) to chrome.storage.local under an LRU map.
+     * Evicts the oldest entry when the cap of 200 songs is reached.
+     *
+     * Called fire-and-forget after translateExistingLyrics() resolves so the
+     * stored entry always contains the fully-enriched data.
+     *
+     * @param {string} key - "Artist - Title" cache key.
+     */
+    fl.saveToPersistentCache = function (key) {
+        const MAX_ENTRIES = 200;
 
-        const lines = raw.split('\n');
+        chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+            const cache = lyricsCache ?? { order: [], entries: {} };
+
+            // Move key to front (most recently used)
+            cache.order = cache.order.filter(k => k !== key);
+
+            // Evict oldest entries until we're under the cap
+            while (cache.order.length >= MAX_ENTRIES) {
+                const oldest = cache.order.pop();
+                delete cache.entries[oldest];
+            }
+
+            cache.order.unshift(key);
+            cache.entries[key] = {
+                lines: fl.lyricLines,       // array of {time, text, romaji, translation}
+                isSynced: fl.isCurrentLyricSynced,
+                translationLang: fl.translationLang,
+                savedAt: Date.now()
+            };
+
+            chrome.storage.local.set({ lyricsCache: cache });
+        });
+    };
+
+    // --- fetchLyrics Pipeline Helpers ---
+
+    /**
+     * Wraps fetch() with a hard timeout using AbortController.
+     * When lrclib.net is down the TCP connection can hang for 30+ seconds before the
+     * browser gives up, blocking the entire lyrics pipeline. This caps the wait to
+     * `ms` milliseconds and rejects with a descriptive error so the caller can fall
+     * back to Netease immediately.
+     *
+     * @param {string} url - URL to fetch.
+     * @param {number} [ms=5000] - Timeout in milliseconds.
+     * @returns {Promise<Response>}
+     */
+    fl._fetchWithTimeout = function (url, ms = 5000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        return fetch(url, { signal: controller.signal })
+            .finally(() => clearTimeout(timer));
+    };
+
+    fl.applySavedSyncOffset = function (key) {
+        fl.activeLyricSource = null;
+        fl.syncOffset = fl.songOffsets[key] !== undefined ? fl.songOffsets[key] : fl.globalSyncOffset;
+        chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset: fl.syncOffset } }).catch(() => { });
+    }
+
+    fl.checkLyricsCache = function (key) {
+        if (fl.cachedLyrics.key === key && fl.cachedLyrics.lines.length > 0) {
+            fl.lyricLines = fl.cachedLyrics.lines;
+            fl.isCurrentLyricSynced = fl.cachedLyrics.isSynced;
+
+            if (fl.cachedLyrics.translationLang !== fl.translationLang) {
+                fl.lyricLines.forEach(l => l.translation = "");
+                fl.cachedLyrics.translationLang = fl.translationLang;
+            }
+
+            if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+            // Always attempt translation after a cache hit.
+            // translateExistingLyrics() skips lines that already have translations
+            // (checks !item.translation), so this is a no-op for fully-translated caches.
+            // It covers two real scenarios that previously required the user to toggle CC:
+            //   1. CC was OFF during first play → cached lines have no translations
+            //   2. Translation was still in-flight when the song was re-detected
+            fl.translateExistingLyrics();
+            return true;
+        }
+        return false;
+    }
+
+    fl.resolveManualOverride = async function (key) {
+        const override = fl.lyricsOverrides[key];
+        if (!override) return "";
+
+        if (override.type === 'local') {
+            fl.activeLyricSource = { type: 'local', id: null, name: key };
+            return override.data;
+        } else if (override.type === 'api' && override.id) {
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`);
+            const data = await res.json();
+            const raw = data.syncedLyrics || data.plainLyrics || "";
+            if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
+            return raw;
+        } else if (override.type === 'netease' && override.id) {
+            const resMsg = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
+            });
+            const raw = resMsg?.lyric || "";
+            if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || override.id, name: resMsg?.name || key };
+            return raw;
+        }
+        return "";
+    }
+
+    fl.fetchFromLrcLib = async function (meta, key) {
+        try {
+            const actualDuration = fl.getPlayerState().duration || 0;
+            const searchQuery = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`);
+
+            if (!res.ok) return "";
+            const candidates = await res.json();
+            if (!Array.isArray(candidates) || candidates.length === 0) return "";
+
+            const scored = candidates.map(c => {
+                const isSynced = !!c.syncedLyrics;
+                const durationDelta = actualDuration > 0 ? Math.abs((c.duration || 0) - actualDuration) : 0;
+                const score = (isSynced ? 10000 : 0) - durationDelta;
+                return { c, score };
+            });
+            scored.sort((a, b) => b.score - a.score);
+            const best = scored[0].c;
+
+            if (best.syncedLyrics) {
+                fl.activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: true };
+                return best.syncedLyrics;
+            } else if (best.plainLyrics) {
+                console.log("LRCLIB best match has only plain lyrics. Delaying fallback check.");
+                fl.activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: false };
+                return best.plainLyrics;
+            }
+        } catch (err) {
+            // AbortError = our 5s timeout fired; any other error = network/API failure.
+            // Either way, log it and let the caller fall through to Netease.
+            console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (5s)' : err);
+        }
+        return "";
+    }
+
+    fl.fetchFromNeteaseFallback = async function (meta, key) {
+        const actualDuration = fl.getPlayerState().duration || 0;
+        const neteaseQuery = `${meta.artist} ${meta.title}`;
+        console.log("Falling back to Netease for:", neteaseQuery);
+
+        const resMsg = await new Promise(resolve => {
+            chrome.runtime.sendMessage({
+                type: 'FETCH_NETEASE',
+                payload: { query: neteaseQuery, duration: actualDuration }
+            }, resolve);
+        });
+
+        const raw = resMsg?.lyric || "";
+        if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
+        return raw;
+    }
+
+    fl.handleMissingLyrics = function () {
+        fl.activeLyricSource = null;
+        fl.lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
+        fl.isCurrentLyricSynced = false;
+        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+    }
+
+    fl.parseLrcOrGeneratePseudoSync = function (lines, rawStr) {
+        if (typeof fl.wrapCache !== 'undefined') fl.wrapCache.clear();
         const temp = [];
 
-        // Clear the wrap-line cache so stale results from the previous song don't persist
-        if (typeof wrapCache !== 'undefined') wrapCache.clear();
-
-        // --- PSEUDO-SYNC LOGIC FOR UNSYNCED LYRICS ---
-        const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
-        isCurrentLyricSynced = isSynced;
-        if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
+        const isSynced = /\[\d+:\d+\.\d+\]/.test(rawStr);
+        fl.isCurrentLyricSynced = isSynced;
+        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
 
         if (!isSynced) {
             const cleanLines = lines.map(l => l.trim()).filter(l => l);
             if (cleanLines.length === 0) {
-                lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
-                isCurrentLyricSynced = false;
-                if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
+                fl.handleMissingLyrics();
                 return;
             }
 
-            const duration = getPlayerState().duration || 180; // Default to 3 mins if duration is unreadable
+            const duration = fl.getPlayerState().duration || 180;
             const timePerLine = duration / cleanLines.length;
 
             for (let i = 0; i < cleanLines.length; i++) {
-                temp.push({
-                    time: i * timePerLine,
-                    text: cleanLines[i],
-                    romaji: "",
-                    translation: ""
-                });
+                temp.push({ time: i * timePerLine, text: cleanLines[i], romaji: "", translation: "" });
             }
         } else {
-            // Standard LRC parsing
             for (let line of lines) {
                 const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
                 if (!match) continue;
-
                 const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
                 const text = match[3].trim();
                 if (!text) continue;
-
                 temp.push({ time, text, romaji: "", translation: "" });
             }
         }
 
-        // --- NON-BLOCKING TRANSLATION RUNNER ---
-        lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
-
-        // Save to Cache immediately (translation references modify the array in place, so the cache will get translations as they arrive)
-        cachedLyrics.key = key;
-        cachedLyrics.lines = lyricLines;
-        cachedLyrics.isSynced = isCurrentLyricSynced;
-
-        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true; // Invalidate cached layout
-
-        // Fire off translations in the background without awaiting them
-        translateExistingLyrics();
-    } catch (e) {
-        lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
-        isCurrentLyricSynced = false;
-        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-        if (typeof updateSyncIndicator === 'function') updateSyncIndicator();
+        fl.lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
     }
-}
 
-function getPlayerState() {
-    let currentTime = 0;
-    let duration = 1;
-    let paused = true;
+    fl.getPlayerState = function () {
+        let currentTime = 0;
+        let duration = 1;
+        let paused = true;
 
-    // --- SPOTIFY: Always use the DOM as primary source of truth ---
-    // Spotify manages its own React state — audio.paused is unreliable there
-    // (it may stay "playing" even when the UI is paused). The play button's
-    // aria-label is the only accurate signal.
-    if (window.location.hostname.includes('spotify')) {
-        const timeEl = document.querySelector('[data-testid="playback-position"]');
-        const durationEl = document.querySelector('[data-testid="playback-duration"]');
-        const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
+        // --- SPOTIFY: Always use the DOM as primary source of truth ---
+        // Spotify manages its own React state — audio.paused is unreliable there
+        // (it may stay "playing" even when the UI is paused). The play button's
+        // aria-label is the only accurate signal.
+        if (window.location.hostname.includes('spotify')) {
+            const timeEl = document.querySelector('[data-testid="playback-position"]');
+            const durationEl = document.querySelector('[data-testid="playback-duration"]');
+            const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
 
-        // Read paused state independently — don't gate it behind timeEl/durationEl.
-        // If the play button isn't found, assume playing (safest visual default).
-        if (playBtn) {
-            paused = playBtn.getAttribute('aria-label') === 'Play';
+            // Read paused state independently — don't gate it behind timeEl/durationEl.
+            // If the play button isn't found, assume playing (safest visual default).
+            if (playBtn) {
+                paused = playBtn.getAttribute('aria-label') === 'Play';
+            }
+
+            if (timeEl && durationEl) {
+                const currentStr = timeEl.textContent;
+                duration = fl.parseTime(durationEl.textContent) || 1;
+
+                if (currentStr !== fl.lastTimeStr) {
+                    fl.lastTimeStr = currentStr;
+                    fl.lastTimeValue = fl.parseTime(currentStr);
+                    fl.lastUpdateMs = performance.now();
+                }
+
+                currentTime = fl.lastTimeValue;
+                if (!paused) {
+                    currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
+                }
+            }
+
+            return { currentTime, duration, paused };
         }
 
-        if (timeEl && durationEl) {
-            const currentStr = timeEl.textContent;
-            duration = parseTime(durationEl.textContent) || 1;
+        // --- NON-SPOTIFY: Use media element (YouTube Music, etc.) ---
+        // These sites use standard HTML5 audio/video whose native properties are reliable.
+        // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
+        // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
+        // is gone or the element is no longer ready (e.g. after a page navigation).
+        if (!fl._mediaEl || fl._mediaEl.readyState < 1) {
+            const mediaElements = Array.from(document.querySelectorAll('video, audio'));
 
-            if (currentStr !== lastTimeStr) {
-                lastTimeStr = currentStr;
-                lastTimeValue = parseTime(currentStr);
-                lastUpdateMs = performance.now();
-            }
+            // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
+            // while still avoiding accidental matches on silent background videos elsewhere.
+            const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
+            const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
+            const pool = audioEls.length > 0 ? audioEls : videoEls;
 
-            currentTime = lastTimeValue;
-            if (!paused) {
-                currentTime += (performance.now() - lastUpdateMs) / 1000;
-            }
+            fl._mediaEl = pool.find(m => m.readyState >= 2 && !m.paused)
+                || pool.find(m => m.readyState >= 2)
+                || null;
+        }
+
+        const activeMedia = fl._mediaEl;
+        if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
+            return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
         }
 
         return { currentTime, duration, paused };
     }
 
-    // --- NON-SPOTIFY: Use media element (YouTube Music, etc.) ---
-    // These sites use standard HTML5 audio/video whose native properties are reliable.
-    const mediaElements = Array.from(document.querySelectorAll('video, audio'));
+    fl.getCoverArt = function () {
+        const isValid = (src) => src && src !== window.location.href && src !== window.location.origin + '/';
 
-    // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
-    // while still avoiding accidental matches on silent background videos elsewhere.
-    const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
-    const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
-    const pool = audioEls.length > 0 ? audioEls : videoEls;
-
-    const activeMedia = pool.find(m => m.readyState >= 2 && !m.paused)
-        || pool.find(m => m.readyState >= 2);
-
-    if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
-        return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
-    }
-
-    return { currentTime, duration, paused };
-}
-
-function getCoverArt() {
-    // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
-    const meta = navigator.mediaSession?.metadata;
-    if (meta && meta.artwork && meta.artwork.length > 0) {
-        return meta.artwork[meta.artwork.length - 1].src;
-    }
-
-    // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
-    const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
-        document.querySelector('img[data-testid="cover-art-image"]');
-    if (spotiImg) return spotiImg.src;
-
-    // 3. YouTube Music DOM Fallback
-    const ytImg = document.querySelector('.ytmusic-player-bar img');
-    if (ytImg) return ytImg.src;
-
-    return "";
-}
-
-function translateExistingLyrics() {
-    if (!lyricLines || lyricLines.length === 0) return;
-
-    // Filter out placeholder lines from fetching translation
-    const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
-
-    lyricLines.forEach(item => {
-        // Skip placeholders
-        if (placeholders.includes(item.text)) return;
-
-        // Romaji Fetch
-        if (!item.romaji && /[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
-            fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(item.text)}`)
-                .then(r => r.json())
-                .then(d => {
-                    item.romaji = d?.[0]?.[0]?.[3] || "";
-                    if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
-                })
-                .catch(() => { });
+        // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
+        const meta = navigator.mediaSession?.metadata;
+        if (meta && meta.artwork && meta.artwork.length > 0) {
+            const src = meta.artwork[meta.artwork.length - 1].src;
+            if (isValid(src)) return src;
         }
 
-        // Translation Fetch
-        if (showTranslation && !item.translation) {
-            fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${translationLang}&dt=t&q=${encodeURIComponent(item.text)}`)
-                .then(r => r.json())
-                .then(d => {
-                    if (d && d[0]) {
-                        item.translation = d[0].map(x => x[0]).join('');
-                        if (typeof needsLayoutUpdate !== 'undefined') needsLayoutUpdate = true;
+        // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
+        const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
+            document.querySelector('img[data-testid="cover-art-image"]');
+        if (spotiImg && isValid(spotiImg.src)) return spotiImg.src;
+
+        // 3. YouTube Music DOM Fallback
+        const ytImg = document.querySelector('.ytmusic-player-bar img');
+        if (ytImg && isValid(ytImg.src)) return ytImg.src;
+
+        return "";
+    }
+
+    fl.translateExistingLyrics = async function () {
+        if (!fl.lyricLines || fl.lyricLines.length === 0) return;
+
+        const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
+
+        // 1. Gather all lines that actually need Romaji
+        const romajiQueue = [];
+        fl.lyricLines.forEach((item, index) => {
+            if (!placeholders.includes(item.text) && !item.romaji && /[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
+                romajiQueue.push({ index, text: item.text });
+            }
+        });
+
+        // 2. Gather all lines that actually need Translation
+        const transQueue = [];
+        if (fl.showTranslation) {
+            fl.lyricLines.forEach((item, index) => {
+                if (!placeholders.includes(item.text) && !item.translation) {
+                    transQueue.push({ index, text: item.text });
+                }
+            });
+        }
+
+        // Process Romaji in batches
+        if (romajiQueue.length > 0) {
+            await fl.processTranslateBatch(romajiQueue, 'rm', 'en', (itemIndex, resultText) => {
+                fl.lyricLines[itemIndex].romaji = resultText;
+            });
+        }
+
+        // Process Translations in batches
+        if (transQueue.length > 0) {
+            await fl.processTranslateBatch(transQueue, 't', fl.translationLang, (itemIndex, resultText) => {
+                fl.lyricLines[itemIndex].translation = resultText;
+            });
+        }
+
+        if ((romajiQueue.length > 0 || transQueue.length > 0) && typeof fl.needsLayoutUpdate !== 'undefined') {
+            fl.needsLayoutUpdate = true;
+        }
+    }
+
+    /**
+     * Sends all chunks to Google Translate in parallel (Promise.all) rather than
+     * serially. For a 100-line song this collapses 7 sequential ~2s round-trips
+     * into a single ~2s wait, which is why translations now appear all at once
+     * instead of trickling in over 15+ seconds.
+     *
+     * A 150ms staggered start per chunk is used so requests don't all hit the
+     * API at exactly the same millisecond, reducing the chance of a 429.
+     */
+    fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
+        const CHUNK_SIZE = 15;
+        // Romaji (dt=rm) uses '|||': its flat phonetic token-stream doesn't preserve \n,
+        // but ASCII pipe characters pass through verbatim in the token output.
+        // Translation (dt=t) uses '\n': Google's NLP engine treats it as a sentence boundary
+        // and always preserves it, making splits reliable and immune to NLP mangling.
+        const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
+
+        // Build all chunks up-front so we can dispatch them all in parallel.
+        const chunks = [];
+        for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
+            chunks.push(queue.slice(i, i + CHUNK_SIZE));
+        }
+
+        // Fire all chunks concurrently with a small ramp-up stagger.
+        await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
+            setTimeout(async () => {
+                const combinedText = chunk.map(q => q.text).join(DELIMITER);
+                try {
+                    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`);
+                    if (!res.ok) return resolve();
+
+                    const data = await res.json();
+
+                    let translatedCombo = "";
+                    if (dtMode === 'rm') {
+                        // Romaji format: punctuation tokens return null for x[3], fall back to x[0].
+                        translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
+                    } else if (dtMode === 't' && data && data[0]) {
+                        // Standard translation: sentences may be split across multiple sub-arrays.
+                        translatedCombo = data[0].map(x => x[0] || "").join('');
                     }
-                })
-                .catch(() => { });
-        }
-    });
-}
+
+                    if (!translatedCombo) return resolve();
+
+                    // Split back using the mode-appropriate delimiter.
+                    const translatedLines = (dtMode === 'rm')
+                        ? translatedCombo.split(/\s*\|\s*\|\s*\|\s*/)
+                        : translatedCombo.split('\n');
+
+                    for (let j = 0; j < chunk.length; j++) {
+                        if (translatedLines[j]) {
+                            applyCallback(chunk[j].index, translatedLines[j].trim());
+                        }
+                    }
+
+                    // Trigger a layout refresh so the canvas allocates space for
+                    // the newly arrived translations immediately.
+                    if (typeof fl.needsLayoutUpdate !== 'undefined') {
+                        fl.needsLayoutUpdate = true;
+                    }
+                } catch (e) {
+                    console.log("Batch translation failed:", e);
+                }
+                resolve();
+            }, chunkIdx * 150); // 150ms stagger per chunk to be kind to the rate limiter
+        })));
+    }
+
+})();
