@@ -3,7 +3,7 @@
 > [!NOTE]
 > ALL LYRICS PANEL FOR SPOTIFY AND YOUTUBE MUSIC IN THE WHOLE INTERNET IS TRASH (IF YOU FOUND A BETTER ONE PLEASE TELL ME SO I CAN DITCH MY RELEASE) BECAUSE THEY COULD NOT EVEN ROMANIZED JAPANESE OR KOREAN LETTERS SO I MADE THIS SIMPLE EXTENSION FOR CHROMIUM BROWSER
 
-
+<img width="642" height="693" alt="Image" src="https://github.com/user-attachments/assets/9eb0803f-10a0-458e-9a6c-7fc0e1e1f79f" />
 
 # 🎵 Flying Lyrics - Romanize Your Lyrics
 **Lyrics that follow you wherever you go. Flying Lyrics is a floating browser extension that pulls in synchronized lyrics, romanization, and translations so you can sing along while multitasking without ever switching tabs.**
@@ -40,7 +40,9 @@
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 
-<img width="419" height="658" alt="Settings Menu" src="https://github.com/user-attachments/assets/f21104db-ffbc-46f6-a2f0-27434dcba43e" />
+<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/866a6f18-60be-4c79-9eb0-ce74693d86a7" />
+<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/ef9051cf-e6b9-417a-ae8d-ec477b1bf7a8" />
+<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/c619b56b-5976-4bd3-b2a8-efa7c89ee90d" />
 
 ---
 
@@ -54,7 +56,7 @@
 
 <img width="620" height="430" alt="YT Music Location" src="https://github.com/user-attachments/assets/2b0c0b54-bb32-48d6-84e7-6f4db47e5a4d" />
 <br>
-<img width="858" height="186" alt="Spotify Location" src="https://github.com/user-attachments/assets/75ac1e05-a925-4209-9952-69b57d929ac3" />
+<img width="240" height="172" alt="Image" src="https://github.com/user-attachments/assets/9a0f7026-d777-4925-9ec2-93ee656fa06e" />
 
 ---
 
