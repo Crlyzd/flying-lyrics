@@ -160,7 +160,7 @@
         // Recompute line offsets only when something meaningful changes:
         // song loaded/changed, window resized, or active line moved (different font size).
         if (fl.needsLayoutUpdate || activeIdx !== fl.lastActiveIdx || fl.lyricLines.length !== fl.lastLyricsLen) {
-            const defaultSpacing = vmin * (fl.userLineSpacing ?? 3);
+            const baseSpacing = vmin * (fl.userLineSpacing ?? 8);
             let currentYOffset = 0;
             const lineOffsets = [];
 
@@ -251,7 +251,19 @@
                 lineOffsets.push({ y: baseY, mainSize });
 
                 const totalBlockHeight = topBoundary + bottomBoundary;
-                currentYOffset += totalBlockHeight + defaultSpacing;
+
+                // --- SMART AUTO-SCALING (PLAN B) ---
+                // Shrink the gap proportionally if the block has fewer layers
+                // so the visual density remains constant across all songs.
+                const hasRomaji = !!line.romaji;
+                const hasTl = fl.showTranslation && !!line.translation;
+                const layerCount = 1 + (hasRomaji ? 1 : 0) + (hasTl ? 1 : 0);
+
+                let dynamicGap = baseSpacing;
+                if (layerCount === 2) dynamicGap = baseSpacing * 2.0;
+                if (layerCount === 1) dynamicGap = baseSpacing * 3.0;
+
+                currentYOffset += totalBlockHeight + dynamicGap;
             }
 
             fl.cachedLayout = lineOffsets;
