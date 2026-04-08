@@ -160,7 +160,7 @@
         // Recompute line offsets only when something meaningful changes:
         // song loaded/changed, window resized, or active line moved (different font size).
         if (fl.needsLayoutUpdate || activeIdx !== fl.lastActiveIdx || fl.lyricLines.length !== fl.lastLyricsLen) {
-            const defaultSpacing = vmin * 3;
+            const defaultSpacing = vmin * (fl.userLineSpacing ?? 3);
             let currentYOffset = 0;
             const lineOffsets = [];
 

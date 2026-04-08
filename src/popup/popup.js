@@ -72,6 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const alignSelect = document.getElementById('align-select');
     const glowPreview = document.getElementById('glow-preview');
     const fontSizeWarning = document.getElementById('font-size-warning');
+    const lineSpacingSlider = document.getElementById('line-spacing-slider');
+    const lineSpacingValue = document.getElementById('line-spacing-value');
 
     // State
     let currentResults = [];
@@ -106,7 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fallbackDefaults = {
         showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 18, bgBlur: 2, bgDarkness: 50,
-        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center'
+        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center',
+        lineSpacing: 8
     };
 
     chrome.storage.local.get(fallbackDefaults, (items) => {
@@ -148,6 +151,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fontSizeWarning) {
             fontSizeWarning.style.display = fontStep >= 7 ? 'inline-block' : 'none';
         }
+
+        // Line Spacing: stored actual vmin multiplier (3–12); UI shows step 1–10.
+        // Formula: actual = step + 2  →  step = actual - 2
+        const spacingStep = Math.max(1, Math.min(10, Math.round((items.lineSpacing ?? 3) - 2)));
+        lineSpacingSlider.value = spacingStep;
+        lineSpacingValue.textContent = spacingStep;
 
         // Blur: 0 to 10px -> naturally matches 0-10 slider
         const blurStep = Math.max(0, Math.min(10, items.bgBlur));
@@ -814,6 +823,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const realPercent = step * 10; // 0=0%, 5=50%, 10=100%
         saveAndNotify({ bgDarkness: realPercent });
     });
+
+    // Line Spacing: UI step 1–10 maps to actual vmin multiplier 3–12 (actual = step + 2)
+    lineSpacingSlider.addEventListener('input', () => {
+        const step = parseInt(lineSpacingSlider.value, 10);
+        lineSpacingValue.textContent = step;
+    });
+    lineSpacingSlider.addEventListener('change', () => {
+        const step = parseInt(lineSpacingSlider.value, 10);
+        const actualSpacing = step + 2; // step=1 → 3 (default), step=10 → 12
+        saveAndNotify({ lineSpacing: actualSpacing });
+    });
+
 
     // Cover Mode
     coverModeGroup.addEventListener('click', (e) => {

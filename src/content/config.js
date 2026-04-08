@@ -21,7 +21,8 @@ window.FLYING_LYRICS.defaults = {
     glowEnabled: false,
     glowStyle: 'theme',
     showLyrics: true,
-    lyricAlignment: 'center'
+    lyricAlignment: 'center',
+    lineSpacing: 8  // vmin multiplier; UI step = actual - 2, so stored 8 = display step 6
 };
 
 // O(1) set used by renderer and services to identify non-lyric status messages.

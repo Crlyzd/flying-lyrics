@@ -1,4 +1,4 @@
-﻿(() => {
+(() => {
     const fl = window.FLYING_LYRICS || {};
     window.FLYING_LYRICS = fl;
 
@@ -29,6 +29,7 @@
     fl.userGlowStyle = fl.defaults.glowStyle;
     fl.userShowLyrics = fl.defaults.showLyrics;
     fl.userLyricAlignment = fl.defaults.lyricAlignment;
+    fl.userLineSpacing = fl.defaults.lineSpacing;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false };
@@ -74,6 +75,7 @@
         fl.userGlowStyle = items.glowStyle;
         fl.userShowLyrics = items.showLyrics;
         fl.userLyricAlignment = items.lyricAlignment;
+        fl.userLineSpacing = items.lineSpacing;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -195,6 +197,11 @@
             }
             if (p.lyricAlignment !== undefined) {
                 fl.userLyricAlignment = p.lyricAlignment;
+                fl.needsLayoutUpdate = true;
+            }
+            if (p.lineSpacing !== undefined) {
+                // lineSpacing is a raw vmin multiplier (0–10)
+                fl.userLineSpacing = p.lineSpacing;
                 fl.needsLayoutUpdate = true;
             }
         } else if (msg.type === 'GET_SYNC_OFFSET') {
