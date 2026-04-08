@@ -1,3 +1,7 @@
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'FOCUS_TAB' && sender.tab) {
         // 1. Focus the tab itself
