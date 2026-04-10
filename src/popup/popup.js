@@ -74,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fontSizeWarning = document.getElementById('font-size-warning');
     const lineSpacingSlider = document.getElementById('line-spacing-slider');
     const lineSpacingValue = document.getElementById('line-spacing-value');
+    const anchorSlider = document.getElementById('anchor-slider');
+    const anchorValue = document.getElementById('anchor-value');
 
     // State
     let currentResults = [];
@@ -107,9 +109,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fallbacks if config.js somehow isn't loaded yet into the background context
     const fallbackDefaults = {
         showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
-        customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 18, bgBlur: 2, bgDarkness: 50,
+        customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center',
-        lineSpacing: 8
+        lineSpacing: 4, verticalAnchor: 4
     };
 
     chrome.storage.local.get(fallbackDefaults, (items) => {
@@ -144,8 +146,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.head.appendChild(link);
         }
 
-        // Font: 10 to 28px -> mapped to 1 to 10 step
-        const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 10) / 2) + 1));
+        // Font: 18 to 36px -> mapped to 1 to 10 step
+        const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 18) / 2) + 1));
         fontSizeSlider.value = fontStep;
         fontSizeValue.textContent = fontStep;
         if (fontSizeWarning) {
@@ -157,6 +159,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const spacingStep = Math.max(1, Math.min(10, Math.round((items.lineSpacing ?? 3) - 2)));
         lineSpacingSlider.value = spacingStep;
         lineSpacingValue.textContent = spacingStep;
+
+        // Vertical Anchor mapping (1-10 scale, defaults to 5)
+        const anchorStep = Math.max(1, Math.min(10, items.verticalAnchor ?? 5));
+        anchorSlider.value = anchorStep;
+        anchorValue.textContent = anchorStep;
 
         // Blur: 0 to 10px -> naturally matches 0-10 slider
         const blurStep = Math.max(0, Math.min(10, items.bgBlur));
@@ -786,11 +793,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recentFontsPanel) recentFontsPanel.style.display = 'none';
     });
 
-    // Font Size (1-10 step maps to 10px-28px)
+    // Font Size (1-10 step maps to 18px-36px)
     fontSizeSlider.addEventListener('input', () => {
         const step = parseInt(fontSizeSlider.value, 10);
         fontSizeValue.textContent = step;
-        const realPx = 10 + ((step - 1) * 2); // 1=10px, 5=18px, 10=28px
+        const realPx = 18 + ((step - 1) * 2); // 1=18px, 5=26px, 10=36px
         glowPreview.style.fontSize = `${realPx}px`;
 
         if (fontSizeWarning) {
@@ -799,7 +806,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     fontSizeSlider.addEventListener('change', () => {
         const step = parseInt(fontSizeSlider.value, 10);
-        const realPx = 10 + ((step - 1) * 2);
+        const realPx = 18 + ((step - 1) * 2);
         saveAndNotify({ fontSize: realPx });
     });
 
@@ -835,6 +842,16 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ lineSpacing: actualSpacing });
     });
 
+    // Vertical Anchor mapping
+    anchorSlider.addEventListener('input', () => {
+        const step = parseInt(anchorSlider.value, 10);
+        anchorValue.textContent = step;
+    });
+    anchorSlider.addEventListener('change', () => {
+        const step = parseInt(anchorSlider.value, 10);
+        saveAndNotify({ verticalAnchor: step });
+    });
+
 
     // Cover Mode
     coverModeGroup.addEventListener('click', (e) => {
@@ -867,6 +884,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // Lyric Alignment
     alignSelect.addEventListener('change', () => {
         saveAndNotify({ lyricAlignment: alignSelect.value });
+    });
+
+    // Reset Defaults
+    const btnResetSettings = document.getElementById('btn-reset-settings');
+    btnResetSettings.addEventListener('click', () => {
+        if (!confirm('Reset visual settings to default?')) return;
+
+        const defaults = {
+            customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
+            coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center',
+            lineSpacing: 4, verticalAnchor: 4
+        };
+
+        // Reset UI Elements
+        fontFamilySelect.value = defaults.customFont;
+        customFontContainer.style.display = 'none';
+        glowPreview.style.fontFamily = defaults.customFont;
+
+        fontSizeSlider.value = 5;
+        fontSizeValue.textContent = 5;
+        glowPreview.style.fontSize = `26px`;
+
+        lineSpacingSlider.value = 2;
+        lineSpacingValue.textContent = 2;
+
+        anchorSlider.value = 4;
+        anchorValue.textContent = 4;
+
+        blurSlider.value = 2;
+        blurValue.textContent = 2;
+
+        darknessSlider.value = 4;
+        darknessValue.textContent = 4;
+
+        document.querySelectorAll('.cover-mode-option').forEach(o => {
+            o.classList.toggle('selected', o.dataset.mode === 'default');
+        });
+
+        toggleShowLyrics.checked = true;
+        alignSelect.value = 'center';
+
+        toggleGlow.checked = false;
+        glowPreview.classList.remove('active', 'rainbow');
+        glowStyleContainer.style.display = 'none';
+        glowStyleSelect.value = 'theme';
+
+        saveAndNotify(defaults);
+
+        btnResetSettings.textContent = "Reset!";
+        setTimeout(() => {
+            btnResetSettings.innerHTML = '<span style="font-size: 14px;">Reset Defaults</span>';
+        }, 1000);
     });
 
     // =========================================================

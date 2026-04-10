@@ -867,8 +867,14 @@
 
                 <label>Line Spacing</label>
                 <div class="range-row">
-                    <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="6">
-                    <span class="range-value" id="line-spacing-value">6</span>
+                    <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="2">
+                    <span class="range-value" id="line-spacing-value">2</span>
+                </div>
+
+                <label>Vertical Position</label>
+                <div class="range-row">
+                    <input type="range" id="anchor-slider" min="1" max="10" step="1" value="4">
+                    <span class="range-value" id="anchor-value">4</span>
                 </div>
 
                 <label>Blur</label>
@@ -879,8 +885,8 @@
 
                 <label>Darkness</label>
                 <div class="range-row" style="margin-bottom: 0;">
-                    <input type="range" id="darkness-slider" min="0" max="10" step="1" value="5">
-                    <span class="range-value" id="darkness-value">5</span>
+                    <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
+                    <span class="range-value" id="darkness-value">4</span>
                 </div>
 
             </div>
@@ -945,6 +951,11 @@
                     </label>
                 </div>
             </div>
+
+            <!-- Reset Settings -->
+            <button class="button-customize" id="btn-reset-settings" style="margin-top: 15px; background: #552222; border: 1px solid #ff4444; color: #ff8888;">
+                <span style="font-size: 14px;">Reset Defaults</span>
+            </button>
 
         </div><!-- /slide-customize -->
 

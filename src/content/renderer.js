@@ -308,8 +308,10 @@
         const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
         const isIdle = state.paused && absScrollDelta < 0.5 && !fl.needsLayoutUpdate;
 
+        const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
+
         fl.ctx.save();
-        fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos);
+        fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
 
         if (fl.userShowLyrics) {
             fl.lyricLines.forEach((line, i) => {
@@ -319,7 +321,7 @@
 
                 // --- CULLING: Skip drawing off-screen lines ---
                 // Calculate where this line will actually render on the screen
-                const screenY = (h / 2) - fl.scrollPos + y;
+                const screenY = (h / 2) - fl.scrollPos + anchorOffset + y;
 
                 // If it's more than half a full screen-height above or below the view, ignore it.
                 // We give it a generous buffer window so shadows don't abruptly pop in.

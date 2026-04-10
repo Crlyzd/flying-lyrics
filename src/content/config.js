@@ -14,15 +14,16 @@ window.FLYING_LYRICS.defaults = {
 
     // Visual Settings
     customFont: "'Noto Sans', 'Segoe UI', sans-serif",
-    fontSize: 18,
+    fontSize: 26,
     bgBlur: 2,
-    bgDarkness: 50,
+    bgDarkness: 40,
     coverMode: 'default',
     glowEnabled: false,
     glowStyle: 'theme',
     showLyrics: true,
     lyricAlignment: 'center',
-    lineSpacing: 8  // vmin multiplier; UI step = actual - 2, so stored 8 = display step 6
+    lineSpacing: 4,  // vmin multiplier; UI step = actual - 2, so stored 4 = display step 2
+    verticalAnchor: 4 // Default scale 1-10, mapped to offset
 };
 
 // O(1) set used by renderer and services to identify non-lyric status messages.

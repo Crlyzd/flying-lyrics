@@ -30,6 +30,7 @@
     fl.userShowLyrics = fl.defaults.showLyrics;
     fl.userLyricAlignment = fl.defaults.lyricAlignment;
     fl.userLineSpacing = fl.defaults.lineSpacing;
+    fl.userVerticalAnchor = fl.defaults.verticalAnchor;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false };
@@ -76,6 +77,7 @@
         fl.userShowLyrics = items.showLyrics;
         fl.userLyricAlignment = items.lyricAlignment;
         fl.userLineSpacing = items.lineSpacing;
+        fl.userVerticalAnchor = items.verticalAnchor;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -203,6 +205,10 @@
                 // lineSpacing is a raw vmin multiplier (0–10)
                 fl.userLineSpacing = p.lineSpacing;
                 fl.needsLayoutUpdate = true;
+            }
+            if (p.verticalAnchor !== undefined) {
+                fl.userVerticalAnchor = p.verticalAnchor;
+                fl.needsLayoutUpdate = true; // Not strictly needed for layout computation, but triggers render frame
             }
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
