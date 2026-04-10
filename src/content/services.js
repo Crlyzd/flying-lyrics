@@ -76,6 +76,30 @@
             const lines = raw.split('\n');
             fl.parseLrcOrGeneratePseudoSync(lines, raw);
 
+            // --- LYRIC TIMESTAMP SPAN VALIDATION ---
+            // Guard against synced lyric files whose timestamps cover less than 50% of
+            // the real track duration (e.g. a garbage LRCLIB entry that only goes to 30s
+            // on a 3-minute song). In that case, demote to pseudo-sync so the lines are
+            // spread evenly across the real duration instead of freezing on the last line.
+            if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
+                const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
+                const realDuration = fl.getPlayerState().duration;
+                if (realDuration > 60 && lastTs < realDuration * 0.5) {
+                    console.log(`FL: Synced lyrics span only ${Math.round(lastTs)}s vs ${Math.round(realDuration)}s track — demoting to pseudo-sync.`);
+                    fl.isCurrentLyricSynced = false;
+                    if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                    // Strip timestamps and rebuild with even spacing across real duration
+                    const cleanLines = raw
+                        .split('\n')
+                        .map(l => l.replace(/^\[\d+:\d+\.\d+\]/, '').trim())
+                        .filter(l => l);
+                    const timePerLine = realDuration / cleanLines.length;
+                    fl.lyricLines = cleanLines.map((text, i) => ({
+                        time: i * timePerLine, text, romaji: "", translation: ""
+                    }));
+                }
+            }
+
             // Warm the in-memory cache immediately so fast navigation is instant
             fl.cachedLyrics.key = key;
             fl.cachedLyrics.lines = fl.lyricLines;
@@ -392,8 +416,53 @@
             return { currentTime, duration, paused };
         }
 
-        // --- NON-SPOTIFY: Use media element (YouTube Music, etc.) ---
-        // These sites use standard HTML5 audio/video whose native properties are reliable.
+        // --- YOUTUBE MUSIC: Read track-scoped ARIA attributes ---
+        // YTM appends tracks into a combined timeline MSE buffer. Native <video>.duration
+        // is the length of the queue, not the current song.
+        // 
+        // We previously parsed `span.time-info` DOM text ("2:29 / 4:10"), but updating at
+        // 1-second intervals caused the interpolated visual seeker bar to stutter/"lag".
+        // Solution: Pull from `#progress-bar` accessibility attributes (`aria-valuenow/max`).
+        // Screen reader attributes are track-scoped, highly frequent, and fully readable
+        // from the Chrome Extension "Isolated World" context.
+        if (window.location.hostname.includes('music.youtube')) {
+            const pb = document.querySelector('#progress-bar.ytmusic-player-bar');
+
+            if (pb) {
+                const trackDuration = parseFloat(pb.getAttribute('aria-valuemax'));
+                const trackCurrentTime = parseFloat(pb.getAttribute('aria-valuenow'));
+
+                if (trackDuration > 0 && !isNaN(trackDuration)) {
+                    duration = trackDuration;
+
+                    // Interpolate sub-second precision between ARIA attribute updates.
+                    // ARIA attributes update frequently, but bridging frame gaps ensures 60fps smoothness.
+                    const currentStr = String(trackCurrentTime);
+                    if (currentStr !== fl.lastTimeStr) {
+                        fl.lastTimeStr = currentStr;
+                        fl.lastTimeValue = isNaN(trackCurrentTime) ? 0 : trackCurrentTime;
+                        fl.lastUpdateMs = performance.now();
+                    }
+
+                    // Paused state: use the <video> element directly — only time/duration
+                    // are affected by MSE gapless buffering; paused is always accurate.
+                    const vid = document.querySelector('video');
+                    paused = vid ? vid.paused : true;
+
+                    currentTime = fl.lastTimeValue;
+                    if (!paused) {
+                        currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
+                    }
+
+                    return { currentTime, duration, paused };
+                }
+            }
+            // Sub-element not found yet — fall through to generic fallback.
+        }
+
+        // --- NON-SPOTIFY / NON-YTM: Use media element ---
+        // For any other platform using standard HTML5 audio/video whose native properties
+        // are reliable (no MSE gapless multi-track buffering).
         // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
         // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
         // is gone or the element is no longer ready (e.g. after a page navigation).

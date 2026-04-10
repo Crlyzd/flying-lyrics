@@ -54,7 +54,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/content/styles.css"
+        "src/content/styles.css",
+        "src/content/inject.js"
       ],
       "matches": [
         "<all_urls>"

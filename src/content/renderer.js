@@ -43,6 +43,19 @@
             fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
 
+            // Reset media element cache so getPlayerState() re-scans on the next call.
+            // On YouTube Music (MSE gapless), the same <video> element is reused across
+            // tracks — clearing this forces a fresh readyState check which will return
+            // safe defaults if the element is still in a mid-transition state.
+            fl._mediaEl = null;
+
+            // Reset time interpolation state. Both the Spotify and YTM DOM branches share
+            // these variables. Clearing them prevents the old track's final position from
+            // being extrapolated into the first frames of the new track.
+            fl.lastTimeStr = "";
+            fl.lastTimeValue = 0;
+            fl.lastUpdateMs = performance.now();
+
             fl.fetchLyrics();
         }
 
@@ -274,14 +287,26 @@
             fl.lastLyricsLen = fl.lyricLines.length;
             fl.needsLayoutUpdate = false;
         }
-        fl.scrollPos += (fl.targetScroll - fl.scrollPos) * 0.1;
+
+        const scrollDelta = fl.targetScroll - fl.scrollPos;
+
+        // --- OPTIMIZATION: Cinematic "Teleport and Glide" for Large Jumps ---
+        // If the user clicks the seeker bar and jumps 40 lines away, lerping across
+        // the entire history forces the GPU to render dozens of heavy text shadows per frame, causing massive lag.
+        // Instead of a hard, ugly instant snap, we teleport the scroll position to just slightly before 
+        // the destination (0.5x screen height), then let the normal easing smoothly slide it the rest of the way.
+        if (Math.abs(scrollDelta) > h * 1.5) {
+            fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 1));
+        } else {
+            fl.scrollPos += scrollDelta * 0.1;
+        }
 
         // --- OPT-3: IDLE THROTTLE ---
         // When the track is paused AND the scroll animation has fully settled,
         // the canvas content is static. Drop to ~4fps to save CPU/battery.
         // The threshold of 0.5px is imperceptible in the PiP window.
-        const scrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-        const isIdle = state.paused && scrollDelta < 0.5 && !fl.needsLayoutUpdate;
+        const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
+        const isIdle = state.paused && absScrollDelta < 0.5 && !fl.needsLayoutUpdate;
 
         fl.ctx.save();
         fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos);

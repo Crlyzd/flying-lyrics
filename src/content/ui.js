@@ -223,11 +223,40 @@
             const rect = e.currentTarget.getBoundingClientRect();
             const percent = (e.clientX - rect.left) / rect.width;
 
+            // --- YOUTUBE MUSIC: Seek via Page Context API Injection ---
+            // YTM uses MSE gapless playback with a combined <video> timeline. When seeking
+            // manually via `vid.currentTime = X`, YTM's internal state machine detects an
+            // unexpected seek without an API call. Because its internal tracking gets out
+            // of sync with the raw `<video>` element, it throws an error and recovery-skips
+            // to the next song in the queue (the "next song auto-skip" bug).
+            //
+            // We must use YTM's own `movie_player.seekTo(seconds)` API. However:
+            // - Content scripts run in an Isolated World and cannot access `movie_player`
+            // - Inline `<script>` injection is blocked by YTM's strict CSP ('unsafe-inline')
+            //
+            // Solution: Inject an external script file listed in `web_accessible_resources`.
+            // Chrome grants special CSP exemptions to whitelisted extension files, letting
+            // them execute perfectly within the page's MAIN world context.
+            if (window.location.hostname.includes('music.youtube')) {
+                const s = document.createElement('script');
+                s.src = chrome.runtime.getURL('src/content/inject.js');
+                // Pass the click percentage to the injected script
+                s.dataset.percent = percent;
+                s.onload = function() { 
+                    // Clean up immediately after execution
+                    this.remove(); 
+                };
+                (document.head || document.documentElement).appendChild(s);
+                return;
+            }
+
+            // --- GENERIC (non-YTM, non-Spotify): Direct media element seek ---
             const p = document.querySelector('video, audio');
             if (p && p.duration > 0) {
                 p.currentTime = percent * p.duration;
             }
 
+            // --- SPOTIFY: Dispatch synthetic pointer events to native progress bar ---
             const spotifyProgressBar = document.querySelector('[data-testid="progress-bar"]');
             if (spotifyProgressBar) {
                 const spRect = spotifyProgressBar.getBoundingClientRect();

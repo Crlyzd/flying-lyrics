@@ -48,7 +48,7 @@
     fl.canvas = null;
     fl.ctx = null;
 
-    // For Spotify Time Interpolation
+    // For Spotify / YTM DOM Time Interpolation
     fl.lastTimeStr = "";
     fl.lastTimeValue = 0;
     fl.lastUpdateMs = performance.now();
