@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const lineSpacingValue = document.getElementById('line-spacing-value');
     const anchorSlider = document.getElementById('anchor-slider');
     const anchorValue = document.getElementById('anchor-value');
+    const btnExportSettings = document.getElementById('btn-export-settings');
+    const btnImportSettings = document.getElementById('btn-import-settings');
+    const importFile = document.getElementById('import-file');
 
     // State
     let currentResults = [];
@@ -936,6 +939,61 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             btnResetSettings.innerHTML = '<span style="font-size: 14px;">Reset Defaults</span>';
         }, 1000);
+    });
+
+    // =========================================================
+    //  BACKUP & RESTORE
+    // =========================================================
+    btnExportSettings.addEventListener('click', () => {
+        chrome.storage.local.get(null, (items) => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", "flying-lyrics-backup.json");
+            dlAnchorElem.click();
+        });
+    });
+
+    btnImportSettings.addEventListener('click', () => {
+        importFile.click();
+    });
+
+    importFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                if (typeof importedData !== 'object' || importedData === null) {
+                    throw new Error("Invalid format");
+                }
+
+                if (!confirm("Are you sure you want to overwrite all your current settings with this backup?")) {
+                    importFile.value = ''; // Reset input
+                    return;
+                }
+
+                chrome.storage.local.set(importedData, () => {
+                    // Send global refresh ping
+                    chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+                        tabs.forEach(tab => {
+                            if (tab.id) {
+                                chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATE', payload: importedData });
+                            }
+                        });
+                    });
+                    
+                    alert("Import successful! Please reopen the extension preferences.");
+                    window.close(); // Refresh UI by closing the popup
+                });
+
+            } catch (err) {
+                alert("Failed to parse backup file. Make sure it is a valid Flying Lyrics JSON backup.");
+            }
+        };
+        reader.readAsText(file);
     });
 
     // =========================================================
