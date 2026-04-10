@@ -30,7 +30,7 @@
 ### 🎨 Beautiful & Adaptive Design
 * **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
 * **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
-* **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size** and **Alignment** (Left, Center, Right) to your liking.
+* **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size**, **Alignment** (Left, Center, Right), **Line Spacing** and **Vertical Position**, to your liking.
 * **Show/Hide Lyrics Toggle:** Want to just vibe with the album art? Use the "Show Lyrics" toggle to hide the text and see only the cover.
 * **Background Modes:** Choose how your background looks with **Center**, **Repeat**, or **Fill** modes.
 
@@ -39,10 +39,12 @@
 * **Built-in Controls:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
+* **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
 
 <img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/866a6f18-60be-4c79-9eb0-ce74693d86a7" />
-<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/ef9051cf-e6b9-417a-ae8d-ec477b1bf7a8" />
-<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/c619b56b-5976-4bd3-b2a8-efa7c89ee90d" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/f348e9d5-93f7-4491-873a-355f228b9ced" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/61c20e64-5a7f-4918-b591-731fdedeb051" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/492e857b-9c68-491b-8505-c730828ca223" />
 
 ---
 
