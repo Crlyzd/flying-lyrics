@@ -1,5 +1,13 @@
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
+
+    // Open the update notification page whenever the Web Store pushes an update.
+    // ("install" is skipped so first-time installs don't see the review prompt immediately.)
+    if (details.reason === 'update') {
+        chrome.tabs.create({
+            url: chrome.runtime.getURL('src/pages/update.html')
+        });
+    }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

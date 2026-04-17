@@ -626,6 +626,174 @@
             background: #3d3d3d;
             color: white;
         }
+
+        /* =========================================================
+         *  REVIEW TOAST BANNER
+         * ========================================================= */
+        #review-toast {
+            display: none;
+            flex-direction: row;       /* row: text-body left, ✕ right */
+            align-items: center;       /* ✕ vertically centred */
+            gap: 10px;
+            background: rgba(29, 185, 84, 0.1);
+            border: 1px solid rgba(29, 185, 84, 0.3);
+            border-radius: 8px;
+            padding: 9px 10px 7px 12px;
+            margin-bottom: 14px;
+            transition: background 0.2s;
+        }
+
+        #review-toast:hover {
+            background: rgba(29, 185, 84, 0.15);
+        }
+
+        /* Left column: the two text lines stacked, left-aligned */
+        #review-toast-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 3px;
+        }
+
+        /* Line 1: main message */
+        #review-toast-text {
+            font-size: 11px;
+            color: #1DB954;
+            font-weight: 700;
+            cursor: pointer;
+            line-height: 1.3;
+        }
+
+        /* Line 2: snooze */
+        #snooze-review-toast {
+            font-size: 10px;
+            color: #aaa;
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            transition: color 0.15s;
+        }
+
+        #snooze-review-toast:hover {
+            color: #fff;
+        }
+
+        /* Right side: ✕ vertically centred by parent align-items: center */
+        #close-review-toast {
+            flex-shrink: 0;
+            color: #777;
+            font-size: 13px;
+            cursor: pointer;
+            line-height: 1;
+            padding: 2px;
+            transition: color 0.15s;
+        }
+
+        #close-review-toast:hover {
+            color: #aaa;
+        }
+
+        /* =========================================================
+         *  FOOTER (redesigned)
+         * ========================================================= */
+        .footer {
+            margin-top: 18px;
+            border-top: 1px solid #1e1e1e;
+            padding-top: 14px;
+            font-size: 11px;
+            color: #555;
+            text-align: center;
+            line-height: 1.5;
+        }
+
+        .footer p {
+            margin: 0 0 6px;
+        }
+
+        .footer-tagline {
+            color: #484848;
+            font-size: 10.5px;
+            margin-bottom: 10px;
+        }
+
+        /* Star strip */
+        .star-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .star-label {
+            font-size: 11px;
+            color: #555;
+        }
+
+        .stars {
+            display: flex;
+            gap: 2px;
+            cursor: pointer;
+        }
+
+        .stars span {
+            font-size: 17px;
+            color: #303030;
+            transition: color 0.1s, transform 0.1s;
+            line-height: 1;
+            display: inline-block;
+        }
+
+        /* Hover: light up entire strip; siblings after hovered star go dark */
+        .stars:hover span            { color: #ffcc00; transform: scale(1.15); }
+        .stars span:hover ~ span     { color: #303030; transform: scale(1);    }
+
+        /* Row 3a: Credits & links */
+        .footer-credits {
+            color: #505050;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        /* Row 3b: Coffee / donation line */
+        .footer-coffee {
+            color: #505050;
+            font-size: 11px;
+            margin-bottom: 0;
+        }
+
+        .footer-credits a,
+        .footer-coffee a {
+            color: #1DB954;
+            text-decoration: none;
+        }
+
+        .footer-credits a:hover,
+        .footer-coffee a:hover {
+            text-decoration: underline;
+        }
+
+        /* Thin separator between footer sections */
+        .footer-sep {
+            border: none;
+            border-top: 1px solid #1e1e1e;
+            margin: 8px 0;
+        }
+
+        /* Bug / feature link — subtle grey, hot on hover */
+        .footer-bug a {
+            color: #484848;
+            text-decoration: none;
+            font-size: 10.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            transition: color 0.15s;
+        }
+
+        .footer-bug a:hover {
+            color: #ff7070;
+        }
     </style>
 </head>
 
@@ -640,6 +808,17 @@
          SLIDE 1 – MAIN
          ========================================================= -->
         <div class="slide" id="slide-main">
+
+            <!-- REVIEW TOAST — shown by JS after 5th/20th popup open, or 7-day milestone -->
+            <div id="review-toast">
+                <!-- Left: text column -->
+                <div id="review-toast-body">
+                    <span id="review-toast-text">Enjoying Flying Lyrics? Please rate it! ⭐️</span>
+                    <span id="snooze-review-toast">Remind me later . . .</span>
+                </div>
+                <!-- Right: ✕ dismiss, vertically centred -->
+                <span id="close-review-toast" title="Dismiss">✕</span>
+            </div>
 
             <div class="popup-header">
                 <button class="icon-btn phantom" aria-hidden="true">✕</button>
@@ -710,7 +889,7 @@
             <div class="control-group">
                 <label for="lang-select">Translation Language</label>
                 <select id="lang-select">
-                    <!-- Populated by JS -->
+                    <!-- Populated by JS; "Request a language" option appended dynamically -->
                 </select>
             </div>
 
@@ -746,19 +925,40 @@
                 </div>
             </div>
 
+            <!-- FOOTER (redesigned) -->
             <div class="footer">
-                <p><span id="app-version"></span> - Enhance your music experience</p>
-                <p>
-                    Made with <span class="icon" style="color: #ff5555;"><svg width="12" height="12" viewBox="0 0 24 24"
-                            fill="currentColor">
-                            <path
-                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                        </svg></span> by Kaleksanan Bagus
+
+                <!-- Row 1: version + tagline -->
+                <p class="footer-tagline"><span id="app-version"></span> · Enhance your music experience</p>
+
+                <hr class="footer-sep">
+
+                <!-- Row 2: Star rating strip — always visible, one-click to rate -->
+                <div class="star-row">
+                    <span class="star-label">Rate:</span>
+                    <div class="stars" id="footer-star-strip" title="Leave a 5-star rating">
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                        <span>★</span>
+                    </div>
+                </div>
+
+                <hr class="footer-sep">
+
+                <!-- Row 3a: Made with ❤ (attribution only) -->
+                <p class="footer-credits">
+                    Made with <span style="color:#ff5555">❤</span> by Kaleksanan Bagus
                 </p>
-                <p style="margin-top: 10px;">
-                    <span class="icon" style="color: #ceaa94; margin-right: 4px; transform: translateY(-2px);">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" class="line-color"
-                            data-name="Line Color" viewBox="0 0 24 24">
+
+                <!-- Row 3b: Buy me a coffee (donation links) -->
+                <p class="footer-coffee">
+                    <span style="color: #ceaa94; margin-right: 2px; vertical-align: middle;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align: middle; transform: translateY(-1px);">
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                 stroke-width="2" d="M15 4v2m-4-2v2M7 4v2" />
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -769,7 +969,23 @@
                     <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> /
                     <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a>
                 </p>
-            </div>
+
+                <hr class="footer-sep">
+
+                <!-- Row 4: Report Bug — muted, turns red on hover -->
+                <p class="footer-bug">
+                    <a href="https://forms.gle/qdyBFtmeomtGBroXA" target="_blank">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        Report Bug / Request Feature
+                    </a>
+                </p>
+
+            </div><!-- /footer -->
 
         </div><!-- /slide-main -->
 

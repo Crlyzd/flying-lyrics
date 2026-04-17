@@ -97,12 +97,110 @@ document.addEventListener('DOMContentLoaded', () => {
         langSelect.appendChild(option);
     });
 
+    // "Request a language" as the last option in the dropdown
+    const requestLangOption = document.createElement('option');
+    requestLangOption.value = 'request_language';
+    requestLangOption.textContent = '+ Request a language...';
+    requestLangOption.style.color = '#1DB954';
+    langSelect.appendChild(requestLangOption);
+
     // =========================================================
     //  DYNAMIC VERSION
     // =========================================================
     if (appVersion) {
         const manifest = chrome.runtime.getManifest();
         appVersion.textContent = `v${manifest.version}`;
+    }
+
+    // =========================================================
+    //  REVIEW TOAST — popup open counter
+    // =========================================================
+    // Chrome extension IDs used to detect which store the user installed from.
+    // Edge users who install via Chrome Web Store will have the Chrome CWS ID.
+    const EDGE_EXTENSION_ID = 'ipcakmeelnooilncnjinnfjcodejbcoa';
+    const CHROME_REVIEW_URL = 'https://chrome.google.com/webstore/detail/ehjobcjhlmgmpaikciicipmlpknipikd/reviews';
+    const EDGE_REVIEW_URL   = 'https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa';
+
+    /**
+     * Returns the correct Web Store review URL based on which store
+     * the extension was installed from (identified by runtime ID).
+     */
+    function getReviewUrl() {
+        return chrome.runtime.id === EDGE_EXTENSION_ID ? EDGE_REVIEW_URL : CHROME_REVIEW_URL;
+    }
+
+    const reviewToast     = document.getElementById('review-toast');
+    const closeToastBtn   = document.getElementById('close-review-toast');
+    const snoozeToastBtn  = document.getElementById('snooze-review-toast');
+    const reviewToastText = document.getElementById('review-toast-text');
+    const footerStarStrip = document.getElementById('footer-star-strip');
+
+    /** Opens the correct Web Store review page and marks the user as having reviewed. */
+    function openReviewPage() {
+        chrome.storage.local.set({ hasReviewed: true });
+        reviewToast.style.display = 'none';
+        chrome.tabs.create({ url: getReviewUrl() });
+    }
+
+    /** Shows the review toast. */
+    function showReviewToast() {
+        reviewToast.style.display = 'flex';
+    }
+
+    chrome.storage.local.get(
+        { popupOpenCount: 0, hasReviewed: false, snoozeUntilCount: 0, firstInstalledAt: 0 },
+        (data) => {
+            const newCount = data.popupOpenCount + 1;
+            chrome.storage.local.set({ popupOpenCount: newCount });
+
+            // Record first install timestamp on the very first popup open
+            if (!data.firstInstalledAt) {
+                chrome.storage.local.set({ firstInstalledAt: Date.now() });
+            }
+
+            if (data.hasReviewed) return; // Already reviewed — never show again
+
+            // --- Trigger 1: Count thresholds (5th and 20th open) ---
+            const isCountThreshold = (newCount === 5 || newCount === 20);
+
+            // --- Trigger 2: Snooze expiry (user clicked "Later" before) ---
+            const isSnoozedThresholdReached =
+                data.snoozeUntilCount > 0 && newCount >= data.snoozeUntilCount;
+
+            // --- Trigger 3: 7-day milestone ---
+            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+            const installedAt = data.firstInstalledAt || Date.now();
+            const is7DayMilestone =
+                newCount > 3 && // At least 3 opens (not a brand-new user)
+                (Date.now() - installedAt) >= sevenDaysMs;
+
+            if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
+                showReviewToast();
+            }
+        }
+    );
+
+    // Clicking the toast text → open the store review page
+    reviewToastText.addEventListener('click', openReviewPage);
+
+    // "Later" snooze → resurface after 10 more popup opens
+    snoozeToastBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        chrome.storage.local.get({ popupOpenCount: 0 }, ({ popupOpenCount }) => {
+            chrome.storage.local.set({ snoozeUntilCount: popupOpenCount + 10 });
+        });
+        reviewToast.style.display = 'none';
+    });
+
+    // ✕ permanent dismiss for this session (resurfaces at next count threshold)
+    closeToastBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        reviewToast.style.display = 'none';
+    });
+
+    // Footer star strip → same action as clicking the toast text
+    if (footerStarStrip) {
+        footerStarStrip.addEventListener('click', openReviewPage);
     }
 
     // =========================================================
@@ -502,6 +600,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     langSelect.addEventListener('change', () => {
+        if (langSelect.value === 'request_language') {
+            // Open the Google Form and reset to the previously selected language
+            chrome.tabs.create({ url: 'https://forms.gle/qdyBFtmeomtGBroXA' });
+            // Revert to the first real language option so the select doesn't stay on the meta-option
+            chrome.storage.local.get({ translationLang: 'id' }, (items) => {
+                langSelect.value = items.translationLang;
+            });
+            return;
+        }
         saveAndNotify({ translationLang: langSelect.value });
     });
 
