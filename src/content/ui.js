@@ -345,8 +345,9 @@
             const artUrl = fl.getCoverArt();
             // Only apply palette gradient if art has actually been extracted (not the default palette)
             if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
-                const baseBg = fl.deriveDarkBg(fl.currentPalette.vibrant);
-                const topBg = fl.deriveLightBg(fl.currentPalette.vibrant);
+                const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
+                const baseBg = fl.deriveDarkBg(rawColor);
+                const topBg = fl.deriveLightBg(rawColor);
                 doc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
             } else {
                 doc.body.style.background = '#121212';
@@ -452,8 +453,9 @@
             if (!(fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode)) return;
             // Only apply palette-based gradient if there is actual art playing
             if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
-                const baseBg = fl.deriveDarkBg(fl.currentPalette.vibrant);
-                const topBg = fl.deriveLightBg(fl.currentPalette.vibrant);
+                const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
+                const baseBg = fl.deriveDarkBg(rawColor);
+                const topBg = fl.deriveLightBg(rawColor);
                 fl.pipWin.document.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
             } else {
                 fl.pipWin.document.body.style.background = '#121212';

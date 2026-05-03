@@ -46,6 +46,7 @@
                 fl.currentPalette.vibrant = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.6));
                 fl.currentPalette.trans = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), Math.max(hsl.l, 0.8));
                 fl.currentPalette.romaji = fl.hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.8));
+                fl.currentPalette.raw = fl.hslToRgb(hsl.h, hsl.s, hsl.l);
 
                 if (fl.pipWin && fl.pipWin.document) {
                     fl.pipWin.document.body.style.setProperty('--vibrant-color', fl.currentPalette.vibrant);
