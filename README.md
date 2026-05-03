@@ -31,7 +31,7 @@
 * **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
 * **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
 * **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size**, **Alignment** (Left, Center, Right), **Line Spacing** and **Vertical Position**, to your liking.
-* **Show/Hide Lyrics Toggle:** Want to just vibe with the album art? Use the "Show Lyrics" toggle to hide the text and see only the cover.
+* **Album Cover Mode:** Want to just vibe with the album art? Use the "Album Cover Mode" toggle to hide the text and see only the cover.
 * **Background Modes:** Choose how your background looks with **Center**, **Repeat**, or **Fill** modes.
 
 ### 🕹️ Full Control at Your Fingertips
