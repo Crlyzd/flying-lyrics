@@ -41,10 +41,10 @@
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
 
-<img width="334" height="632" alt="Image" src="https://github.com/user-attachments/assets/866a6f18-60be-4c79-9eb0-ce74693d86a7" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/f348e9d5-93f7-4491-873a-355f228b9ced" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/61c20e64-5a7f-4918-b591-731fdedeb051" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/492e857b-9c68-491b-8505-c730828ca223" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/8c0c22a6-f855-494b-8fcc-b02c8c3aea76" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/50dfdf8f-87a0-45a2-9433-131629c41284" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/f0f43bc1-aed2-4d4a-95ab-e3e6c1bf8f7b" />
+<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/5b98061f-ebd2-4b57-998b-6bf12ef46996" />
 
 ---
 
