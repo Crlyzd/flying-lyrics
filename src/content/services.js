@@ -163,6 +163,12 @@
             return;
         }
 
+        if (fl._currentFetchController) {
+            fl._currentFetchController.abort();
+        }
+        fl._currentFetchController = new AbortController();
+        const abortSignal = fl._currentFetchController.signal;
+
         try {
             const key = `${meta.artist} - ${meta.title}`;
             fl.applySavedSyncOffset(key);
@@ -174,7 +180,7 @@
             if (await fl.loadFromPersistentCache(key)) return;
 
             // Tier 3: network fetch
-            let raw = await fl.resolveManualOverride(key);
+            let raw = await fl.resolveManualOverride(key, abortSignal);
 
             // ─────────────────────────────────────────────────────────
             //  MULTI-PASS SEARCH PIPELINE
@@ -199,13 +205,14 @@
                 let lrcLibSourceFallback = null;
                 let neteaseRawFallback   = null;
 
+                // PHASE 1: Try all passes on LRCLIB first
                 for (const pass of passes) {
                     const passLabel = pass.artist
                         ? `"${pass.artist}" / "${pass.title}"`
                         : `title-only "${pass.title}"`;
 
                     // ── LRCLIB ──────────────────────────────────────────
-                    const lrcRaw = await fl.fetchFromLrcLib(pass, key);
+                    const lrcRaw = await fl.fetchFromLrcLib(pass, key, abortSignal);
 
                     if (lrcRaw && fl.activeLyricSource?.synced) {
                         // Synced hit — done!
@@ -218,21 +225,30 @@
                         lrcLibPlainFallback  = lrcRaw;
                         lrcLibSourceFallback = { ...fl.activeLyricSource };
                     }
+                }
 
-                    // ── NETEASE ─────────────────────────────────────────
-                    const neteaseRaw = await fl.fetchFromNeteaseFallback(pass, key);
+                // PHASE 2: If LRCLIB completely failed, try all passes on Netease
+                if (!raw) {
+                    for (const pass of passes) {
+                        const passLabel = pass.artist
+                            ? `"${pass.artist}" / "${pass.title}"`
+                            : `title-only "${pass.title}"`;
 
-                    if (neteaseRaw) {
-                        const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
+                        // ── NETEASE ─────────────────────────────────────────
+                        const neteaseRaw = await fl.fetchFromNeteaseFallback(pass, key, abortSignal);
 
-                        if (isNeteaseSynced) {
-                            // Synced hit from Netease — done!
-                            console.log(`FL: Netease synced hit on pass ${passLabel}`);
-                            raw = neteaseRaw;
-                            if (fl.activeLyricSource) fl.activeLyricSource.synced = true;
-                            break;
-                        } else if (!neteaseRawFallback) {
-                            neteaseRawFallback = neteaseRaw;
+                        if (neteaseRaw) {
+                            const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
+
+                            if (isNeteaseSynced) {
+                                // Synced hit from Netease — done!
+                                console.log(`FL: Netease synced hit on pass ${passLabel}`);
+                                raw = neteaseRaw;
+                                if (fl.activeLyricSource) fl.activeLyricSource.synced = true;
+                                break;
+                            } else if (!neteaseRawFallback) {
+                                neteaseRawFallback = neteaseRaw;
+                            }
                         }
                     }
                 }
@@ -297,6 +313,10 @@
             // Persist the enriched entry to chrome.storage.local (fire-and-forget).
             fl.saveToPersistentCache(key);
         } catch (e) {
+            if (e.message === 'TrackChanged' || e.name === 'AbortError') {
+                console.log("FL: Aborted previous fetchLyrics pipeline (track changed).");
+                return;
+            }
             fl.lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
             fl.isCurrentLyricSynced = false;
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
@@ -404,9 +424,15 @@
      * @param {number} [ms=5000] - Timeout in milliseconds.
      * @returns {Promise<Response>}
      */
-    fl._fetchWithTimeout = function (url, ms = 5000) {
+    fl._fetchWithTimeout = function (url, ms = 5000, externalSignal = null) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), ms);
+        
+        if (externalSignal) {
+            if (externalSignal.aborted) controller.abort();
+            else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+
         return fetch(url, { signal: controller.signal })
             .finally(() => clearTimeout(timer));
     };
@@ -441,7 +467,7 @@
         return false;
     }
 
-    fl.resolveManualOverride = async function (key) {
+    fl.resolveManualOverride = async function (key, abortSignal) {
         const override = fl.lyricsOverrides[key];
         if (!override) return "";
 
@@ -454,12 +480,13 @@
                 // Use a longer timeout for direct ID lookups — this endpoint is called only
                 // once per song change (not in a loop), so a longer wait is safe. The default
                 // 5s was designed for the search pipeline where requests stack sequentially.
-                const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`, 12000);
+                const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`, 12000, abortSignal);
                 const data = await res.json();
                 const raw = data.syncedLyrics || data.plainLyrics || "";
                 if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
                 return raw;
             } catch (err) {
+                if (abortSignal?.aborted) throw new Error('TrackChanged');
                 // AbortError = 12s timeout fired; any other error = network/API failure.
                 // Return "" so fetchLyrics() falls through to the multi-pass search
                 // pipeline gracefully instead of crashing the session with "Network Error".
@@ -493,7 +520,7 @@
      * @param {string} key - Cache key ("Artist - Title").
      * @returns {Promise<string>}
      */
-    fl.fetchFromLrcLib = async function (passMeta, key) {
+    fl.fetchFromLrcLib = async function (passMeta, key, abortSignal) {
         try {
             const actualDuration = fl.getPlayerState().duration || 0;
 
@@ -502,7 +529,7 @@
                 ? `artist_name=${encodeURIComponent(passMeta.artist)}&track_name=${encodeURIComponent(passMeta.title)}`
                 : `q=${encodeURIComponent(passMeta.title)}`;
 
-            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`, 15000);
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`, 15000, abortSignal);
 
             if (!res.ok) return "";
             const candidates = await res.json();
@@ -530,6 +557,7 @@
                 return best.plainLyrics;
             }
         } catch (err) {
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
             // AbortError = our 15s timeout fired; any other error = network/API failure.
             // Either way, log it and let the caller fall through to Netease.
             console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (15s)' : err);
@@ -546,10 +574,12 @@
      * @param {string} key - Cache key ("Artist - Title").
      * @returns {Promise<string>}
      */
-    fl.fetchFromNeteaseFallback = async function (passMeta, key) {
+    fl.fetchFromNeteaseFallback = async function (passMeta, key, abortSignal) {
         const actualDuration = fl.getPlayerState().duration || 0;
         const neteaseQuery   = `${passMeta.artist} ${passMeta.title}`.trim();
         console.log("Querying Netease:", neteaseQuery);
+
+        if (abortSignal?.aborted) throw new Error('TrackChanged');
 
         const resMsg = await new Promise(resolve => {
             chrome.runtime.sendMessage({
@@ -561,6 +591,8 @@
                 }
             }, resolve);
         });
+
+        if (abortSignal?.aborted) throw new Error('TrackChanged');
 
         const raw = resMsg?.lyric || "";
         if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
