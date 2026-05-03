@@ -20,10 +20,10 @@ window.FLYING_LYRICS.defaults = {
     coverMode: 'default',
     glowEnabled: false,
     glowStyle: 'theme',
-    showLyrics: true,
     lyricAlignment: 'center',
     lineSpacing: 4,  // vmin multiplier; UI step = actual - 2, so stored 4 = display step 2
-    verticalAnchor: 4 // Default scale 1-10, mapped to offset
+    verticalAnchor: 4, // Default scale 1-10, mapped to offset
+    albumCoverMode: false // When true, forces centered art + hides lyrics, locks all visual settings
 };
 
 // O(1) set used by renderer and services to identify non-lyric status messages.

@@ -27,10 +27,10 @@
     fl.userCoverMode = fl.defaults.coverMode;
     fl.userGlowEnabled = fl.defaults.glowEnabled;
     fl.userGlowStyle = fl.defaults.glowStyle;
-    fl.userShowLyrics = fl.defaults.showLyrics;
     fl.userLyricAlignment = fl.defaults.lyricAlignment;
     fl.userLineSpacing = fl.defaults.lineSpacing;
     fl.userVerticalAnchor = fl.defaults.verticalAnchor;
+    fl.albumCoverMode = fl.defaults.albumCoverMode;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false };
@@ -74,10 +74,10 @@
         fl.userCoverMode = items.coverMode;
         fl.userGlowEnabled = items.glowEnabled;
         fl.userGlowStyle = items.glowStyle;
-        fl.userShowLyrics = items.showLyrics;
         fl.userLyricAlignment = items.lyricAlignment;
         fl.userLineSpacing = items.lineSpacing;
         fl.userVerticalAnchor = items.verticalAnchor;
+        fl.albumCoverMode = items.albumCoverMode;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -193,10 +193,7 @@
                 fl.userGlowStyle = p.glowStyle;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
-            if (p.showLyrics !== undefined) {
-                fl.userShowLyrics = p.showLyrics;
-                fl.needsLayoutUpdate = true;
-            }
+
             if (p.lyricAlignment !== undefined) {
                 fl.userLyricAlignment = p.lyricAlignment;
                 fl.needsLayoutUpdate = true;
@@ -208,14 +205,27 @@
             }
             if (p.verticalAnchor !== undefined) {
                 fl.userVerticalAnchor = p.verticalAnchor;
-                fl.needsLayoutUpdate = true; // Not strictly needed for layout computation, but triggers render frame
+                fl.needsLayoutUpdate = true;
+            }
+            if (p.albumCoverMode !== undefined) {
+                fl.albumCoverMode = p.albumCoverMode;
+                // Re-apply visuals immediately — forces or releases the cover mode override
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
         } else if (msg.type === 'GET_CURRENT_TRACK') {
             const meta = navigator.mediaSession.metadata;
             if (meta && meta.title && meta.artist) {
-                sendResponse({ artist: meta.artist, title: meta.title });
+                // Also expose the sanitized values so the popup can pre-fill a
+                // clean, API-friendly search query without any manual editing.
+                const cleanTitle     = typeof fl.cleanTitle === 'function'
+                    ? fl.cleanTitle(meta.title)
+                    : meta.title;
+                const primaryArtist  = typeof fl.extractPrimaryArtist === 'function'
+                    ? fl.extractPrimaryArtist(meta.artist)
+                    : meta.artist;
+                sendResponse({ artist: meta.artist, title: meta.title, cleanTitle, primaryArtist });
             } else {
                 sendResponse({ error: 'No active track' });
             }

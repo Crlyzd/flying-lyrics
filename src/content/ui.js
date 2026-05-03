@@ -158,6 +158,12 @@
         #sync-indicator.is-synced {
             color: rgba(255, 255, 255, 0.9); border-color: rgba(29, 185, 84, 0.3);
         }
+        #sync-indicator.is-missing .sync-dot {
+            background-color: #FFD700; box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+        }
+        #sync-indicator.is-missing {
+            color: rgba(255, 215, 0, 0.9); border-color: rgba(255, 215, 0, 0.3);
+        }
         @keyframes lyric-glow {
             0%   { text-shadow: 0 0 8px currentColor, 0 0 16px currentColor; }
             50%  { text-shadow: 0 0 24px currentColor, 0 0 40px currentColor, 0 0 6px #fff; }
@@ -295,12 +301,19 @@
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         const txt = fl.pipWin.document.getElementById('sync-text');
         if (ind && txt) {
-            if (fl.isCurrentLyricSynced) {
+            // Priority order: missing > synced > unsynced
+            if (fl.isMissingLyrics) {
+                ind.classList.remove('is-synced');
+                ind.classList.add('is-missing');
+                ind.title = 'No lyrics found for this track';
+                txt.textContent = 'NO LYRICS';
+            } else if (fl.isCurrentLyricSynced) {
+                ind.classList.remove('is-missing');
                 ind.classList.add('is-synced');
                 ind.title = 'These lyrics have timestamp data';
                 txt.textContent = 'SYNCED';
             } else {
-                ind.classList.remove('is-synced');
+                ind.classList.remove('is-synced', 'is-missing');
                 ind.title = 'These lyrics are missing timestamps and are roughly estimated';
                 txt.textContent = 'UNSYNCED';
             }
@@ -313,9 +326,15 @@
 
         const bgCover = doc.getElementById('bg-cover');
         const centerArt = doc.getElementById('center-art');
-        const blurPx = fl.userBgBlur;
 
-        if (fl.userCoverMode === 'centered') {
+        // When lyrics are missing OR the user has explicitly enabled Album Cover Mode,
+        // force Cover Album Mode: override to centered art with no blur and no darkening.
+        const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
+        const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
+        const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
+
+        if (effectiveCoverMode === 'centered') {
             if (bgCover) bgCover.style.display = 'none';
 
             if (centerArt) {
@@ -338,7 +357,7 @@
         } else {
             if (bgCover) {
                 bgCover.style.display = '';
-                if (fl.userCoverMode === 'repeated') {
+                if (effectiveCoverMode === 'repeated') {
                     bgCover.style.backgroundSize = '400px 400px';
                     bgCover.style.backgroundRepeat = 'repeat';
                     bgCover.style.backgroundPosition = 'center';
@@ -358,7 +377,7 @@
 
         const bgDark = doc.getElementById('bg-darkness');
         if (bgDark) {
-            bgDark.style.opacity = String(fl.userBgDarkness / 100);
+            bgDark.style.opacity = String(effectiveDarkness / 100);
         }
 
         const systemFontNames = ['noto sans', 'segoe ui', 'sans-serif', 'arial', 'helvetica', 'serif', 'monospace'];
@@ -402,22 +421,35 @@
     }
 
     fl.updateCenteredArt = function (artUrl) {
-        if (!fl.pipWin || fl.pipWin.closed || fl.userCoverMode !== 'centered') return;
+        // Allow centered art to render when the user has chosen 'centered' mode
+        // OR when we are in forced Cover Album Mode (missing lyrics or explicit albumCoverMode).
+        const isCenteredActive = fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode;
+        if (!fl.pipWin || fl.pipWin.closed) return;
 
         const img = fl.pipWin.document.getElementById('center-art');
-        if (img) {
-            if (artUrl) {
-                img.src = artUrl;
-                img.classList.add('visible');
-            } else {
-                // Set src to empty string instead of removeAttribute — prevents broken image icon
-                img.src = '';
-                img.classList.remove('visible');
-            }
+        if (!img) return;
+
+        if (!isCenteredActive) {
+            // We're back in FILL/REPEAT mode — ensure centered art is hidden
+            // so it doesn't bleed through behind the background cover.
+            img.src = '';
+            img.classList.remove('visible');
+            return;
+        }
+
+        if (artUrl) {
+            img.src = artUrl;
+            img.classList.add('visible');
+        } else {
+            // Set src to empty string instead of removeAttribute — prevents broken image icon
+            img.src = '';
+            img.classList.remove('visible');
         }
 
         setTimeout(() => {
-            if (!fl.pipWin || fl.pipWin.closed || fl.userCoverMode !== 'centered') return;
+            if (!fl.pipWin || fl.pipWin.closed) return;
+            // Re-evaluate: mode may have changed by the time the timeout fires
+            if (!(fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode)) return;
             // Only apply palette-based gradient if there is actual art playing
             if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
                 const baseBg = fl.deriveDarkBg(fl.currentPalette.vibrant);

@@ -68,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleGlow = document.getElementById('toggle-glow');
     const glowStyleContainer = document.getElementById('glow-style-container');
     const glowStyleSelect = document.getElementById('glow-style-select');
-    const toggleShowLyrics = document.getElementById('toggle-show-lyrics');
     const alignSelect = document.getElementById('align-select');
     const glowPreview = document.getElementById('glow-preview');
     const fontSizeWarning = document.getElementById('font-size-warning');
@@ -78,6 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const anchorValue = document.getElementById('anchor-value');
     const btnExportSettings = document.getElementById('btn-export-settings');
     const btnImportSettings = document.getElementById('btn-import-settings');
+    const toggleAlbumCoverMode = document.getElementById('toggle-album-cover-mode');
+    const visualControlsWrapper = document.getElementById('visual-controls-wrapper');
+    const albumCoverToggleCard = document.getElementById('album-cover-toggle-card');
     const importFile = document.getElementById('import-file');
 
     // State
@@ -134,10 +136,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const snoozeToastBtn  = document.getElementById('snooze-review-toast');
     const reviewToastText = document.getElementById('review-toast-text');
     const footerStarStrip = document.getElementById('footer-star-strip');
+    const starLabel       = document.getElementById('star-label');
+
+    /** Marks the UI to show the user has reviewed */
+    function markAsRated(rating) {
+        if (footerStarStrip) {
+            footerStarStrip.classList.add('rated');
+            footerStarStrip.dataset.rating = rating || 5;
+        }
+        if (starLabel) starLabel.textContent = 'Thanks!';
+    }
 
     /** Opens the correct Web Store review page and marks the user as having reviewed. */
-    function openReviewPage() {
-        chrome.storage.local.set({ hasReviewed: true });
+    function openReviewPage(rating = 5) {
+        chrome.storage.local.set({ hasReviewed: true, reviewRating: rating });
+        markAsRated(rating);
         reviewToast.style.display = 'none';
         chrome.tabs.create({ url: getReviewUrl() });
     }
@@ -148,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     chrome.storage.local.get(
-        { popupOpenCount: 0, hasReviewed: false, snoozeUntilCount: 0, firstInstalledAt: 0 },
+        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0 },
         (data) => {
             const newCount = data.popupOpenCount + 1;
             chrome.storage.local.set({ popupOpenCount: newCount });
@@ -158,7 +171,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.storage.local.set({ firstInstalledAt: Date.now() });
             }
 
-            if (data.hasReviewed) return; // Already reviewed — never show again
+            if (data.hasReviewed) {
+                markAsRated(data.reviewRating);
+                return; // Already reviewed — never show toast again
+            }
 
             // --- Trigger 1: Count thresholds (5th and 20th open) ---
             const isCountThreshold = (newCount === 5 || newCount === 20);
@@ -180,8 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     );
 
-    // Clicking the toast text → open the store review page
-    reviewToastText.addEventListener('click', openReviewPage);
+    // Clicking the toast text → open the store review page (defaults to 5 stars)
+    reviewToastText.addEventListener('click', () => openReviewPage(5));
 
     // "Later" snooze → resurface after 10 more popup opens
     snoozeToastBtn.addEventListener('click', (e) => {
@@ -198,21 +214,24 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewToast.style.display = 'none';
     });
 
-    // Footer star strip → same action as clicking the toast text
+    // Footer star strip → record exact rating and open review
     if (footerStarStrip) {
-        footerStarStrip.addEventListener('click', openReviewPage);
+        const stars = footerStarStrip.querySelectorAll('span');
+        stars.forEach((star, index) => {
+            star.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openReviewPage(index + 1);
+            });
+        });
     }
 
     // =========================================================
-    //  LOAD SAVED SETTINGS (main + customization)
-    // =========================================================
-
     // Fallbacks if config.js somehow isn't loaded yet into the background context
     const fallbackDefaults = {
         showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center',
-        lineSpacing: 4, verticalAnchor: 4
+        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
+        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
     };
 
     chrome.storage.local.get(fallbackDefaults, (items) => {
@@ -276,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
         darknessSlider.value = darkStep;
         darknessValue.textContent = darkStep;
 
-        toggleShowLyrics.checked = items.showLyrics;
         alignSelect.value = items.lyricAlignment;
         toggleGlow.checked = items.glowEnabled;
         glowStyleSelect.value = items.glowStyle;
@@ -288,6 +306,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.cover-mode-option').forEach(opt => {
             opt.classList.toggle('selected', opt.dataset.mode === items.coverMode);
         });
+
+        // Album Cover Mode: restore toggle state and apply disabled overlay
+        toggleAlbumCoverMode.checked = items.albumCoverMode;
+        applyAlbumCoverModeState(items.albumCoverMode);
 
         // Apply font to preview
         glowPreview.style.fontFamily = items.customFont;
@@ -335,18 +357,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     currentActiveTrack = response;
                     const trackKey = `${response.artist} - ${response.title}`;
 
+                    // Build a clean search query using the sanitized values exposed by the
+                    // content script (fl.cleanTitle + fl.extractPrimaryArtist). If those
+                    // aren't available (e.g. on an older tab), fall back to the raw values.
+                    const displayArtist = response.primaryArtist || response.artist;
+                    const displayTitle  = response.cleanTitle    || response.title;
+                    const cleanQuery    = `${displayArtist} - ${displayTitle}`;
+
                     chrome.storage.local.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
                         const override = (items.lyricsOverrides || {})[trackKey] || null;
 
                         if (items.lastSearch && items.lastSearch.key === trackKey && items.lastSearch.results?.length) {
-                            searchInput.value = items.lastSearch.query || trackKey;
+                            // Restore the last explicit search query the user typed (preserves intent)
+                            searchInput.value = items.lastSearch.query || cleanQuery;
                             currentResults = items.lastSearch.results;
                             renderSearchResults(currentResults, override);
                         } else if (override && override.type === 'local') {
-                            searchInput.value = trackKey;
+                            searchInput.value = cleanQuery;
                             renderSearchResults([], override);
                         } else {
-                            searchInput.value = trackKey;
+                            searchInput.value = cleanQuery;
                             if (activeSource) renderSearchResults([], null);
                         }
                     });
@@ -370,7 +400,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
             const dot = document.createElement('div');
             dot.className = 'active-dot';
-            item.appendChild(dot);
+            const dotContainer = item.querySelector('.dot-container');
+            if (dotContainer) dotContainer.appendChild(dot);
             item.classList.add('active-lyric');
             return;
         }
@@ -387,7 +418,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
             const dot = document.createElement('div');
             dot.className = 'active-dot';
-            item.appendChild(dot);
+            const dotContainer = item.querySelector('.dot-container');
+            if (dotContainer) dotContainer.appendChild(dot);
             item.classList.add('active-lyric');
         }
     });
@@ -401,14 +433,19 @@ document.addEventListener('DOMContentLoaded', () => {
             localItem.className = 'result-item active-lyric';
             localItem.style.position = 'relative';
             localItem.innerHTML = `
-                <div class="active-dot"></div>
-                <div class="result-title" style="display: flex; align-items: center; gap: 6px;">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="14" height="14" fill="currentColor">
-                        <path d="M5 1C3.3 1 2 2.3 2 4v17c0 1.7 1.3 3 3 3h20c1.7 0 3-1.3 3-3V7c0-1.7-1.3-3-3-3H13c0-1.7-1.3-3-3-3H5zm0 5h20c.6 0 1 .4 1 1v14c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1z" />
-                    </svg>
-                    Local File Loaded <span class="result-badge">CUSTOM</span>
+                <div class="result-left">
+                    <div class="result-title" style="display: flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="14" height="14" fill="currentColor">
+                            <path d="M5 1C3.3 1 2 2.3 2 4v17c0 1.7 1.3 3 3 3h20c1.7 0 3-1.3 3-3V7c0-1.7-1.3-3-3-3H13c0-1.7-1.3-3-3-3H5zm0 5h20c.6 0 1 .4 1 1v14c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1z" />
+                        </svg>
+                        Local File Loaded
+                    </div>
+                    <div class="result-artist">Custom .lrc file</div>
                 </div>
-                <div class="result-meta"><span>Custom .lrc file</span></div>
+                <div class="result-right">
+                    <div class="dot-container"><div class="active-dot"></div></div>
+                    <div class="result-badges"><span class="result-badge">CUSTOM</span></div>
+                </div>
             `;
             resultsContainer.appendChild(localItem);
         }
@@ -418,8 +455,13 @@ document.addEventListener('DOMContentLoaded', () => {
         autoItem.className = 'result-item';
         autoItem.style.position = 'relative';
         autoItem.innerHTML = `
-            <div class="result-title">↳ Auto (Best Match)</div>
-            <div class="result-meta">Reset to original search</div>
+            <div class="result-left">
+                <div class="result-title">↳ Auto (Best Match)</div>
+                <div class="result-artist">Reset to original search</div>
+            </div>
+            <div class="result-right">
+                <div class="dot-container"></div>
+            </div>
         `;
         resultsContainer.appendChild(autoItem);
 
@@ -435,17 +477,27 @@ document.addEventListener('DOMContentLoaded', () => {
             autoCard.className = 'result-item active-lyric';
             autoCard.style.position = 'relative';
             autoCard.innerHTML = `
-                <div class="active-dot"></div>
-                <div class="result-title">${activeSource.name || 'Unknown'} <span class="result-badge" style="${sourceBadgeColor}">${sourceLabel}</span>${syncBadge}</div>
-                <div class="result-meta"><span>Auto-loaded · Click Search for more versions</span></div>
+                <div class="result-left">
+                    <div class="result-title">${activeSource.name || 'Unknown'}</div>
+                    <div class="result-artist">Auto-loaded · Click Search for more versions</div>
+                </div>
+                <div class="result-right">
+                    <div class="dot-container"><div class="active-dot"></div></div>
+                    <div class="result-badges">
+                        <span class="result-badge" style="${sourceBadgeColor}">${sourceLabel}</span>
+                        ${syncBadge}
+                    </div>
+                </div>
             `;
             resultsContainer.appendChild(autoCard);
             return;
         }
 
+        let foundActiveInList = false;
+
         results.forEach(item => {
             const duration = item.duration
-                ? `${Math.floor(item.duration / 60).toString().padStart(2, '0')}:${(item.duration % 60).toString().padStart(2, '0')}`
+                ? `${Math.floor(item.duration / 60).toString().padStart(2, '0')}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}`
                 : "?:??";
 
             const div = document.createElement('div');
@@ -462,26 +514,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActiveLive = !activeOverride && activeSource
                 && String(activeSource.id) === String(item.id) && activeSource.type === item.source;
 
-            if (isActiveOverride || isActiveLive) {
-                div.classList.add('active-lyric');
-                autoItem.classList.remove('active-lyric');
-                const dot = document.createElement('div');
-                dot.className = 'active-dot';
-                div.appendChild(dot);
-            }
-
-            div.innerHTML += `
-                <div class="result-title">${item.name} ${item.badgeHtml}</div>
-                <div class="result-meta">
-                    <span>${item.artistName} • ${item.albumName || 'Unknown Album'}</span>
-                    <span>${duration}</span>
+            div.innerHTML = `
+                <div class="result-left">
+                    <div class="result-title">${item.name}</div>
+                    <div class="result-artist">${item.artistName} • ${item.albumName || 'Unknown Album'}</div>
+                </div>
+                <div class="result-right">
+                    <div class="dot-container"></div>
+                    <div class="result-badges">${item.badgeHtml}</div>
+                    <div class="result-duration">${duration}</div>
                 </div>
             `;
+
+            if (isActiveOverride || isActiveLive) {
+                div.classList.add('active-lyric');
+                const dot = document.createElement('div');
+                dot.className = 'active-dot';
+                div.querySelector('.dot-container').appendChild(dot);
+                foundActiveInList = true;
+            }
             resultsContainer.appendChild(div);
         });
 
-        if (!activeOverride && results.length > 0 && !activeSource) {
+        // If the user hasn't explicitly chosen a lyric (no override) and the auto-loaded lyric
+        // wasn't found in this search result list, highlight the Auto fallback card so the user
+        // still sees what is actively playing.
+        if (!activeOverride && results.length > 0 && !foundActiveInList) {
             autoItem.classList.add('active-lyric');
+            const dot = document.createElement('div');
+            dot.className = 'active-dot';
+            const dotContainer = autoItem.querySelector('.dot-container');
+            if (dotContainer) dotContainer.appendChild(dot);
         }
     }
 
@@ -963,6 +1026,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
+    // =========================================================
+    //  ALBUM COVER MODE
+    // =========================================================
+
+    /**
+     * Applies or removes the disabled overlay on visual controls based on
+     * the Album Cover Mode state, and updates the toggle card's active styling.
+     * @param {boolean} enabled
+     */
+    function applyAlbumCoverModeState(enabled) {
+        visualControlsWrapper.classList.toggle('controls-disabled', enabled);
+        albumCoverToggleCard.classList.toggle('active', enabled);
+    }
+
+    toggleAlbumCoverMode.addEventListener('change', () => {
+        const enabled = toggleAlbumCoverMode.checked;
+        applyAlbumCoverModeState(enabled);
+        saveAndNotify({ albumCoverMode: enabled });
+    });
+
     // Cover Mode
     coverModeGroup.addEventListener('click', (e) => {
         const option = e.target.closest('.cover-mode-option');
@@ -986,10 +1069,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ glowStyle: val });
     });
 
-    // Show Lyrics Toggle
-    toggleShowLyrics.addEventListener('change', () => {
-        saveAndNotify({ showLyrics: toggleShowLyrics.checked });
-    });
 
     // Lyric Alignment
     alignSelect.addEventListener('change', () => {
@@ -1003,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const defaults = {
             customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-            coverMode: 'default', glowEnabled: false, glowStyle: 'theme', showLyrics: true, lyricAlignment: 'center',
+            coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
             lineSpacing: 4, verticalAnchor: 4
         };
 

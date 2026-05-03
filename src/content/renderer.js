@@ -313,7 +313,7 @@
         fl.ctx.save();
         fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
 
-        if (fl.userShowLyrics) {
+        if (!fl.albumCoverMode) {
             fl.lyricLines.forEach((line, i) => {
                 const entry = fl.cachedLayout[i];
                 if (!entry) return;

@@ -10,6 +10,55 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Computes the Levenshtein edit distance between two strings (both lowercased).
+ * Mirrors the implementation in services.js so the background script can
+ * independently score Netease candidates by title similarity.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {number} Edit distance (0 = identical).
+ */
+function levenshtein(a, b) {
+    a = a.toLowerCase();
+    b = b.toLowerCase();
+    const m = a.length, n = b.length;
+    const dp = new Int32Array((m + 1) * (n + 1));
+    for (let i = 0; i <= m; i++) dp[i * (n + 1)] = i;
+    for (let j = 0; j <= n; j++) dp[j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            dp[i * (n + 1) + j] = Math.min(
+                dp[(i - 1) * (n + 1) + j] + 1,
+                dp[i * (n + 1) + (j - 1)] + 1,
+                dp[(i - 1) * (n + 1) + (j - 1)] + cost
+            );
+        }
+    }
+    return dp[m * (n + 1) + n];
+}
+
+/**
+ * Converts a Levenshtein distance into a 0–100 similarity percentage.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
+ */
+function titleSimilarity(a, b) {
+    if (!a && !b) return 100;
+    if (!a || !b) return 0;
+    const maxLen = Math.max(a.length, b.length);
+    return Math.round((1 - levenshtein(a, b) / maxLen) * 100);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'FOCUS_TAB' && sender.tab) {
         // 1. Focus the tab itself
@@ -21,7 +70,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.type === 'FETCH_NETEASE') {
-        const { id, query } = message.payload;
+        const { id, query, cleanTitle } = message.payload;
 
         // Direct ID lookup — used when the user explicitly selected a Netease result
         if (id) {
@@ -30,30 +79,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 .then(data => {
                     sendResponse({ lyric: data?.lrc?.lyric || "" });
                 })
-                .catch(err => {
+                .catch(() => {
                     sendResponse({ lyric: "" });
                 });
             return true;
         }
 
-        // Fallback: search by query string, then pick the best match by duration
+        // Fallback: search by query string, then pick the best match using a
+        // combined score of duration proximity and title similarity (Levenshtein).
         fetch(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`)
             .then(r => r.json())
             .then(data => {
                 const songs = data?.result?.songs;
                 if (!songs || songs.length === 0) throw new Error("No Netease track found");
 
-                // --- NETEASE LAZY CHECK FALLBACK ---
                 const targetDuration = message.payload.duration || 0;
 
-                // 1. Get Top 5 and sort them by closest duration match
-                const top5 = songs.slice(0, 5).sort((a, b) => {
-                    const aDelta = Math.abs((a.dt / 1000) - targetDuration);
-                    const bDelta = Math.abs((b.dt / 1000) - targetDuration);
-                    return aDelta - bDelta;
-                });
+                // Score each of the top-5 candidates using:
+                //   - durationDelta   : penalises a track whose length doesn't match the actual player duration
+                //   - titleSimilarity : rewards a track whose title is close to our clean title
+                //     (critical for Pass 3 / title-only searches where the query has no artist restriction)
+                const top5 = songs.slice(0, 5)
+                    .map(song => {
+                        const durationDelta = Math.abs((song.dt / 1000) - targetDuration);
+                        const titleSim = cleanTitle
+                            ? titleSimilarity(cleanTitle, song.name || '')
+                            : 50; // neutral score when cleanTitle was not provided
+                        // Lower combinedScore = better candidate
+                        const combinedScore = durationDelta - (titleSim * 10);
+                        return { song, combinedScore };
+                    })
+                    .sort((a, b) => a.combinedScore - b.combinedScore)
+                    .map(x => x.song);
 
-                // 2. Recursive function to check each match until we find real text
+                // Recursive function to check each ranked candidate until we find real lyrics
                 const tryFetchLyric = (index) => {
                     if (index >= top5.length) {
                         // Exhausted all 5 attempts, none had lyrics
@@ -70,7 +129,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                                 // Success! Found actual lyrics — also return the resolved ID and name
                                 sendResponse({ lyric: lyricText, id: candidate.id, name: candidate.name || "" });
                             } else {
-                                // Empty or junk lyrics, try the next best duration match
+                                // Empty or junk lyrics, try the next best match
                                 tryFetchLyric(index + 1);
                             }
                         })
@@ -83,7 +142,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 // Start the check loop
                 tryFetchLyric(0);
             })
-            .catch(err => {
+            .catch(() => {
                 sendResponse({ lyric: "" });
             });
 
@@ -108,7 +167,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }));
                 sendResponse({ results });
             })
-            .catch(err => {
+            .catch(() => {
                 sendResponse({ results: [] });
             });
 

@@ -326,6 +326,9 @@
             border-bottom: 1px solid #333;
             cursor: pointer;
             transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .result-item:last-child {
@@ -336,18 +339,51 @@
             background-color: #333;
         }
 
+        .result-left {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            padding-right: 10px;
+        }
+
         .result-title {
             font-weight: bold;
             font-size: 13px;
             color: white;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .result-meta {
+        .result-artist {
             font-size: 11px;
             color: #AAA;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .result-right {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 65px;
+        }
+
+        .dot-container {
+            height: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+
+        .result-badges {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 4px;
         }
 
         .result-badge {
@@ -357,8 +393,12 @@
             border-radius: 3px;
             font-weight: bold;
             font-size: 9px;
-            margin-left: 5px;
             display: inline-block;
+        }
+
+        .result-duration {
+            font-size: 11px;
+            color: #AAA;
         }
 
         .active-lyric {
@@ -368,9 +408,6 @@
 
         /* Active lyric dot */
         .active-dot {
-            position: absolute;
-            top: 6px;
-            right: 7px;
             width: 7px;
             height: 7px;
             border-radius: 50%;
@@ -632,8 +669,10 @@
          * ========================================================= */
         #review-toast {
             display: none;
-            flex-direction: row;       /* row: text-body left, ✕ right */
-            align-items: center;       /* ✕ vertically centred */
+            flex-direction: row;
+            /* row: text-body left, ✕ right */
+            align-items: center;
+            /* ✕ vertically centred */
             gap: 10px;
             background: rgba(29, 185, 84, 0.1);
             border: 1px solid rgba(29, 185, 84, 0.3);
@@ -728,6 +767,7 @@
         .star-label {
             font-size: 11px;
             color: #555;
+            transform: translateY(1.5px);
         }
 
         .stars {
@@ -744,9 +784,37 @@
             display: inline-block;
         }
 
-        /* Hover: light up entire strip; siblings after hovered star go dark */
-        .stars:hover span            { color: #ffcc00; transform: scale(1.15); }
-        .stars span:hover ~ span     { color: #303030; transform: scale(1);    }
+        /* Hover: light up entire strip up to the hovered star */
+        .stars:hover span {
+            color: #ffcc00 !important;
+            transform: scale(1.15);
+        }
+
+        .stars span:hover~span {
+            color: #303030 !important;
+            transform: scale(1);
+        }
+
+        /* Rated state: saved yellow up to the chosen rating */
+        .stars.rated span {
+            color: #ffcc00;
+        }
+
+        .stars.rated[data-rating="1"] span:nth-child(n+2) {
+            color: #303030;
+        }
+
+        .stars.rated[data-rating="2"] span:nth-child(n+3) {
+            color: #303030;
+        }
+
+        .stars.rated[data-rating="3"] span:nth-child(n+4) {
+            color: #303030;
+        }
+
+        .stars.rated[data-rating="4"] span:nth-child(n+5) {
+            color: #303030;
+        }
 
         /* Row 3a: Credits & links */
         .footer-credits {
@@ -793,6 +861,65 @@
 
         .footer-bug a:hover {
             color: #ff7070;
+        }
+
+        /* Album Cover Mode Toggle Card */
+        .album-cover-toggle-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #282828;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid transparent;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .album-cover-toggle-card.active {
+            border-color: rgba(29, 185, 84, 0.4);
+            background: rgba(29, 185, 84, 0.07);
+        }
+
+        .acm-left {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .acm-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ccc;
+        }
+
+        .acm-text {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .acm-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: white;
+        }
+
+        .acm-sub {
+            font-size: 10px;
+            color: #888;
+        }
+
+        /* Disabled overlay for all visual controls below ACM toggle */
+        #visual-controls-wrapper {
+            transition: opacity 0.2s;
+        }
+
+        #visual-controls-wrapper.controls-disabled {
+            opacity: 0.35;
+            pointer-events: none;
+            user-select: none;
         }
     </style>
 </head>
@@ -919,8 +1046,10 @@
             <div class="control-group" style="margin-top: 15px;">
                 <label style="text-align:center; margin-bottom: 10px;">Data Management</label>
                 <div style="display: flex; gap: 10px; justify-content: center;">
-                    <button class="search-btn" id="btn-export-settings" style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Export Backup</button>
-                    <button class="search-btn" id="btn-import-settings" style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Import Backup</button>
+                    <button class="search-btn" id="btn-export-settings"
+                        style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Export Backup</button>
+                    <button class="search-btn" id="btn-import-settings"
+                        style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Import Backup</button>
                     <input type="file" id="import-file" accept=".json" style="display: none;">
                 </div>
             </div>
@@ -935,7 +1064,7 @@
 
                 <!-- Row 2: Star rating strip — always visible, one-click to rate -->
                 <div class="star-row">
-                    <span class="star-label">Rate:</span>
+                    <span class="star-label" id="star-label">Rate us! </span>
                     <div class="stars" id="footer-star-strip" title="Leave a 5-star rating">
                         <span>★</span>
                         <span>★</span>
@@ -955,10 +1084,9 @@
                 <!-- Row 3b: Buy me a coffee (donation links) -->
                 <p class="footer-coffee">
                     <span style="color: #ceaa94; margin-right: 2px; vertical-align: middle;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2"
-                            stroke-linecap="round" stroke-linejoin="round"
-                            style="vertical-align: middle; transform: translateY(-1px);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            style="vertical-align: middle; transform: translateY(-3px);">
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                 stroke-width="2" d="M15 4v2m-4-2v2M7 4v2" />
                             <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -977,9 +1105,9 @@
                     <a href="https://forms.gle/qdyBFtmeomtGBroXA" target="_blank">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
                         </svg>
                         Report Bug / Request Feature
                     </a>
@@ -1006,180 +1134,204 @@
                 <button class="icon-btn phantom" aria-hidden="true">✕</button>
             </div>
 
-            <!-- Typography & Background Group -->
-            <div class="control-group">
+            <!-- ALBUM COVER MODE TOGGLE -->
+            <div class="album-cover-toggle-card" id="album-cover-toggle-card">
+                <div class="acm-left">
+                    <span class="acm-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M2 19.4V4.6C2 4.26863 2.26863 4 2.6 4H17.4C17.7314 4 18 4.26863 18 4.6V19.4C18 19.7314 17.7314 20 17.4 20H2.6C2.26863 20 2 19.7314 2 19.4Z"
+                                stroke="currentColor" stroke-width="1.5" />
+                            <path d="M22 6V18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                            <path
+                                d="M11 14.5C11 15.3284 10.3284 16 9.5 16C8.67157 16 8 15.3284 8 14.5C8 13.6716 8.67157 13 9.5 13C10.3284 13 11 13.6716 11 14.5Z"
+                                fill="currentColor" />
+                            <path
+                                d="M11 14.5C11 15.3284 10.3284 16 9.5 16C8.67157 16 8 15.3284 8 14.5C8 13.6716 8.67157 13 9.5 13C10.3284 13 11 13.6716 11 14.5ZM11 14.5V8.6C11 8.26863 11.2686 8 11.6 8H13"
+                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                    <div class="acm-text">
+                        <span class="acm-title">Album Cover Mode</span>
+                        <span class="acm-sub">Locks visuals &amp; hides lyrics</span>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-album-cover-mode">
+                    <span class="slider"></span>
+                </label>
+            </div>
 
-                <label for="font-family-select" style="margin-bottom: 6px;">Font Family</label>
-                <select id="font-family-select" style="margin-bottom: 5px;">
-                    <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
-                    <option value="'Indie Flower', cursive">Indie Flower</option>
-                    <option value="'Gaegu', cursive">Gaegu</option>
-                    <option value="'Patrick Hand', cursive">Patrick Hand</option>
-                    <option value="'Gochi Hand', cursive">Gochi Hand</option>
-                    <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
-                    <option value="custom">★ Custom Google Font . . .</option>
-                </select>
+            <div id="visual-controls-wrapper">
 
-                <!-- Custom Font Search (Hidden by default) -->
-                <div id="custom-font-container" style="display: none; margin-top: 8px;">
-                    <!-- Row 1: Search input with 🎲 inside -->
-                    <div style="position: relative; margin-bottom: 6px;">
-                        <input type="text" id="custom-font-input" class="search-input"
-                            placeholder="Search fonts... (e.g. Pacifico)"
-                            style="width: 100%; padding-right: 30px; box-sizing: border-box;" autocomplete="off">
-                        <button id="btn-suggest-fonts" title="Get 5 random suggestions" style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+                <!-- Typography & Background Group -->
+                <div class="control-group">
+
+                    <label for="font-family-select" style="margin-bottom: 6px;">Font Family</label>
+                    <select id="font-family-select" style="margin-bottom: 5px;">
+                        <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
+                        <option value="'Indie Flower', cursive">Indie Flower</option>
+                        <option value="'Gaegu', cursive">Gaegu</option>
+                        <option value="'Patrick Hand', cursive">Patrick Hand</option>
+                        <option value="'Gochi Hand', cursive">Gochi Hand</option>
+                        <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
+                        <option value="custom">★ Custom Google Font . . .</option>
+                    </select>
+
+                    <!-- Custom Font Search (Hidden by default) -->
+                    <div id="custom-font-container" style="display: none; margin-top: 8px;">
+                        <!-- Row 1: Search input with 🎲 inside -->
+                        <div style="position: relative; margin-bottom: 6px;">
+                            <input type="text" id="custom-font-input" class="search-input"
+                                placeholder="Search fonts... (e.g. Pacifico)"
+                                style="width: 100%; padding-right: 30px; box-sizing: border-box;" autocomplete="off">
+                            <button id="btn-suggest-fonts" title="Get 5 random suggestions" style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
                                    background: none; border: none; cursor: pointer; font-size: 14px;
                                    padding: 0; line-height: 1;">🎲</button>
-                    </div>
-                    <!-- Row 2: Search button + Recent SVG icon -->
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button class="search-btn" id="apply-custom-font" style="flex-grow: 1;">Search</button>
-                        <div style="position: relative; flex-shrink: 0;">
-                            <button id="btn-recent-fonts" title="Recently used fonts" style="border: 1px solid #444; border-radius: 6px;
+                        </div>
+                        <!-- Row 2: Search button + Recent SVG icon -->
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button class="search-btn" id="apply-custom-font" style="flex-grow: 1;">Search</button>
+                            <div style="position: relative; flex-shrink: 0;">
+                                <button id="btn-recent-fonts" title="Recently used fonts" style="border: 1px solid #444; border-radius: 6px;
                                        width: 32px; height: 32px; cursor: pointer; display: flex;
                                        align-items: center; justify-content: center;
                                        padding: 0;">
-                                <svg width="15" height="15" viewBox="0 0 26.5 26.5" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M9.682,18.75a.75.75,0,0,1,.75-.75,8.25,8.25,0,1,0-6.189-2.795V12.568a.75.75,0,0,1,1.5,0v4.243a.75.75,0,0,1-.751.75H.75a.75.75,0,0,1,0-1.5H3a9.75,9.75,0,1,1,7.433,3.44A.75.75,0,0,1,9.682,18.75Zm2.875-4.814L9.9,11.281a.754.754,0,0,1-.22-.531V5.55a.75.75,0,1,1,1.5,0v4.889l2.436,2.436a.75.75,0,1,1-1.061,1.06Z"
-                                        transform="translate(1.568 2.25)" fill="currentColor" />
-                                </svg>
-                            </button>
-                            <!-- Recent Fonts Dropdown -->
-                            <div id="recent-fonts-panel" style="display: none; position: absolute; right: 0; top: calc(100% + 4px);
+                                    <svg width="15" height="15" viewBox="0 0 26.5 26.5" fill="none"
+                                        xmlns="http://www.w3.org/2000/svg">
+                                        <path
+                                            d="M9.682,18.75a.75.75,0,0,1,.75-.75,8.25,8.25,0,1,0-6.189-2.795V12.568a.75.75,0,0,1,1.5,0v4.243a.75.75,0,0,1-.751.75H.75a.75.75,0,0,1,0-1.5H3a9.75,9.75,0,1,1,7.433,3.44A.75.75,0,0,1,9.682,18.75Zm2.875-4.814L9.9,11.281a.754.754,0,0,1-.22-.531V5.55a.75.75,0,1,1,1.5,0v4.889l2.436,2.436a.75.75,0,1,1-1.061,1.06Z"
+                                            transform="translate(1.568 2.25)" fill="currentColor" />
+                                    </svg>
+                                </button>
+                                <!-- Recent Fonts Dropdown -->
+                                <div id="recent-fonts-panel" style="display: none; position: absolute; right: 0; top: calc(100% + 4px);
                                        background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
                                        min-width: 170px; z-index: 100; max-height: 200px; overflow-y: auto;
                                        box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- Font Suggestion Chips -->
+                        <div id="font-chips-container"
+                            style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 5px;">
+                        </div>
+
+                        <!-- Font Search Results -->
+                        <div id="font-results-container" style="display: none; max-height: 160px; overflow-y: auto; margin-top: 8px;
+                               background: #1a1a1a; border: 1px solid #333; border-radius: 6px;">
+                        </div>
+
+                        <!-- Browse Link -->
+                        <div id="custom-font-link-hint"
+                            style="text-align: right; margin-top: 6px; margin-bottom: 5px; font-size: 11px;">
+                            <a href="https://fonts.google.com/" target="_blank"
+                                style="color: #1DB954; text-decoration: none;">Browse Google Fonts ↗</a>
                         </div>
                     </div>
 
-                    <!-- Font Suggestion Chips -->
-                    <div id="font-chips-container" style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 5px;">
-                    </div>
-
-                    <!-- Font Search Results -->
-                    <div id="font-results-container" style="display: none; max-height: 160px; overflow-y: auto; margin-top: 8px;
-                               background: #1a1a1a; border: 1px solid #333; border-radius: 6px;">
-                    </div>
-
-                    <!-- Browse Link -->
-                    <div id="custom-font-link-hint"
-                        style="text-align: right; margin-top: 6px; margin-bottom: 5px; font-size: 11px;">
-                        <a href="https://fonts.google.com/" target="_blank"
-                            style="color: #1DB954; text-decoration: none;">Browse Google Fonts ↗</a>
-                    </div>
-                </div>
-
-                <label for="align-select" style="margin-bottom: 6px;">Lyric Alignment</label>
-                <select id="align-select" style="margin-bottom: 15px;">
-                    <option value="left">Left</option>
-                    <option value="center">Center (Default)</option>
-                    <option value="right">Right</option>
-                </select>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
-                    <label style="margin-bottom: 0;">Font Size</label>
-                    <span id="font-size-warning"
-                        style="display: none; color: #ffaa00; font-size: 9px; text-align: right; font-style: italic; line-height: 1.2;">
-                        Higher values may cause text to overlap
-                    </span>
-                </div>
-                <div class="range-row">
-                    <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
-                    <span class="range-value" id="font-size-value">5</span>
-                </div>
-
-                <label>Line Spacing</label>
-                <div class="range-row">
-                    <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="2">
-                    <span class="range-value" id="line-spacing-value">2</span>
-                </div>
-
-                <label>Vertical Position</label>
-                <div class="range-row">
-                    <input type="range" id="anchor-slider" min="1" max="10" step="1" value="4">
-                    <span class="range-value" id="anchor-value">4</span>
-                </div>
-
-                <label>Blur</label>
-                <div class="range-row">
-                    <input type="range" id="blur-slider" min="0" max="10" step="1" value="2">
-                    <span class="range-value" id="blur-value">2</span>
-                </div>
-
-                <label>Darkness</label>
-                <div class="range-row" style="margin-bottom: 0;">
-                    <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
-                    <span class="range-value" id="darkness-value">4</span>
-                </div>
-
-            </div>
-
-            <!-- Cover Background Mode -->
-            <div class="control-group">
-                <label style="margin-bottom: 10px;">Cover Background Mode</label>
-                <div class="cover-mode-group" id="cover-mode-group">
-
-                    <div class="cover-mode-option" data-mode="centered">
-                        <span class="cover-radio"></span>
-                        <div class="cover-mode-desc">Center</div>
-                    </div>
-
-                    <div class="cover-mode-option" data-mode="repeated">
-                        <span class="cover-radio"></span>
-                        <div class="cover-mode-desc">Repeat</div>
-                    </div>
-
-                    <div class="cover-mode-option selected" data-mode="default">
-                        <span class="cover-radio"></span>
-                        <div class="cover-mode-desc">Fill</div>
-                    </div>
-
-                </div>
-            </div>
-
-            <!-- Glowing Lyrics Toggle -->
-            <div class="control-group">
-                <div class="row">
-                    <div>
-                        <label style="margin:0">Glowing Lyrics</label>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-glow">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <div id="glow-style-container"
-                    style="margin-top: 10px; margin-bottom: 5px; display: none; align-items: center; justify-content: space-between;">
-                    <label style="margin: 0; font-size: 13px;">Style</label>
-                    <select id="glow-style-select" style="width: auto; padding: 4px 30px 4px 8px; font-size: 13px;">
-                        <option value="theme">Theme Color</option>
-                        <option value="rainbow">Rainbow</option>
+                    <label for="align-select" style="margin-bottom: 6px;">Lyric Alignment</label>
+                    <select id="align-select" style="margin-bottom: 15px;">
+                        <option value="left">Left</option>
+                        <option value="center">Center (Default)</option>
+                        <option value="right">Right</option>
                     </select>
-                </div>
 
-                <!-- Live preview text that reacts to font & glow settings -->
-                <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
-            </div>
-
-            <!-- Disable Lyrics (New Section) -->
-            <div class="control-group" style="margin-top: 20px;">
-                <div class="row">
-                    <div>
-                        <label style="margin:0">Show Lyrics</label>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
+                        <label style="margin-bottom: 0;">Font Size</label>
+                        <span id="font-size-warning"
+                            style="display: none; color: #ffaa00; font-size: 9px; text-align: right; font-style: italic; line-height: 1.2;">
+                            Higher values may cause text to overlap
+                        </span>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-show-lyrics" checked>
-                        <span class="slider"></span>
-                    </label>
+                    <div class="range-row">
+                        <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
+                        <span class="range-value" id="font-size-value">5</span>
+                    </div>
+
+                    <label>Line Spacing</label>
+                    <div class="range-row">
+                        <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="2">
+                        <span class="range-value" id="line-spacing-value">2</span>
+                    </div>
+
+                    <label>Vertical Position</label>
+                    <div class="range-row">
+                        <input type="range" id="anchor-slider" min="1" max="10" step="1" value="4">
+                        <span class="range-value" id="anchor-value">4</span>
+                    </div>
+
+                    <label>Blur</label>
+                    <div class="range-row">
+                        <input type="range" id="blur-slider" min="0" max="10" step="1" value="2">
+                        <span class="range-value" id="blur-value">2</span>
+                    </div>
+
+                    <label>Darkness</label>
+                    <div class="range-row" style="margin-bottom: 0;">
+                        <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
+                        <span class="range-value" id="darkness-value">4</span>
+                    </div>
+
                 </div>
-            </div>
+
+                <!-- Cover Background Mode -->
+                <div class="control-group">
+                    <label style="margin-bottom: 10px;">Cover Background Mode</label>
+                    <div class="cover-mode-group" id="cover-mode-group">
+
+                        <div class="cover-mode-option" data-mode="centered">
+                            <span class="cover-radio"></span>
+                            <div class="cover-mode-desc">Center</div>
+                        </div>
+
+                        <div class="cover-mode-option" data-mode="repeated">
+                            <span class="cover-radio"></span>
+                            <div class="cover-mode-desc">Repeat</div>
+                        </div>
+
+                        <div class="cover-mode-option selected" data-mode="default">
+                            <span class="cover-radio"></span>
+                            <div class="cover-mode-desc">Fill</div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Glowing Lyrics Toggle -->
+                <div class="control-group">
+                    <div class="row">
+                        <div>
+                            <label style="margin:0">Glowing Lyrics</label>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-glow">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="glow-style-container"
+                        style="margin-top: 10px; margin-bottom: 5px; display: none; align-items: center; justify-content: space-between;">
+                        <label style="margin: 0; font-size: 13px;">Style</label>
+                        <select id="glow-style-select" style="width: auto; padding: 4px 30px 4px 8px; font-size: 13px;">
+                            <option value="theme">Theme Color</option>
+                            <option value="rainbow">Rainbow</option>
+                        </select>
+                    </div>
+
+                    <!-- Live preview text that reacts to font & glow settings -->
+                    <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
+                </div>
+
+
+
+            </div><!-- /visual-controls-wrapper -->
 
             <!-- Reset Settings -->
-            <button class="button-customize" id="btn-reset-settings" style="margin-top: 15px; background: #552222; border: 1px solid #ff4444; color: #ff8888;">
+            <button class="button-customize" id="btn-reset-settings"
+                style="margin-top: 15px; background: #552222; border: 1px solid #ff4444; color: #ff8888;">
                 <span style="font-size: 14px;">Reset Defaults</span>
             </button>
 

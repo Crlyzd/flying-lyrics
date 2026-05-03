@@ -3,6 +3,156 @@
 
     // --- SERVICES ---
 
+    // ─────────────────────────────────────────────────────────
+    //  METADATA SANITIZATION HELPERS
+    // ─────────────────────────────────────────────────────────
+
+    /**
+     * Computes the Levenshtein edit distance between two strings (both lowercased).
+     * Used to score candidate title similarity when ranking lyrics search results.
+     *
+     * @param {string} a
+     * @param {string} b
+     * @returns {number} Edit distance (0 = identical).
+     */
+    fl.levenshtein = function (a, b) {
+        a = a.toLowerCase();
+        b = b.toLowerCase();
+        const m = a.length, n = b.length;
+        // Allocate a flat Int32Array for speed (avoids nested array allocation)
+        const dp = new Int32Array((m + 1) * (n + 1));
+        for (let i = 0; i <= m; i++) dp[i * (n + 1)] = i;
+        for (let j = 0; j <= n; j++) dp[j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                dp[i * (n + 1) + j] = Math.min(
+                    dp[(i - 1) * (n + 1) + j] + 1,    // deletion
+                    dp[i * (n + 1) + (j - 1)] + 1,    // insertion
+                    dp[(i - 1) * (n + 1) + (j - 1)] + cost // substitution
+                );
+            }
+        }
+        return dp[m * (n + 1) + n];
+    };
+
+    /**
+     * Converts a Levenshtein distance into a 0–100 similarity percentage.
+     *
+     * @param {string} a
+     * @param {string} b
+     * @returns {number} Similarity percentage (100 = identical).
+     */
+    fl.titleSimilarity = function (a, b) {
+        if (!a && !b) return 100;
+        if (!a || !b) return 0;
+        const maxLen = Math.max(a.length, b.length);
+        return Math.round((1 - fl.levenshtein(a, b) / maxLen) * 100);
+    };
+
+    /**
+     * Strips common noise keywords from a song title.
+     * Uses two passes:
+     *   1. Remove bracketed/parenthesised segments containing noise keywords.
+     *   2. Remove trailing " - <noise keyword>…" suffixes.
+     *
+     * Master Noise List categories:
+     *   Production  : remaster, remastered, remix, rework, vip, mix, stereo, mono, hi-res, high res
+     *   Versions    : radio edit, extended, club mix, dub, single version, album version, deluxe
+     *   Performance : live, acoustic, unplugged, demo, session, instrumental, a cappella, cover
+     *   Release Type: bonus track, hidden track, b-side, explicit, clean, edited, anniversary
+     *   Media Tags  : official video, official audio, lyrics video, mv, hd, hq, 4k, 1080p
+     *   Collab tags : feat., ft., featuring, with, vs.
+     *
+     * @param {string} title - Raw title string.
+     * @returns {string} Cleaned title.
+     */
+    fl.cleanTitle = function (title) {
+        // Ordered list of noise terms (longer multi-word phrases first to avoid partial matches)
+        const noiseTerms = [
+            'official video', 'official audio', 'official music video', 'lyrics video',
+            'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
+            'hidden track', 'high res', 'hi-res', 'a cappella',
+            'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
+            'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
+            'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
+            'anniversary', 'b-side', 'mv', '4k', '1080p', 'hq', 'hd',
+            'feat\.', 'ft\.', 'featuring', 'with', 'vs\.'
+        ].join('|');
+
+        // Pass 1: Remove entire parenthesised/bracketed groups that contain a noise keyword
+        //   e.g. "Song Name (2009 Remaster)" → "Song Name"
+        //        "Song Name [Official Video]" → "Song Name"
+        const bracketRegex = new RegExp(
+            `\\s*[([\\[](?:[^\\]()[\\]]*?(?:${noiseTerms})[^\\]()[\\]]*?)[)\\]]`,
+            'gi'
+        );
+        let clean = title.replace(bracketRegex, '');
+
+        // Pass 2: Remove trailing " - <noise keyword>" suffixes (no brackets)
+        //   e.g. "Song Name - Remastered" → "Song Name"
+        //        "Song Name - Radio Edit" → "Song Name"
+        const trailingRegex = new RegExp(
+            `\\s*-\\s*(?:${noiseTerms}).*$`,
+            'gi'
+        );
+        clean = clean.replace(trailingRegex, '');
+
+        return clean.trim();
+    };
+
+    /**
+     * Extracts the primary (first-listed) artist from a raw artist string.
+     * Handles separators: commas, ampersands, feat./ft./featuring, "with", "vs.", " x ".
+     *
+     * @param {string} artist - Raw artist string.
+     * @returns {string} Primary artist name.
+     */
+    fl.extractPrimaryArtist = function (artist) {
+        return artist
+            .split(/,|&|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0]
+            .trim();
+    };
+
+    /**
+     * Generates up to 3 search passes from raw metadata, each progressively cleaner:
+     *
+     *   Pass 1 — Exact   : raw artist + raw title (current behaviour, preserved for databases
+     *                        that index tracks exactly as the platform reports them).
+     *   Pass 2 — Cleaned : primary artist + noise-stripped title.
+     *   Pass 3 — Title   : no artist restriction + noise-stripped title (broadest net;
+     *                        relies on duration + Levenshtein scoring to reject false positives).
+     *
+     * Duplicate passes are eliminated so a clean title == raw title doesn't waste an API call.
+     *
+     * @param {{ artist: string, title: string }} meta - Raw mediaSession metadata.
+     * @returns {Array<{ artist: string, title: string, cleanTitle: string }>}
+     */
+    fl.generateSearchPasses = function (meta) {
+        const rawArtist  = (meta.artist || '').trim();
+        const rawTitle   = (meta.title  || '').trim();
+        const cleanedTitle   = fl.cleanTitle(rawTitle);
+        const primaryArtist  = fl.extractPrimaryArtist(rawArtist);
+
+        const passes = [
+            // Pass 1: send exactly what the platform gave us
+            { artist: rawArtist, title: rawTitle, cleanTitle: cleanedTitle },
+        ];
+
+        // Pass 2: cleaned title + primary artist (skip if identical to Pass 1)
+        if (primaryArtist !== rawArtist || cleanedTitle !== rawTitle) {
+            passes.push({ artist: primaryArtist, title: cleanedTitle, cleanTitle: cleanedTitle });
+        }
+
+        // Pass 3: title-only (skip if a previous pass already has no artist)
+        if (passes.every(p => p.artist !== '')) {
+            passes.push({ artist: '', title: cleanedTitle, cleanTitle: cleanedTitle });
+        }
+
+        return passes;
+    };
+
+
     fl.fetchLyrics = async function (retryCount = 0) {
         const meta = navigator.mediaSession.metadata;
 
@@ -24,47 +174,77 @@
             // Tier 3: network fetch
             let raw = await fl.resolveManualOverride(key);
 
-            // --- ADVANCED PIPELINE: Prioritize Synced Lyrics Across Providers ---
-            let lrcLibPlainFallback = null;
-            let lrcLibSourceFallback = null;
-
+            // ─────────────────────────────────────────────────────────
+            //  MULTI-PASS SEARCH PIPELINE
+            //
+            //  We try up to 3 progressively-cleaner metadata variants:
+            //    Pass 1 — Exact   : raw artist + raw title
+            //    Pass 2 — Cleaned : primary artist + noise-stripped title
+            //    Pass 3 — Title   : no artist + noise-stripped title
+            //
+            //  For each pass we query LRCLIB first, then Netease.
+            //  - A SYNCED result stops the loop immediately.
+            //  - A PLAIN TEXT result is saved as a fallback; the loop
+            //    continues trying to find a synced result in later passes.
+            //  - If the loop exhausts all passes, we use the best plain
+            //    text we collected (LRCLIB preferred over Netease).
+            // ─────────────────────────────────────────────────────────
             if (!raw) {
-                raw = await fl.fetchFromLrcLib(meta, key);
+                const passes = fl.generateSearchPasses(meta);
 
-                // If LRCLIB returned lyrics, but they are NOT synced, save them as a fallback
-                // and force the system to check Netease to see if it has *synced* versions.
-                if (raw && fl.activeLyricSource && !fl.activeLyricSource.synced) {
-                    lrcLibPlainFallback = raw;
-                    lrcLibSourceFallback = { ...fl.activeLyricSource };
-                    raw = null; // Clear raw to force Netease check
-                }
-            }
+                // Rolling plain-text fallbacks — prefer LRCLIB over Netease
+                let lrcLibPlainFallback  = null;
+                let lrcLibSourceFallback = null;
+                let neteaseRawFallback   = null;
 
-            if (!raw) {
-                let neteaseRaw = await fl.fetchFromNeteaseFallback(meta, key);
+                for (const pass of passes) {
+                    const passLabel = pass.artist
+                        ? `"${pass.artist}" / "${pass.title}"`
+                        : `title-only "${pass.title}"`;
 
-                if (neteaseRaw) {
-                    // Determine if Netease returned synced lyrics by checking for timestamps like [00:12.34]
-                    const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
+                    // ── LRCLIB ──────────────────────────────────────────
+                    const lrcRaw = await fl.fetchFromLrcLib(pass, key);
 
-                    if (isNeteaseSynced) {
-                        raw = neteaseRaw;
-                        fl.activeLyricSource.synced = true;
-                    } else {
-                        // Netease found lyrics, but they are ALSO plain text.
-                        // Prefer LRCLIB's plain text (if we had it) because LRCLIB is dedicated to lyrics.
-                        if (lrcLibPlainFallback) {
-                            raw = lrcLibPlainFallback;
-                            fl.activeLyricSource = lrcLibSourceFallback;
-                        } else {
+                    if (lrcRaw && fl.activeLyricSource?.synced) {
+                        // Synced hit — done!
+                        console.log(`FL: LRCLIB synced hit on pass ${passLabel}`);
+                        raw = lrcRaw;
+                        break;
+                    } else if (lrcRaw && !lrcLibPlainFallback) {
+                        // Plain text fallback — keep searching for synced
+                        console.log(`FL: LRCLIB plain text fallback on pass ${passLabel}`);
+                        lrcLibPlainFallback  = lrcRaw;
+                        lrcLibSourceFallback = { ...fl.activeLyricSource };
+                    }
+
+                    // ── NETEASE ─────────────────────────────────────────
+                    const neteaseRaw = await fl.fetchFromNeteaseFallback(pass, key);
+
+                    if (neteaseRaw) {
+                        const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
+
+                        if (isNeteaseSynced) {
+                            // Synced hit from Netease — done!
+                            console.log(`FL: Netease synced hit on pass ${passLabel}`);
                             raw = neteaseRaw;
-                            fl.activeLyricSource.synced = false;
+                            if (fl.activeLyricSource) fl.activeLyricSource.synced = true;
+                            break;
+                        } else if (!neteaseRawFallback) {
+                            neteaseRawFallback = neteaseRaw;
                         }
                     }
-                } else if (lrcLibPlainFallback) {
-                    // Netease completely failed or returned nothing. Safely revert to LRCLIB's plain text.
-                    raw = lrcLibPlainFallback;
-                    fl.activeLyricSource = lrcLibSourceFallback;
+                }
+
+                // Loop ended without a synced hit — fall back to best plain text collected
+                if (!raw) {
+                    if (lrcLibPlainFallback) {
+                        // Prefer LRCLIB plain text (it's a dedicated lyrics database)
+                        raw = lrcLibPlainFallback;
+                        fl.activeLyricSource = lrcLibSourceFallback;
+                    } else if (neteaseRawFallback) {
+                        raw = neteaseRawFallback;
+                        if (fl.activeLyricSource) fl.activeLyricSource.synced = false;
+                    }
                 }
             }
 
@@ -155,7 +335,7 @@
                 fl.cachedLyrics.translationLang = fl.translationLang;
 
                 if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                fl.activateLyrics();
 
                 // Fill any missing translations/romaji without blocking the resolve
                 // (This will also fetch the new language if we just wiped it above)
@@ -245,7 +425,7 @@
                 fl.cachedLyrics.translationLang = fl.translationLang;
             }
 
-            if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+            fl.activateLyrics();
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
             // Always attempt translation after a cache hit.
             // translateExistingLyrics() skips lines that already have translations
@@ -265,6 +445,7 @@
 
         if (override.type === 'local') {
             fl.activeLyricSource = { type: 'local', id: null, name: key };
+            fl.activateLyrics();
             return override.data;
         } else if (override.type === 'api' && override.id) {
             const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`);
@@ -283,10 +464,30 @@
         return "";
     }
 
-    fl.fetchFromLrcLib = async function (meta, key) {
+    /**
+     * Queries LRCLIB for the given pass metadata and returns the best raw lyric string.
+     *
+     * Candidate scoring formula:
+     *   score = (isSynced ? 10_000 : 0) - durationDelta + (titleSimilarity * 10)
+     *
+     *   - isSynced adds a huge bonus so synced results always rank above plain text.
+     *   - durationDelta penalises candidates whose track length differs from the real player duration.
+     *   - titleSimilarity (Levenshtein %) rewards candidates whose title closely matches our
+     *     clean title, which is especially important in Pass 3 (title-only, no artist filter).
+     *
+     * @param {{ artist: string, title: string, cleanTitle: string }} passMeta
+     * @param {string} key - Cache key ("Artist - Title").
+     * @returns {Promise<string>}
+     */
+    fl.fetchFromLrcLib = async function (passMeta, key) {
         try {
             const actualDuration = fl.getPlayerState().duration || 0;
-            const searchQuery = `artist_name=${encodeURIComponent(meta.artist)}&track_name=${encodeURIComponent(meta.title)}`;
+
+            // Pass 3 has no artist — use a broad free-text query instead of field-specific params
+            const searchQuery = passMeta.artist
+                ? `artist_name=${encodeURIComponent(passMeta.artist)}&track_name=${encodeURIComponent(passMeta.title)}`
+                : `q=${encodeURIComponent(passMeta.title)}`;
+
             const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`);
 
             if (!res.ok) return "";
@@ -294,9 +495,11 @@
             if (!Array.isArray(candidates) || candidates.length === 0) return "";
 
             const scored = candidates.map(c => {
-                const isSynced = !!c.syncedLyrics;
+                const isSynced      = !!c.syncedLyrics;
                 const durationDelta = actualDuration > 0 ? Math.abs((c.duration || 0) - actualDuration) : 0;
-                const score = (isSynced ? 10000 : 0) - durationDelta;
+                // Title similarity guards against false positives in Pass 3 (title-only search)
+                const titleSim      = fl.titleSimilarity(passMeta.cleanTitle, c.trackName || '');
+                const score         = (isSynced ? 10000 : 0) - durationDelta + (titleSim * 10);
                 return { c, score };
             });
             scored.sort((a, b) => b.score - a.score);
@@ -316,35 +519,68 @@
             console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (5s)' : err);
         }
         return "";
-    }
+    };
 
-    fl.fetchFromNeteaseFallback = async function (meta, key) {
+    /**
+     * Queries Netease for the given pass metadata and returns the best raw lyric string.
+     * The clean title is forwarded to background.js so it can apply Levenshtein scoring
+     * when ranking the Netease candidate list.
+     *
+     * @param {{ artist: string, title: string, cleanTitle: string }} passMeta
+     * @param {string} key - Cache key ("Artist - Title").
+     * @returns {Promise<string>}
+     */
+    fl.fetchFromNeteaseFallback = async function (passMeta, key) {
         const actualDuration = fl.getPlayerState().duration || 0;
-        const neteaseQuery = `${meta.artist} ${meta.title}`;
-        console.log("Falling back to Netease for:", neteaseQuery);
+        const neteaseQuery   = `${passMeta.artist} ${passMeta.title}`.trim();
+        console.log("Querying Netease:", neteaseQuery);
 
         const resMsg = await new Promise(resolve => {
             chrome.runtime.sendMessage({
                 type: 'FETCH_NETEASE',
-                payload: { query: neteaseQuery, duration: actualDuration }
+                payload: {
+                    query:      neteaseQuery,
+                    duration:   actualDuration,
+                    cleanTitle: passMeta.cleanTitle  // used by background.js for Levenshtein scoring
+                }
             }, resolve);
         });
 
         const raw = resMsg?.lyric || "";
         if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
         return raw;
-    }
+    };
+
+    /**
+     * Shared helper called by every lyric-loading path (cache hit, persistent cache,
+     * local file, and network fetch) the moment real lyrics are available.
+     * Resets the missing-lyrics state flag and immediately restores the user's
+     * visual settings (blur, darkness, cover mode) that were overridden while
+     * Cover Album Mode was active.
+     */
+    fl.activateLyrics = function () {
+        fl.isMissingLyrics = false;
+        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+    };
 
     fl.handleMissingLyrics = function () {
         fl.activeLyricSource = null;
-        fl.lyricLines = [{ time: 0, text: "No lyrics found", romaji: "", translation: "" }];
+        // Clear lyricLines entirely so the canvas draws nothing (Cover Album Mode)
+        fl.lyricLines = [];
         fl.isCurrentLyricSynced = false;
+        fl.isMissingLyrics = true;
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
     }
 
     fl.parseLrcOrGeneratePseudoSync = function (lines, rawStr) {
         if (typeof fl.wrapCache !== 'undefined') fl.wrapCache.clear();
         const temp = [];
+
+        // Reset missing-lyrics state via the shared helper — restores user's visual
+        // settings (blur, darkness, cover mode) if Cover Album Mode was previously active.
+        fl.activateLyrics();
 
         const isSynced = /\[\d+:\d+\.\d+\]/.test(rawStr);
         fl.isCurrentLyricSynced = isSynced;
