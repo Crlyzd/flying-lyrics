@@ -109,9 +109,11 @@
      * @returns {string} Primary artist name.
      */
     fl.extractPrimaryArtist = function (artist) {
-        return artist
-            .split(/,|&|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0]
-            .trim();
+        // Split on English and full-width/Japanese separators
+        let primary = artist.split(/,|&|＆|、|・|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0].trim();
+        // Strip CV annotations: e.g., (CV:Name), (CV.Name), （CV：Name）
+        primary = primary.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
+        return primary;
     };
 
     /**
@@ -500,7 +502,7 @@
                 ? `artist_name=${encodeURIComponent(passMeta.artist)}&track_name=${encodeURIComponent(passMeta.title)}`
                 : `q=${encodeURIComponent(passMeta.title)}`;
 
-            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`);
+            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`, 15000);
 
             if (!res.ok) return "";
             const candidates = await res.json();
@@ -511,7 +513,9 @@
                 const durationDelta = actualDuration > 0 ? Math.abs((c.duration || 0) - actualDuration) : 0;
                 // Title similarity guards against false positives in Pass 3 (title-only search)
                 const titleSim      = fl.titleSimilarity(passMeta.cleanTitle, c.trackName || '');
-                const score         = (isSynced ? 10000 : 0) - durationDelta + (titleSim * 10);
+                // Artist similarity helps tiebreak when multiple candidates share a perfect title match
+                const artistSim     = passMeta.artist ? fl.titleSimilarity(passMeta.artist, c.artistName || '') : 0;
+                const score         = (isSynced ? 10000 : 0) - durationDelta + (titleSim * 10) + (artistSim * 5);
                 return { c, score };
             });
             scored.sort((a, b) => b.score - a.score);
@@ -526,9 +530,9 @@
                 return best.plainLyrics;
             }
         } catch (err) {
-            // AbortError = our 5s timeout fired; any other error = network/API failure.
+            // AbortError = our 15s timeout fired; any other error = network/API failure.
             // Either way, log it and let the caller fall through to Netease.
-            console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (5s)' : err);
+            console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (15s)' : err);
         }
         return "";
     };
