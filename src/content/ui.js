@@ -535,7 +535,6 @@
                 fl.injectStructure();
                 fl._refreshEls(); // OPT-4: pre-cache DOM element refs for the render loop
                 fl.applyVisualSettings();
-                fl.fetchLyrics();
 
                 // Reset session state so the render loop always detects the
                 // current track as "new" on the first tick — even if the same
