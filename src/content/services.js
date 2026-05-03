@@ -448,11 +448,23 @@
             fl.activateLyrics();
             return override.data;
         } else if (override.type === 'api' && override.id) {
-            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`);
-            const data = await res.json();
-            const raw = data.syncedLyrics || data.plainLyrics || "";
-            if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
-            return raw;
+            try {
+                // Use a longer timeout for direct ID lookups — this endpoint is called only
+                // once per song change (not in a loop), so a longer wait is safe. The default
+                // 5s was designed for the search pipeline where requests stack sequentially.
+                const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`, 12000);
+                const data = await res.json();
+                const raw = data.syncedLyrics || data.plainLyrics || "";
+                if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
+                return raw;
+            } catch (err) {
+                // AbortError = 12s timeout fired; any other error = network/API failure.
+                // Return "" so fetchLyrics() falls through to the multi-pass search
+                // pipeline gracefully instead of crashing the session with "Network Error".
+                console.warn(`FL: Manual override fetch failed for ID ${override.id}:`,
+                    err.name === 'AbortError' ? 'Request timed out (12s)' : err.message);
+                return "";
+            }
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
                 chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
