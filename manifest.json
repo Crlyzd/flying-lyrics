@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Flying Lyrics - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
-  "version": "3.9",
+  "version": "3.9.1",
   "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
   "permissions": [
     "storage",
