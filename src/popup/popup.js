@@ -1,18 +1,22 @@
 const LANGUAGES = [
     { code: 'en', name: 'English' },
-    { code: 'es', name: 'Spanish' },
-    { code: 'fr', name: 'French' },
-    { code: 'de', name: 'German' },
-    { code: 'it', name: 'Italian' },
-    { code: 'ja', name: 'Japanese' },
-    { code: 'ko', name: 'Korean' },
     { code: 'zh-CN', name: 'Chinese (Simplified)' },
     { code: 'zh-TW', name: 'Chinese (Traditional)' },
+    { code: 'es', name: 'Spanish' },
+    { code: 'fr', name: 'French' },
+    { code: 'ar', name: 'Arabic' },
     { code: 'ru', name: 'Russian' },
     { code: 'pt', name: 'Portuguese' },
     { code: 'id', name: 'Indonesian' },
+    { code: 'de', name: 'German' },
+    { code: 'ja', name: 'Japanese' },
+    { code: 'tr', name: 'Turkish' },
     { code: 'vi', name: 'Vietnamese' },
-    { code: 'th', name: 'Thai' }
+    { code: 'ko', name: 'Korean' },
+    { code: 'fa', name: 'Persian' },
+    { code: 'it', name: 'Italian' },
+    { code: 'th', name: 'Thai' },
+    { code: 'ku', name: 'Kurdish' }
 ];
 
 // Maps dropdown values to the font family strings stored in chrome.storage / config.js
