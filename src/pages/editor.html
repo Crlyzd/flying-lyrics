@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics - Editor</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+
+        .title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 18px;
+            color: #1DB954;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: #aaa;
+            margin: 0;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .btn {
+            background-color: #1DB954;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.3s ease-out, color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background-color: #1ed760;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn.saved {
+            background-color: #1ed760;
+            box-shadow: 0 0 15px 3px rgba(30, 215, 96, 0.7);
+            color: white;
+        }
+
+        .editor-container {
+            flex-grow: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        textarea {
+            flex-grow: 1;
+            width: 100%;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            border-color: #1DB954;
+        }
+        
+        /* Custom Scrollbar for textarea */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        textarea::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        textarea::-webkit-scrollbar-thumb {
+            background: #535353;
+            border-radius: 4px;
+        }
+
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #1DB954;
+        }
+
+        #status-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(50px);
+            background: #1DB954;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 14px;
+            opacity: 0;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        #status-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="title-group">
+            <h1>Flying Lyrics Editor</h1>
+            <p class="subtitle" id="track-subtitle">Loading track info...</p>
+        </div>
+        <div class="actions">
+            <span class="hint">Press Ctrl+S to save</span>
+            <button class="btn" id="save-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                </svg>
+                Save Lyrics
+            </button>
+        </div>
+    </div>
+    <div class="editor-container">
+        <textarea id="lyric-editor" placeholder="[00:00.00] Enter lyrics here..." spellcheck="false"></textarea>
+    </div>
+
+    <div id="status-toast">Saved Successfully!</div>
+
+    <script src="editor.js"></script>
+</body>
+
+</html>

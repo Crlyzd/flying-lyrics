@@ -231,6 +231,22 @@
             }
         } else if (msg.type === 'GET_ACTIVE_LYRIC') {
             sendResponse({ source: fl.activeLyricSource });
+        } else if (msg.type === 'GET_LYRIC_LRC') {
+            if (!fl.lyricLines || fl.lyricLines.length === 0) {
+                sendResponse({ lrcText: '' });
+                return;
+            }
+            // Skip placeholders
+            if (fl.lyricLines.length === 1 && fl.lyricLines[0].time === 0 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].text === "No lyrics found")) {
+                sendResponse({ lrcText: '' });
+                return;
+            }
+            const lrcLines = fl.lyricLines.map(l => {
+                const min = Math.floor(l.time / 60).toString().padStart(2, '0');
+                const sec = (l.time % 60).toFixed(2).padStart(5, '0');
+                return `[${min}:${sec}]${l.text}`;
+            });
+            sendResponse({ lrcText: lrcLines.join('\n') });
         }
     });
 

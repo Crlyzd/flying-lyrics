@@ -45,6 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const appVersion = document.getElementById('app-version');
     const globalOffsetInput = document.getElementById('global-offset-input');
     const globalOffsetSetBtn = document.getElementById('global-offset-set-btn');
+    const editLyricBtn = document.getElementById('edit-lyric-btn');
+    const editLyricBtnText = document.getElementById('edit-lyric-btn-text');
 
     // Slide navigation
     const popupSlides = document.getElementById('popup-slides');
@@ -349,6 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.source) {
                     activeSource = response.source;
+                    if (editLyricBtnText) editLyricBtnText.textContent = "Edit Lyrics";
+                } else {
+                    if (editLyricBtnText) editLyricBtnText.textContent = "Add Lyrics";
                 }
             });
 
@@ -638,6 +643,17 @@ document.addEventListener('DOMContentLoaded', () => {
             renderSearchResults(currentResults, { type: 'local' });
         };
         reader.readAsText(file);
+    });
+
+    // =========================================================
+    //  EDIT / ADD LYRICS
+    // =========================================================
+    editLyricBtn.addEventListener('click', () => {
+        if (!currentActiveTrack || !currentActiveTrack.artist || !currentActiveTrack.title) {
+            alert("No active track found.");
+            return;
+        }
+        chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/editor.html') });
     });
 
     // =========================================================
