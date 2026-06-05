@@ -40,9 +40,11 @@
             // --- INSTANT FLUSH: Clear old lyrics immediately ---
             fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
             fl.isCurrentLyricSynced = false;
+            fl.isMissingLyrics = false;
             fl.needsLayoutUpdate = true;
             fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+            if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
             // Reset media element cache so getPlayerState() re-scans on the next call.
             // On YouTube Music (MSE gapless), the same <video> element is reused across
