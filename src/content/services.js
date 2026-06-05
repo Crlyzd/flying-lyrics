@@ -116,43 +116,8 @@
         return primary;
     };
 
-    /**
-     * Generates up to 3 search passes from raw metadata, each progressively cleaner:
-     *
-     *   Pass 1 — Exact   : raw artist + raw title (current behaviour, preserved for databases
-     *                        that index tracks exactly as the platform reports them).
-     *   Pass 2 — Cleaned : primary artist + noise-stripped title.
-     *   Pass 3 — Title   : no artist restriction + noise-stripped title (broadest net;
-     *                        relies on duration + Levenshtein scoring to reject false positives).
-     *
-     * Duplicate passes are eliminated so a clean title == raw title doesn't waste an API call.
-     *
-     * @param {{ artist: string, title: string }} meta - Raw mediaSession metadata.
-     * @returns {Array<{ artist: string, title: string, cleanTitle: string }>}
-     */
-    fl.generateSearchPasses = function (meta) {
-        const rawArtist  = (meta.artist || '').trim();
-        const rawTitle   = (meta.title  || '').trim();
-        const cleanedTitle   = fl.cleanTitle(rawTitle);
-        const primaryArtist  = fl.extractPrimaryArtist(rawArtist);
-
-        const passes = [
-            // Pass 1: send exactly what the platform gave us
-            { artist: rawArtist, title: rawTitle, cleanTitle: cleanedTitle },
-        ];
-
-        // Pass 2: cleaned title + primary artist (skip if identical to Pass 1)
-        if (primaryArtist !== rawArtist || cleanedTitle !== rawTitle) {
-            passes.push({ artist: primaryArtist, title: cleanedTitle, cleanTitle: cleanedTitle });
-        }
-
-        // Pass 3: title-only (skip if a previous pass already has no artist)
-        if (passes.every(p => p.artist !== '')) {
-            passes.push({ artist: '', title: cleanedTitle, cleanTitle: cleanedTitle });
-        }
-
-        return passes;
-    };
+    // generateSearchPasses removed — search is now handled by the background
+    // engine via UNIFIED_AUTO_SEARCH. See src/background/searchEngine.js.
 
 
     fl.fetchLyrics = async function (retryCount = 0) {
@@ -198,71 +163,28 @@
             //    text we collected (LRCLIB preferred over Netease).
             // ─────────────────────────────────────────────────────────
             if (!raw) {
-                const passes = fl.generateSearchPasses(meta);
+                // Delegate all search work to the background engine.
+                // It runs LRCLIB + Netease concurrently and uses lazy evaluation
+                // for Netease synced detection (see src/background/searchEngine.js).
+                if (abortSignal?.aborted) throw new Error('TrackChanged');
 
-                // Rolling plain-text fallbacks — prefer LRCLIB over Netease
-                let lrcLibPlainFallback  = null;
-                let lrcLibSourceFallback = null;
-                let neteaseRawFallback   = null;
-
-                // PHASE 1: Try all passes on LRCLIB first
-                for (const pass of passes) {
-                    const passLabel = pass.artist
-                        ? `"${pass.artist}" / "${pass.title}"`
-                        : `title-only "${pass.title}"`;
-
-                    // ── LRCLIB ──────────────────────────────────────────
-                    const lrcRaw = await fl.fetchFromLrcLib(pass, key, abortSignal);
-
-                    if (lrcRaw && fl.activeLyricSource?.synced) {
-                        // Synced hit — done!
-                        console.log(`FL: LRCLIB synced hit on pass ${passLabel}`);
-                        raw = lrcRaw;
-                        break;
-                    } else if (lrcRaw && !lrcLibPlainFallback) {
-                        // Plain text fallback — keep searching for synced
-                        console.log(`FL: LRCLIB plain text fallback on pass ${passLabel}`);
-                        lrcLibPlainFallback  = lrcRaw;
-                        lrcLibSourceFallback = { ...fl.activeLyricSource };
-                    }
-                }
-
-                // PHASE 2: If LRCLIB completely failed, try all passes on Netease
-                if (!raw) {
-                    for (const pass of passes) {
-                        const passLabel = pass.artist
-                            ? `"${pass.artist}" / "${pass.title}"`
-                            : `title-only "${pass.title}"`;
-
-                        // ── NETEASE ─────────────────────────────────────────
-                        const neteaseRaw = await fl.fetchFromNeteaseFallback(pass, key, abortSignal);
-
-                        if (neteaseRaw) {
-                            const isNeteaseSynced = /\[\d{2}:\d{2}\.\d{2,3}\]/.test(neteaseRaw);
-
-                            if (isNeteaseSynced) {
-                                // Synced hit from Netease — done!
-                                console.log(`FL: Netease synced hit on pass ${passLabel}`);
-                                raw = neteaseRaw;
-                                if (fl.activeLyricSource) fl.activeLyricSource.synced = true;
-                                break;
-                            } else if (!neteaseRawFallback) {
-                                neteaseRawFallback = neteaseRaw;
-                            }
+                const { duration } = fl.getPlayerState();
+                const searchResult = await new Promise(resolve =>
+                    chrome.runtime.sendMessage({
+                        type: 'UNIFIED_AUTO_SEARCH',
+                        payload: {
+                            rawArtist: meta.artist || '',
+                            rawTitle:  meta.title  || '',
+                            duration:  duration    || 0,
                         }
-                    }
-                }
+                    }, resolve)
+                );
 
-                // Loop ended without a synced hit — fall back to best plain text collected
-                if (!raw) {
-                    if (lrcLibPlainFallback) {
-                        // Prefer LRCLIB plain text (it's a dedicated lyrics database)
-                        raw = lrcLibPlainFallback;
-                        fl.activeLyricSource = lrcLibSourceFallback;
-                    } else if (neteaseRawFallback) {
-                        raw = neteaseRawFallback;
-                        if (fl.activeLyricSource) fl.activeLyricSource.synced = false;
-                    }
+                if (abortSignal?.aborted) throw new Error('TrackChanged');
+
+                if (searchResult?.result) {
+                    raw = searchResult.result.rawLyric;
+                    fl.activeLyricSource = searchResult.result.source;
                 }
             }
 
@@ -413,29 +335,9 @@
 
     // --- fetchLyrics Pipeline Helpers ---
 
-    /**
-     * Wraps fetch() with a hard timeout using AbortController.
-     * When lrclib.net is down the TCP connection can hang for 30+ seconds before the
-     * browser gives up, blocking the entire lyrics pipeline. This caps the wait to
-     * `ms` milliseconds and rejects with a descriptive error so the caller can fall
-     * back to Netease immediately.
-     *
-     * @param {string} url - URL to fetch.
-     * @param {number} [ms=5000] - Timeout in milliseconds.
-     * @returns {Promise<Response>}
-     */
-    fl._fetchWithTimeout = function (url, ms = 5000, externalSignal = null) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms);
-        
-        if (externalSignal) {
-            if (externalSignal.aborted) controller.abort();
-            else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
-        }
-
-        return fetch(url, { signal: controller.signal })
-            .finally(() => clearTimeout(timer));
-    };
+    // Note: _fetchWithTimeout, fetchFromLrcLib, and fetchFromNeteaseFallback have
+    // been removed. All search network I/O is now handled exclusively by the
+    // background engine (src/background/searchEngine.js) via UNIFIED_AUTO_SEARCH.
 
     fl.applySavedSyncOffset = function (key) {
         fl.activeLyricSource = null;
@@ -505,99 +407,8 @@
         return "";
     }
 
-    /**
-     * Queries LRCLIB for the given pass metadata and returns the best raw lyric string.
-     *
-     * Candidate scoring formula:
-     *   score = (isSynced ? 10_000 : 0) - durationDelta + (titleSimilarity * 10)
-     *
-     *   - isSynced adds a huge bonus so synced results always rank above plain text.
-     *   - durationDelta penalises candidates whose track length differs from the real player duration.
-     *   - titleSimilarity (Levenshtein %) rewards candidates whose title closely matches our
-     *     clean title, which is especially important in Pass 3 (title-only, no artist filter).
-     *
-     * @param {{ artist: string, title: string, cleanTitle: string }} passMeta
-     * @param {string} key - Cache key ("Artist - Title").
-     * @returns {Promise<string>}
-     */
-    fl.fetchFromLrcLib = async function (passMeta, key, abortSignal) {
-        try {
-            const actualDuration = fl.getPlayerState().duration || 0;
-
-            // Pass 3 has no artist — use a broad free-text query instead of field-specific params
-            const searchQuery = passMeta.artist
-                ? `artist_name=${encodeURIComponent(passMeta.artist)}&track_name=${encodeURIComponent(passMeta.title)}`
-                : `q=${encodeURIComponent(passMeta.title)}`;
-
-            const res = await fl._fetchWithTimeout(`https://lrclib.net/api/search?${searchQuery}`, 15000, abortSignal);
-
-            if (!res.ok) return "";
-            const candidates = await res.json();
-            if (!Array.isArray(candidates) || candidates.length === 0) return "";
-
-            const scored = candidates.map(c => {
-                const isSynced      = !!c.syncedLyrics;
-                const durationDelta = actualDuration > 0 ? Math.abs((c.duration || 0) - actualDuration) : 0;
-                // Title similarity guards against false positives in Pass 3 (title-only search)
-                const titleSim      = fl.titleSimilarity(passMeta.cleanTitle, c.trackName || '');
-                // Artist similarity helps tiebreak when multiple candidates share a perfect title match
-                const artistSim     = passMeta.artist ? fl.titleSimilarity(passMeta.artist, c.artistName || '') : 0;
-                const score         = (isSynced ? 10000 : 0) - durationDelta + (titleSim * 10) + (artistSim * 5);
-                return { c, score };
-            });
-            scored.sort((a, b) => b.score - a.score);
-            const best = scored[0].c;
-
-            if (best.syncedLyrics) {
-                fl.activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: true };
-                return best.syncedLyrics;
-            } else if (best.plainLyrics) {
-                console.log("LRCLIB best match has only plain lyrics. Delaying fallback check.");
-                fl.activeLyricSource = { type: 'api', id: best.id, name: best.trackName || key, synced: false };
-                return best.plainLyrics;
-            }
-        } catch (err) {
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-            // AbortError = our 15s timeout fired; any other error = network/API failure.
-            // Either way, log it and let the caller fall through to Netease.
-            console.log("LRCLIB ranked search failed:", err.name === 'AbortError' ? 'Request timed out (15s)' : err);
-        }
-        return "";
-    };
-
-    /**
-     * Queries Netease for the given pass metadata and returns the best raw lyric string.
-     * The clean title is forwarded to background.js so it can apply Levenshtein scoring
-     * when ranking the Netease candidate list.
-     *
-     * @param {{ artist: string, title: string, cleanTitle: string }} passMeta
-     * @param {string} key - Cache key ("Artist - Title").
-     * @returns {Promise<string>}
-     */
-    fl.fetchFromNeteaseFallback = async function (passMeta, key, abortSignal) {
-        const actualDuration = fl.getPlayerState().duration || 0;
-        const neteaseQuery   = `${passMeta.artist} ${passMeta.title}`.trim();
-        console.log("Querying Netease:", neteaseQuery);
-
-        if (abortSignal?.aborted) throw new Error('TrackChanged');
-
-        const resMsg = await new Promise(resolve => {
-            chrome.runtime.sendMessage({
-                type: 'FETCH_NETEASE',
-                payload: {
-                    query:      neteaseQuery,
-                    duration:   actualDuration,
-                    cleanTitle: passMeta.cleanTitle  // used by background.js for Levenshtein scoring
-                }
-            }, resolve);
-        });
-
-        if (abortSignal?.aborted) throw new Error('TrackChanged');
-
-        const raw = resMsg?.lyric || "";
-        if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || null, name: resMsg?.name || key };
-        return raw;
-    };
+    // fetchFromLrcLib and fetchFromNeteaseFallback removed — replaced by the
+    // unified background engine. See src/background/searchEngine.js.
 
     /**
      * Shared helper called by every lyric-loading path (cache hit, persistent cache,
@@ -817,22 +628,25 @@
             });
         }
 
-        // Process Romaji in batches
+        // Run Romaji and Translation batches concurrently — cuts enrichment time in half
+        // compared to the old sequential approach.
+        const tasks = [];
+
         if (romajiQueue.length > 0) {
-            await fl.processTranslateBatch(romajiQueue, 'rm', 'en', (itemIndex, resultText) => {
+            tasks.push(fl.processTranslateBatch(romajiQueue, 'rm', 'en', (itemIndex, resultText) => {
                 fl.lyricLines[itemIndex].romaji = resultText;
-            });
+            }));
         }
 
-        // Process Translations in batches
         if (transQueue.length > 0) {
-            await fl.processTranslateBatch(transQueue, 't', fl.translationLang, (itemIndex, resultText) => {
+            tasks.push(fl.processTranslateBatch(transQueue, 't', fl.translationLang, (itemIndex, resultText) => {
                 fl.lyricLines[itemIndex].translation = resultText;
-            });
+            }));
         }
 
-        if ((romajiQueue.length > 0 || transQueue.length > 0) && typeof fl.needsLayoutUpdate !== 'undefined') {
-            fl.needsLayoutUpdate = true;
+        if (tasks.length > 0) {
+            await Promise.all(tasks);
+            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
         }
     }
 

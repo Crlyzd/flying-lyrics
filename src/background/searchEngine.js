@@ -1,0 +1,488 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  FLYING LYRICS — UNIFIED SEARCH ENGINE (background context)
+//
+//  This module is the single source of truth for all lyric search operations.
+//  It is called exclusively by message handlers in background.js:
+//
+//    UNIFIED_SEARCH      → used by popup.js (Manual Search)
+//    UNIFIED_AUTO_SEARCH → used by services.js (Auto Search)
+//
+//  Architecture:
+//    1. Fires LRCLIB and Netease search concurrently (Promise.allSettled).
+//    2. Normalises both APIs into a flat, unified candidate array.
+//    3. Scores and sorts candidates with a single algorithm that both
+//       auto and manual search share.
+//    4. Auto Search walks down the sorted list, lazily fetching Netease raw
+//       lyrics on demand to check for LRC timestamps (Lazy Evaluation).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Levenshtein helpers ─────────────────────────────────────────────────────
+
+function levenshtein(a, b) {
+    a = a.toLowerCase();
+    b = b.toLowerCase();
+    const m = a.length, n = b.length;
+    const dp = new Int32Array((m + 1) * (n + 1));
+    for (let i = 0; i <= m; i++) dp[i * (n + 1)] = i;
+    for (let j = 0; j <= n; j++) dp[j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            dp[i * (n + 1) + j] = Math.min(
+                dp[(i - 1) * (n + 1) + j] + 1,
+                dp[i * (n + 1) + (j - 1)] + 1,
+                dp[(i - 1) * (n + 1) + (j - 1)] + cost
+            );
+        }
+    }
+    return dp[m * (n + 1) + n];
+}
+
+function titleSimilarity(a, b) {
+    if (!a && !b) return 100;
+    if (!a || !b) return 0;
+    const maxLen = Math.max(a.length, b.length);
+    return Math.round((1 - levenshtein(a, b) / maxLen) * 100);
+}
+
+// ─── Metadata cleaning ───────────────────────────────────────────────────────
+
+function cleanTitle(title) {
+    const noiseTerms = [
+        'official video', 'official audio', 'official music video', 'lyrics video',
+        'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
+        'hidden track', 'high res', 'hi-res', 'a cappella',
+        'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
+        'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
+        'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
+        'anniversary', 'b-side', 'mv', '4k', '1080p', 'hq', 'hd',
+        'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
+    ].join('|');
+
+    const bracketRegex = new RegExp(
+        `\\s*[([\\[](?:[^\\]()[\\]]*?(?:${noiseTerms})[^\\]()[\\]]*?)[)\\]]`,
+        'gi'
+    );
+    let clean = title.replace(bracketRegex, '');
+
+    const trailingRegex = new RegExp(`\\s*-\\s*(?:${noiseTerms}).*$`, 'gi');
+    clean = clean.replace(trailingRegex, '');
+
+    return clean.trim();
+}
+
+function extractPrimaryArtist(artist) {
+    let primary = artist.split(/,|&|＆|、|・|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0].trim();
+    primary = primary.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
+    return primary;
+}
+
+// ─── Scoring ─────────────────────────────────────────────────────────────────
+
+/**
+ * Scores a single normalised candidate.
+ *
+ * Score breakdown (higher = better):
+ *   +10 000  : synced lyric (confirmed LRC timestamps)
+ *   +100     : LRCLIB source bonus — acts as a TIE-BREAKER only between equally
+ *              good matches; intentionally small so it never overrides a title mismatch.
+ *   -8 000   : title mismatch gate — applied when titleSim < 40%, ensuring a clearly
+ *              wrong title (e.g. "Made In Heaven" when searching "Faith") can never
+ *              beat a correct result regardless of source or sync status.
+ *   -delta   : absolute seconds difference between candidate and actual duration
+ *              (only penalised when delta > 5s to allow platform rounding)
+ *   +titleSim*10  : Levenshtein closeness of candidate title to clean query title
+ *   +artistSim*5  : Levenshtein closeness of candidate artist to clean query artist
+ *
+ * @param {object} candidate – normalised candidate (see normalizeLrcLib / normalizeNetease)
+ * @param {number} actualDuration – current player duration in seconds
+ * @param {string} cleanQueryTitle – noise-stripped title for similarity scoring
+ * @param {string} cleanQueryArtist – primary artist for similarity scoring
+ * @returns {number}
+ */
+function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryArtist) {
+    const syncedBonus  = candidate.synced ? 10000 : 0;
+    // Small tie-breaker only — NOT large enough to override a title mismatch
+    const sourceBonus  = candidate.source === 'lrclib' ? 100 : 0;
+
+    const durationDelta = actualDuration > 0
+        ? Math.max(0, Math.abs((candidate.duration || 0) - actualDuration) - 5)
+        : 0;
+
+    // Clean and Romaji representations for both query and candidate titles
+    const qTitleClean = cleanQueryTitle.toLowerCase();
+    const qTitleRomaji = romanize(qTitleClean);
+
+    const cTitleClean = cleanTitle(candidate.trackName || '').toLowerCase();
+    const cTitleRomaji = romanize(cTitleClean);
+
+    // Calculate maximum title similarity across direct and romaji combinations
+    const titleSim = Math.max(
+        titleSimilarity(qTitleClean, cTitleClean),
+        titleSimilarity(qTitleClean, cTitleRomaji),
+        titleSimilarity(qTitleRomaji, cTitleClean),
+        titleSimilarity(qTitleRomaji, cTitleRomaji)
+    );
+
+    // Clean and Romaji representations for both query and candidate artists
+    const qArtistClean = cleanQueryArtist.toLowerCase();
+    const qArtistRomaji = romanize(qArtistClean);
+
+    const cArtistClean = extractPrimaryArtist(candidate.artistName || '').toLowerCase();
+    const cArtistRomaji = romanize(cArtistClean);
+
+    // Calculate maximum artist similarity across direct and romaji combinations
+    const artistSim = Math.max(
+        titleSimilarity(qArtistClean, cArtistClean),
+        titleSimilarity(qArtistClean, cArtistRomaji),
+        titleSimilarity(qArtistRomaji, cArtistClean),
+        titleSimilarity(qArtistRomaji, cArtistRomaji)
+    );
+
+    // Gate: heavily penalise candidates whose title is clearly wrong.
+    // BUT relax the penalty if:
+    //   1. The primary artist matches perfectly (artistSim >= 90%).
+    //   2. The title scripts differ (one contains non-ASCII and the other is pure ASCII).
+    // This protects non-ASCII (e.g. Mandarin, Cyrillic) synced lyrics from being penalized
+    // when searched with an English/Romaji query.
+    let titleMismatchPenalty = 0;
+    if (cleanQueryTitle && titleSim < 40) {
+        const isQueryNonAscii = isNonAscii(cleanQueryTitle);
+        const isCandidateNonAscii = isNonAscii(candidate.trackName || '');
+        const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
+
+        if (artistSim >= 90 && scriptMismatch) {
+            // Relaxed mismatch penalty — still negative to favor matching titles, but not severe enough to kill the candidate
+            titleMismatchPenalty = -2000;
+        } else {
+            // Standard severe penalty
+            titleMismatchPenalty = -12000;
+        }
+    }
+
+    return syncedBonus + sourceBonus + titleMismatchPenalty - durationDelta + (titleSim * 10) + (artistSim * 5);
+}
+
+// ─── Normalise API responses ──────────────────────────────────────────────────
+
+function normalizeLrcLib(item) {
+    return {
+        source:     'lrclib',
+        id:         item.id,
+        trackName:  item.trackName  || '',
+        artistName: item.artistName || '',
+        albumName:  item.albumName  || '',
+        duration:   item.duration   || 0,
+        // Pre-resolved: LRCLIB always returns the full lyric text in the search response
+        synced:     !!item.syncedLyrics,
+        rawLyric:   item.syncedLyrics || item.plainLyrics || '',
+    };
+}
+
+function normalizeNetease(song) {
+    return {
+        source:     'netease',
+        id:         song.id,
+        trackName:  song.name                              || '',
+        artistName: song.ar ? song.ar.map(a => a.name).join(', ') : '',
+        albumName:  song.al ? song.al.name                 : '',
+        duration:   song.dt ? Math.floor(song.dt / 1000)  : 0,
+        // Unknown until we lazily fetch the raw lyric string
+        synced:     null,
+        rawLyric:   null,
+    };
+}
+
+// ─── Network helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Wraps fetch() with a hard timeout using AbortController.
+ * Caps request duration to prevent extension hanging when external API servers are slow.
+ *
+ * @param {string} url - URL to fetch
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Response>}
+ */
+function fetchWithTimeout(url, timeoutMs) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal })
+        .then(res => {
+            clearTimeout(id);
+            return res;
+        })
+        .catch(err => {
+            clearTimeout(id);
+            throw err;
+        });
+}
+
+/** Fetches the raw Netease lyric text for a specific song ID. */
+function fetchNeteaseRaw(id) {
+    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, 15000)
+        .then(r => r.json())
+        .then(data => data?.lrc?.lyric || '')
+        .catch(() => '');
+}
+
+const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
+
+// ─── Core search ─────────────────────────────────────────────────────────────
+
+/**
+ * The unified search function.
+ *
+ * Fires LRCLIB and Netease search requests concurrently and returns an array
+ * of normalised candidates sorted best-first by score.
+ *
+ * Netease candidates have synced=null / rawLyric=null at this stage.
+ * For Manual Search this is fine — the popup shows the metadata list and
+ * only fetches the raw lyric when the user clicks a result.
+ * For Auto Search, getBestAutoMatch() handles Lazy Evaluation on top.
+ *
+ * @param {string} query           – The search string (e.g. "Artist - Clean Title")
+ * @param {number} actualDuration  – Player duration in seconds (0 = unknown)
+ * @param {string} cleanTitle      – Noise-stripped title for scoring
+ * @param {string} cleanArtist     – Primary artist for scoring
+ * @returns {Promise<object[]>}    – Sorted candidate array
+ */
+async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist) {
+    const [lrcRes, neteaseRes] = await Promise.allSettled([
+        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, 15000)
+            .then(r => r.ok ? r.json() : [])
+            .catch(() => []),
+
+        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, 15000)
+            .then(r => r.json())
+            .then(data => data?.result?.songs || [])
+            .catch(() => [])
+    ]);
+
+    const candidates = [];
+
+    if (lrcRes.status === 'fulfilled') {
+        const lrcItems = Array.isArray(lrcRes.value) ? lrcRes.value : [];
+        // Limit to top 10 per source to keep the result list manageable
+        candidates.push(...lrcItems.slice(0, 10).map(normalizeLrcLib));
+    }
+
+    if (neteaseRes.status === 'fulfilled') {
+        const netItems = Array.isArray(neteaseRes.value) ? neteaseRes.value : [];
+        candidates.push(...netItems.slice(0, 10).map(normalizeNetease));
+    }
+
+    // Score and sort best-first
+    candidates.sort((a, b) =>
+        scoreCandidate(b, actualDuration, cleanTitle, cleanArtist) -
+        scoreCandidate(a, actualDuration, cleanTitle, cleanArtist)
+    );
+
+    return candidates;
+}
+
+// ─── Auto Search ─────────────────────────────────────────────────────────────
+
+/**
+ * Auto Search entry-point.
+ *
+ * Runs the unified search pipeline and walks down the sorted list to find
+ * the highest-quality (preferably synced) lyric automatically.
+ *
+ * Strategy:
+ *   Pass 1 – "CleanArtist - CleanTitle"  (mirrors Manual Search pre-fill)
+ *   Pass 2 – "CleanTitle only"           (fallback if Pass 1 yields nothing synced)
+ *
+ * Within each pass, candidates are walked top-to-bottom:
+ *   - LRCLIB candidates have rawLyric already resolved → check synced flag directly.
+ *   - Netease candidates need a lazy fetch to read the LRC string and detect timestamps.
+ *
+ * Returns the best result object: { rawLyric, source, synced }
+ * Returns null if nothing is found.
+ *
+ * @param {string} rawArtist    – Raw artist string from mediaSession
+ * @param {string} rawTitle     – Raw title string from mediaSession
+ * @param {number} duration     – Player duration in seconds
+ * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
+ */
+async function getBestAutoMatch(rawArtist, rawTitle, duration) {
+    const cArtist = extractPrimaryArtist(rawArtist || '');
+    const cTitle  = cleanTitle(rawTitle || '');
+
+    const passes = [
+        `${cArtist} - ${cTitle}`.trim(),
+        cTitle,
+    ].filter(Boolean);
+
+    // Deduplicate: if artist is empty the two passes would be identical
+    const uniquePasses = [...new Set(passes)];
+
+    // 1. Run all searches concurrently
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitle, cArtist));
+    const results = await Promise.all(searchPromises);
+
+    // 2. Combine and deduplicate candidates by source & id
+    const allCandidates = [];
+    const seenCandidates = new Set();
+
+    for (const candidatesList of results) {
+        for (const c of candidatesList) {
+            const key = `${c.source}-${c.id}`;
+            if (!seenCandidates.has(key)) {
+                seenCandidates.add(key);
+                allCandidates.push(c);
+            }
+        }
+    }
+
+    const resolvedPool = []; // { rawLyric, source, synced, score }
+    const neteaseToFetch = []; // array of candidates to lazy fetch
+
+    // 3. Early filtering and sorting
+    for (const c of allCandidates) {
+        // Calculate title similarity using same cross-romaji logic to avoid discarding katakana titles early
+        const qTitleClean = cTitle.toLowerCase();
+        const qTitleRomaji = romanize(qTitleClean);
+        const cTitleClean = cleanTitle(c.trackName || '').toLowerCase();
+        const cTitleRomaji = romanize(cTitleClean);
+
+        const titleSim = Math.max(
+            titleSimilarity(qTitleClean, cTitleClean),
+            titleSimilarity(qTitleClean, cTitleRomaji),
+            titleSimilarity(qTitleRomaji, cTitleClean),
+            titleSimilarity(qTitleRomaji, cTitleRomaji)
+        );
+
+        let isMatchPossible = true;
+        if (titleSim < 40) {
+            // Protect multi-script tracks from early discard if artist matches perfectly
+            const isQueryNonAscii = isNonAscii(cTitle);
+            const isCandidateNonAscii = isNonAscii(c.trackName || '');
+            const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
+
+            const qArtistClean = cArtist.toLowerCase();
+            const qArtistRomaji = romanize(qArtistClean);
+            const cArtistClean = extractPrimaryArtist(c.artistName || '').toLowerCase();
+            const cArtistRomaji = romanize(cArtistClean);
+
+            const artistSim = Math.max(
+                titleSimilarity(qArtistClean, cArtistClean),
+                titleSimilarity(qArtistClean, cArtistRomaji),
+                titleSimilarity(qArtistRomaji, cArtistClean),
+                titleSimilarity(qArtistRomaji, cArtistRomaji)
+            );
+
+            if (artistSim >= 90 && scriptMismatch) {
+                // Keep candidate: script-relaxed scoring will evaluate it
+            } else {
+                isMatchPossible = false;
+            }
+        }
+
+        if (!isMatchPossible) {
+            // Drop candidates with <40% title similarity that are not valid script mismatches.
+            continue;
+        }
+
+        if (c.source === 'lrclib') {
+            if (!c.rawLyric) continue;
+            resolvedPool.push({
+                rawLyric: c.rawLyric,
+                source:   { type: 'api', id: c.id, name: c.trackName, synced: c.synced },
+                synced:   c.synced,
+                score:    scoreCandidate(c, duration, cTitle, cArtist),
+            });
+        } else if (c.source === 'netease') {
+            // Store Netease candidate for optimistic pre-scoring
+            neteaseToFetch.push(c);
+        }
+    }
+
+    // 4. Optimistically pre-score and limit Netease candidates
+    if (neteaseToFetch.length > 0) {
+        // Score Netease candidate assuming the best case: it is synced (synced: true)
+        const optimisticScoredNetease = neteaseToFetch.map(c => {
+            const optimisticCandidate = { ...c, synced: true };
+            return {
+                candidate: c,
+                optimisticScore: scoreCandidate(optimisticCandidate, duration, cTitle, cArtist)
+            };
+        });
+
+        // Sort descending by optimistic score
+        optimisticScoredNetease.sort((a, b) => b.optimisticScore - a.optimisticScore);
+
+        // Take only the top 3 Netease candidates to lazy fetch
+        const topNetease = optimisticScoredNetease.slice(0, 3).map(x => x.candidate);
+
+        // 5. Fetch top Netease candidates concurrently
+        const fetchPromises = topNetease.map(async (c) => {
+            try {
+                const raw = await fetchNeteaseRaw(c.id);
+                if (raw && raw.trim().length >= 5) {
+                    const isSynced = LRC_TIMESTAMP_RE.test(raw);
+                    const resolved = { ...c, synced: isSynced };
+                    return {
+                        rawLyric: raw,
+                        source:   { type: 'netease', id: c.id, name: c.trackName, synced: isSynced },
+                        synced:   isSynced,
+                        score:    scoreCandidate(resolved, duration, cTitle, cArtist),
+                    };
+                }
+            } catch (err) {
+                console.warn(`FL: Auto-fetch Netease ID ${c.id} failed:`, err);
+            }
+            return null;
+        });
+
+        const fetchedResults = await Promise.all(fetchPromises);
+        for (const res of fetchedResults) {
+            if (res) resolvedPool.push(res);
+        }
+    }
+
+    if (resolvedPool.length === 0) return null;
+
+    // 6. Sort the fully-resolved pool by score (descending) and return the winner
+    resolvedPool.sort((a, b) => b.score - a.score);
+    const winner = resolvedPool[0];
+
+    return {
+        rawLyric: winner.rawLyric,
+        source:   winner.source,
+        synced:   winner.synced,
+    };
+}
+
+// ─── Manual Search ────────────────────────────────────────────────────────────
+
+/**
+ * Manual Search entry-point.
+ *
+ * Returns a flat, scored array of metadata-only candidates suitable for
+ * rendering in the popup results list. Raw lyrics are NOT fetched here —
+ * the content script fetches them via FETCH_NETEASE / direct LRCLIB id
+ * only when the user clicks a result.
+ *
+ * @param {string} query         – Raw query string from the search input
+ * @param {number} duration      – Player duration in seconds (0 = unknown)
+ * @param {string} cleanArtist   – Primary artist for scoring (may be empty)
+ * @param {string} cleanTitleStr – Noise-stripped title for scoring (may be empty)
+ * @returns {Promise<object[]>}  – UI-ready candidate list
+ */
+async function manualSearch(query, duration, cleanArtist, cleanTitleStr) {
+    const candidates = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist);
+
+    // Map to a UI-friendly format (popup.js will render this directly)
+    return candidates.map(c => ({
+        source:     c.source === 'lrclib' ? 'api' : 'netease',
+        id:         c.id,
+        name:       c.trackName,
+        artistName: c.artistName,
+        albumName:  c.albumName,
+        duration:   c.duration,
+        synced:     c.synced,         // null for Netease (unknown until clicked)
+        // Include the pre-resolved raw lyric for LRCLIB so the popup can apply
+        // the manual override immediately without an extra network round-trip
+        rawLyric:   c.source === 'lrclib' ? (c.rawLyric || '') : null,
+    }));
+}
