@@ -294,12 +294,14 @@
         // If the user clicks the seeker bar and jumps 40 lines away, lerping across
         // the entire history forces the GPU to render dozens of heavy text shadows per frame, causing massive lag.
         // Instead of a hard, ugly instant snap, we teleport the scroll position to just slightly before 
-        // the destination (0.5x screen height), then let the normal easing smoothly slide it the rest of the way.
-        if (Math.abs(scrollDelta) > h * 1.5) {
-            fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 1));
+        // the destination (0.3x screen height), then let the normal easing smoothly slide it the rest of the way.
+        if (Math.abs(scrollDelta) > h * 0.8) {
+            fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 0.3));
         } else {
             fl.scrollPos += scrollDelta * 0.1;
         }
+
+        const isFastScroll = Math.abs(scrollDelta) > (h * 0.05);
 
         // --- OPT-3: IDLE THROTTLE ---
         // When the track is paused AND the scroll animation has fully settled,
@@ -396,7 +398,7 @@
                         fl.ctx.strokeStyle = fl.currentPalette.vibrant;
                     }
 
-                    if (fl.userGlowEnabled) {
+                    if (fl.userGlowEnabled && !isFastScroll) {
                         fl.ctx.lineWidth = Math.max(2, mainSize * 0.04);
                         // Pulse between 10 and 40 shadow blur over ~2s cycle
                         const glowTime = performance.now() / 1000;
