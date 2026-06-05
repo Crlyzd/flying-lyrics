@@ -77,6 +77,74 @@ function extractPrimaryArtist(artist) {
     return primary;
 }
 
+function cleanArtist(artist) {
+    if (!artist) return '';
+    let cleaned = artist.split(/\b(feat\.?|ft\.?|featuring|with|vs\.?)\b/i)[0].trim();
+    cleaned = cleaned.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
+    return cleaned.replace(/[\s,;&＆]+$/, '').trim();
+}
+
+function extractShortTitle(title) {
+    if (!title) return '';
+    if (/\s+-/.test(title)) {
+        const parts = title.split(/\s+-\s*/);
+        if (parts[0] && parts[0].trim()) {
+            return parts[0].trim();
+        }
+    }
+    return title;
+}
+
+function getTitleSimilarity(queryTitle, candidateTitle) {
+    const qTitleClean = queryTitle.toLowerCase();
+    const qTitleShort = extractShortTitle(queryTitle).toLowerCase();
+    const qTitleCleanRomaji = romanize(qTitleClean);
+    const qTitleShortRomaji = romanize(qTitleShort);
+
+    const cTitleClean = cleanTitle(candidateTitle || '').toLowerCase();
+    const cTitleShort = extractShortTitle(cTitleClean).toLowerCase();
+    const cTitleCleanRomaji = romanize(cTitleClean);
+    const cTitleShortRomaji = romanize(cTitleShort);
+
+    return Math.max(
+        titleSimilarity(qTitleClean, cTitleClean),
+        titleSimilarity(qTitleClean, cTitleCleanRomaji),
+        titleSimilarity(qTitleCleanRomaji, cTitleClean),
+        titleSimilarity(qTitleCleanRomaji, cTitleCleanRomaji),
+        titleSimilarity(qTitleShort, cTitleClean),
+        titleSimilarity(qTitleShort, cTitleCleanRomaji),
+        titleSimilarity(qTitleClean, cTitleShort),
+        titleSimilarity(qTitleCleanRomaji, cTitleShort),
+        titleSimilarity(qTitleShort, cTitleShort),
+        titleSimilarity(qTitleShort, cTitleShortRomaji),
+        titleSimilarity(qTitleShortRomaji, cTitleShort),
+        titleSimilarity(qTitleShortRomaji, cTitleShortRomaji)
+    );
+}
+
+function getArtistSimilarity(queryArtist, candidateArtist) {
+    const qArtistFull = cleanArtist(queryArtist).toLowerCase();
+    const qArtistFullRomaji = romanize(qArtistFull);
+    const qArtistPrimary = extractPrimaryArtist(queryArtist).toLowerCase();
+    const qArtistPrimaryRomaji = romanize(qArtistPrimary);
+
+    const cArtistFull = cleanArtist(candidateArtist || '').toLowerCase();
+    const cArtistFullRomaji = romanize(cArtistFull);
+    const cArtistPrimary = extractPrimaryArtist(candidateArtist || '').toLowerCase();
+    const cArtistPrimaryRomaji = romanize(cArtistPrimary);
+
+    return Math.max(
+        titleSimilarity(qArtistPrimary, cArtistPrimary),
+        titleSimilarity(qArtistPrimary, cArtistPrimaryRomaji),
+        titleSimilarity(qArtistPrimaryRomaji, cArtistPrimary),
+        titleSimilarity(qArtistPrimaryRomaji, cArtistPrimaryRomaji),
+        titleSimilarity(qArtistFull, cArtistFull),
+        titleSimilarity(qArtistFull, cArtistFullRomaji),
+        titleSimilarity(qArtistFullRomaji, cArtistFull),
+        titleSimilarity(qArtistFullRomaji, cArtistFullRomaji)
+    );
+}
+
 // ─── Scoring ─────────────────────────────────────────────────────────────────
 
 /**
@@ -97,7 +165,7 @@ function extractPrimaryArtist(artist) {
  * @param {object} candidate – normalised candidate (see normalizeLrcLib / normalizeNetease)
  * @param {number} actualDuration – current player duration in seconds
  * @param {string} cleanQueryTitle – noise-stripped title for similarity scoring
- * @param {string} cleanQueryArtist – primary artist for similarity scoring
+ * @param {string} cleanQueryArtist – primary artist/full artist for similarity scoring
  * @returns {number}
  */
 function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryArtist) {
@@ -109,35 +177,8 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
         ? Math.max(0, Math.abs((candidate.duration || 0) - actualDuration) - 5)
         : 0;
 
-    // Clean and Romaji representations for both query and candidate titles
-    const qTitleClean = cleanQueryTitle.toLowerCase();
-    const qTitleRomaji = romanize(qTitleClean);
-
-    const cTitleClean = cleanTitle(candidate.trackName || '').toLowerCase();
-    const cTitleRomaji = romanize(cTitleClean);
-
-    // Calculate maximum title similarity across direct and romaji combinations
-    const titleSim = Math.max(
-        titleSimilarity(qTitleClean, cTitleClean),
-        titleSimilarity(qTitleClean, cTitleRomaji),
-        titleSimilarity(qTitleRomaji, cTitleClean),
-        titleSimilarity(qTitleRomaji, cTitleRomaji)
-    );
-
-    // Clean and Romaji representations for both query and candidate artists
-    const qArtistClean = cleanQueryArtist.toLowerCase();
-    const qArtistRomaji = romanize(qArtistClean);
-
-    const cArtistClean = extractPrimaryArtist(candidate.artistName || '').toLowerCase();
-    const cArtistRomaji = romanize(cArtistClean);
-
-    // Calculate maximum artist similarity across direct and romaji combinations
-    const artistSim = Math.max(
-        titleSimilarity(qArtistClean, cArtistClean),
-        titleSimilarity(qArtistClean, cArtistRomaji),
-        titleSimilarity(qArtistRomaji, cArtistClean),
-        titleSimilarity(qArtistRomaji, cArtistRomaji)
-    );
+    const titleSim = getTitleSimilarity(cleanQueryTitle, candidate.trackName);
+    const artistSim = getArtistSimilarity(cleanQueryArtist, candidate.artistName);
 
     // Gate: heavily penalise candidates whose title is clearly wrong.
     // BUT relax the penalty if:
@@ -305,19 +346,20 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist) {
  * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
  */
 async function getBestAutoMatch(rawArtist, rawTitle, duration) {
-    const cArtist = extractPrimaryArtist(rawArtist || '');
-    const cTitle  = cleanTitle(rawTitle || '');
+    const cArtistFull = cleanArtist(rawArtist || '');
+    const cTitleFull  = cleanTitle(rawTitle || '');
+    const cTitleShort = extractShortTitle(cTitleFull);
 
     const passes = [
-        `${cArtist} - ${cTitle}`.trim(),
-        cTitle,
+        `${cArtistFull} - ${cTitleShort}`.trim(),
+        cTitleShort,
     ].filter(Boolean);
 
     // Deduplicate: if artist is empty the two passes would be identical
     const uniquePasses = [...new Set(passes)];
 
     // 1. Run all searches concurrently
-    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitle, cArtist));
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cArtistFull));
     const results = await Promise.all(searchPromises);
 
     // 2. Combine and deduplicate candidates by source & id
@@ -339,37 +381,16 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
 
     // 3. Early filtering and sorting
     for (const c of allCandidates) {
-        // Calculate title similarity using same cross-romaji logic to avoid discarding katakana titles early
-        const qTitleClean = cTitle.toLowerCase();
-        const qTitleRomaji = romanize(qTitleClean);
-        const cTitleClean = cleanTitle(c.trackName || '').toLowerCase();
-        const cTitleRomaji = romanize(cTitleClean);
-
-        const titleSim = Math.max(
-            titleSimilarity(qTitleClean, cTitleClean),
-            titleSimilarity(qTitleClean, cTitleRomaji),
-            titleSimilarity(qTitleRomaji, cTitleClean),
-            titleSimilarity(qTitleRomaji, cTitleRomaji)
-        );
+        const titleSim = getTitleSimilarity(cTitleFull, c.trackName);
 
         let isMatchPossible = true;
         if (titleSim < 40) {
             // Protect multi-script tracks from early discard if artist matches perfectly
-            const isQueryNonAscii = isNonAscii(cTitle);
+            const isQueryNonAscii = isNonAscii(cTitleFull);
             const isCandidateNonAscii = isNonAscii(c.trackName || '');
             const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
 
-            const qArtistClean = cArtist.toLowerCase();
-            const qArtistRomaji = romanize(qArtistClean);
-            const cArtistClean = extractPrimaryArtist(c.artistName || '').toLowerCase();
-            const cArtistRomaji = romanize(cArtistClean);
-
-            const artistSim = Math.max(
-                titleSimilarity(qArtistClean, cArtistClean),
-                titleSimilarity(qArtistClean, cArtistRomaji),
-                titleSimilarity(qArtistRomaji, cArtistClean),
-                titleSimilarity(qArtistRomaji, cArtistRomaji)
-            );
+            const artistSim = getArtistSimilarity(cArtistFull, c.artistName);
 
             if (artistSim >= 90 && scriptMismatch) {
                 // Keep candidate: script-relaxed scoring will evaluate it
@@ -389,7 +410,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
                 rawLyric: c.rawLyric,
                 source:   { type: 'api', id: c.id, name: c.trackName, synced: c.synced },
                 synced:   c.synced,
-                score:    scoreCandidate(c, duration, cTitle, cArtist),
+                score:    scoreCandidate(c, duration, cTitleFull, cArtistFull),
             });
         } else if (c.source === 'netease') {
             // Store Netease candidate for optimistic pre-scoring
@@ -404,7 +425,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
             const optimisticCandidate = { ...c, synced: true };
             return {
                 candidate: c,
-                optimisticScore: scoreCandidate(optimisticCandidate, duration, cTitle, cArtist)
+                optimisticScore: scoreCandidate(optimisticCandidate, duration, cTitleFull, cArtistFull)
             };
         });
 
@@ -425,7 +446,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
                         rawLyric: raw,
                         source:   { type: 'netease', id: c.id, name: c.trackName, synced: isSynced },
                         synced:   isSynced,
-                        score:    scoreCandidate(resolved, duration, cTitle, cArtist),
+                        score:    scoreCandidate(resolved, duration, cTitleFull, cArtistFull),
                     };
                 }
             } catch (err) {
