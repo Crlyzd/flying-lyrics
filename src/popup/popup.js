@@ -1092,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaults = {
             customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
             coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
-            lineSpacing: 4, verticalAnchor: 4
+            lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
         };
 
         // Reset UI Elements
@@ -1120,7 +1120,9 @@ document.addEventListener('DOMContentLoaded', () => {
             o.classList.toggle('selected', o.dataset.mode === 'default');
         });
 
-        toggleShowLyrics.checked = true;
+        toggleAlbumCoverMode.checked = false;
+        applyAlbumCoverModeState(false);
+
         alignSelect.value = 'center';
 
         toggleGlow.checked = false;
