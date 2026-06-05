@@ -477,87 +477,31 @@
         let duration = 1;
         let paused = true;
 
-        // --- SPOTIFY: Always use the DOM as primary source of truth ---
-        // Spotify manages its own React state — audio.paused is unreliable there
-        // (it may stay "playing" even when the UI is paused). The play button's
-        // aria-label is the only accurate signal.
-        if (window.location.hostname.includes('spotify')) {
-            const timeEl = document.querySelector('[data-testid="playback-position"]');
-            const durationEl = document.querySelector('[data-testid="playback-duration"]');
-            const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
+        // --- PLATFORM ADAPTER EXTRACTION ---
+        const adapter = fl.getActiveAdapter?.();
+        if (adapter) {
+            const currentVal = adapter.getCurrentTime();
+            const durationVal = adapter.getDuration();
+            paused = adapter.isPaused();
 
-            // Read paused state independently — don't gate it behind timeEl/durationEl.
-            // If the play button isn't found, assume playing (safest visual default).
-            if (playBtn) {
-                paused = playBtn.getAttribute('aria-label') === 'Play';
+            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0) {
+                duration = durationVal;
             }
 
-            if (timeEl && durationEl) {
-                const currentStr = timeEl.textContent;
-                duration = fl.parseTime(durationEl.textContent) || 1;
-
-                if (currentStr !== fl.lastTimeStr) {
-                    fl.lastTimeStr = currentStr;
-                    fl.lastTimeValue = fl.parseTime(currentStr);
+            if (currentVal !== null && !isNaN(currentVal)) {
+                if (currentVal !== fl.lastTimeValue) {
+                    fl.lastTimeValue = currentVal;
                     fl.lastUpdateMs = performance.now();
                 }
-
                 currentTime = fl.lastTimeValue;
                 if (!paused) {
                     currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
                 }
+                return { currentTime, duration, paused };
             }
-
-            return { currentTime, duration, paused };
         }
 
-        // --- YOUTUBE MUSIC: Read track-scoped ARIA attributes ---
-        // YTM appends tracks into a combined timeline MSE buffer. Native <video>.duration
-        // is the length of the queue, not the current song.
-        // 
-        // We previously parsed `span.time-info` DOM text ("2:29 / 4:10"), but updating at
-        // 1-second intervals caused the interpolated visual seeker bar to stutter/"lag".
-        // Solution: Pull from `#progress-bar` accessibility attributes (`aria-valuenow/max`).
-        // Screen reader attributes are track-scoped, highly frequent, and fully readable
-        // from the Chrome Extension "Isolated World" context.
-        if (window.location.hostname.includes('music.youtube')) {
-            const pb = document.querySelector('#progress-bar.ytmusic-player-bar');
-
-            if (pb) {
-                const trackDuration = parseFloat(pb.getAttribute('aria-valuemax'));
-                const trackCurrentTime = parseFloat(pb.getAttribute('aria-valuenow'));
-
-                if (trackDuration > 0 && !isNaN(trackDuration)) {
-                    duration = trackDuration;
-
-                    // Interpolate sub-second precision between ARIA attribute updates.
-                    // ARIA attributes update frequently, but bridging frame gaps ensures 60fps smoothness.
-                    const currentStr = String(trackCurrentTime);
-                    if (currentStr !== fl.lastTimeStr) {
-                        fl.lastTimeStr = currentStr;
-                        fl.lastTimeValue = isNaN(trackCurrentTime) ? 0 : trackCurrentTime;
-                        fl.lastUpdateMs = performance.now();
-                    }
-
-                    // Paused state: use the <video> element directly — only time/duration
-                    // are affected by MSE gapless buffering; paused is always accurate.
-                    const vid = document.querySelector('video');
-                    paused = vid ? vid.paused : true;
-
-                    currentTime = fl.lastTimeValue;
-                    if (!paused) {
-                        currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
-                    }
-
-                    return { currentTime, duration, paused };
-                }
-            }
-            // Sub-element not found yet — fall through to generic fallback.
-        }
-
-        // --- NON-SPOTIFY / NON-YTM: Use media element ---
-        // For any other platform using standard HTML5 audio/video whose native properties
-        // are reliable (no MSE gapless multi-track buffering).
+        // --- NON-ADAPTER FALLBACK (e.g. generic audio/video element) ---
         // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
         // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
         // is gone or the element is no longer ready (e.g. after a page navigation).
@@ -593,14 +537,12 @@
             if (isValid(src)) return src;
         }
 
-        // 2. Spotify DOM Fallback (Directly targets the bottom-left playing widget)
-        const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
-            document.querySelector('img[data-testid="cover-art-image"]');
-        if (spotiImg && isValid(spotiImg.src)) return spotiImg.src;
-
-        // 3. YouTube Music DOM Fallback
-        const ytImg = document.querySelector('.ytmusic-player-bar img');
-        if (ytImg && isValid(ytImg.src)) return ytImg.src;
+        // 2. Active Platform Adapter Fallback
+        const adapter = fl.getActiveAdapter?.();
+        if (adapter) {
+            const src = adapter.getCoverArt();
+            if (isValid(src)) return src;
+        }
 
         return "";
     }

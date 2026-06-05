@@ -177,24 +177,31 @@
         doc.body.replaceChildren(bgCover, bgDarkness, centerArt, lyricCanvas, backBtn, uiContainer, syncIndicator, sizeWarning);
         doc.head.appendChild(styleEl);
 
-        // Attach native event listeners directly
-        const click = (sel) => document.querySelector(sel)?.click();
+        // Get active platform adapter (if any)
+        const adapter = fl.getActiveAdapter?.();
 
-        prevBtn.addEventListener('click', () => click('[data-testid="control-button-skip-back"], .previous-button'));
-        nextBtn.addEventListener('click', () => click('[data-testid="control-button-skip-forward"], .next-button'));
-        playBtn.addEventListener('click', () => {
-            // Guard: do not forward click to YTM if no track is loaded.
-            // Without this, clicking play with no active media triggers YTM's
-            // own error handler.
-            const isYTM = window.location.hostname.includes('music.youtube.com');
-            const media = document.querySelector('video, audio');
-
-            // Only block if on YTM and the media length is invalid
-            if (isYTM && (!media || !media.duration || isNaN(media.duration))) {
-                return;
+        prevBtn.addEventListener('click', () => {
+            if (adapter) {
+                adapter.clickPrev();
+            } else {
+                document.querySelector('[data-testid="control-button-skip-back"], .previous-button')?.click();
             }
+        });
 
-            click('[data-testid="control-button-playpause"], .play-pause-button');
+        nextBtn.addEventListener('click', () => {
+            if (adapter) {
+                adapter.clickNext();
+            } else {
+                document.querySelector('[data-testid="control-button-skip-forward"], .next-button')?.click();
+            }
+        });
+
+        playBtn.addEventListener('click', () => {
+            if (adapter) {
+                adapter.clickPlayPause();
+            } else {
+                document.querySelector('[data-testid="control-button-playpause"], .play-pause-button')?.click();
+            }
         });
 
         backBtn.addEventListener('click', () => {
@@ -203,16 +210,12 @@
         });
 
         const toggleMute = () => {
-            const host = window.location.hostname;
-            if (host.includes('spotify.com')) {
-                const spotifyMuteBtn = document.querySelector('[data-testid="volume-bar-toggle-mute-button"]');
-                if (spotifyMuteBtn) {
-                    spotifyMuteBtn.click();
-                    return;
-                }
+            if (adapter) {
+                adapter.toggleMute();
+            } else {
+                const media = document.querySelector('video, audio');
+                if (media) media.muted = !media.muted;
             }
-            const media = document.querySelector('video, audio');
-            if (media) media.muted = !media.muted;
         };
         muteBtn.addEventListener('click', toggleMute);
 
@@ -232,57 +235,13 @@
             const rect = e.currentTarget.getBoundingClientRect();
             const percent = (e.clientX - rect.left) / rect.width;
 
-            // --- YOUTUBE MUSIC: Seek via Page Context API Injection ---
-            // YTM uses MSE gapless playback with a combined <video> timeline. When seeking
-            // manually via `vid.currentTime = X`, YTM's internal state machine detects an
-            // unexpected seek without an API call. Because its internal tracking gets out
-            // of sync with the raw `<video>` element, it throws an error and recovery-skips
-            // to the next song in the queue (the "next song auto-skip" bug).
-            //
-            // We must use YTM's own `movie_player.seekTo(seconds)` API. However:
-            // - Content scripts run in an Isolated World and cannot access `movie_player`
-            // - Inline `<script>` injection is blocked by YTM's strict CSP ('unsafe-inline')
-            //
-            // Solution: Inject an external script file listed in `web_accessible_resources`.
-            // Chrome grants special CSP exemptions to whitelisted extension files, letting
-            // them execute perfectly within the page's MAIN world context.
-            if (window.location.hostname.includes('music.youtube')) {
-                const s = document.createElement('script');
-                s.src = chrome.runtime.getURL('src/content/inject.js');
-                // Pass the click percentage to the injected script
-                s.dataset.percent = percent;
-                s.onload = function() { 
-                    // Clean up immediately after execution
-                    this.remove(); 
-                };
-                (document.head || document.documentElement).appendChild(s);
-                return;
-            }
-
-            // --- GENERIC (non-YTM, non-Spotify): Direct media element seek ---
-            const p = document.querySelector('video, audio');
-            if (p && p.duration > 0) {
-                p.currentTime = percent * p.duration;
-            }
-
-            // --- SPOTIFY: Dispatch synthetic pointer events to native progress bar ---
-            const spotifyProgressBar = document.querySelector('[data-testid="progress-bar"]');
-            if (spotifyProgressBar) {
-                const spRect = spotifyProgressBar.getBoundingClientRect();
-                const targetX = spRect.left + (percent * spRect.width);
-                const targetY = spRect.top + (spRect.height / 2);
-
-                const pointerDown = new PointerEvent('pointerdown', {
-                    bubbles: true, cancelable: true,
-                    clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
-                });
-                spotifyProgressBar.dispatchEvent(pointerDown);
-
-                const pointerUp = new PointerEvent('pointerup', {
-                    bubbles: true, cancelable: true,
-                    clientX: targetX, clientY: targetY, pointerId: 1, pointerType: 'mouse'
-                });
-                spotifyProgressBar.dispatchEvent(pointerUp);
+            if (adapter) {
+                adapter.seek(percent);
+            } else {
+                const p = document.querySelector('video, audio');
+                if (p && p.duration > 0) {
+                    p.currentTime = percent * p.duration;
+                }
             }
         });
 
