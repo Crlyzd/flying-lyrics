@@ -650,7 +650,13 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("No active track found.");
             return;
         }
-        chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/editor.html') });
+        chrome.windows.create({
+            url: chrome.runtime.getURL('src/pages/editor.html'),
+            type: 'popup',
+            width: 550,
+            height: 650,
+            focused: true
+        });
     });
 
     // =========================================================

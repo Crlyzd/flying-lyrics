@@ -12,15 +12,18 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             margin: 0;
             padding: 0;
             background-color: #121212;
             color: white;
             font-family: 'Segoe UI', sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
             overflow: hidden;
         }
 
@@ -93,15 +96,15 @@
         }
 
         .editor-container {
-            flex-grow: 1;
             padding: 20px;
-            display: flex;
-            flex-direction: column;
+            min-height: 0;
+            min-width: 0;
         }
 
         textarea {
-            flex-grow: 1;
             width: 100%;
+            height: 100%;
+            display: block;
             background-color: #1e1e1e;
             color: #e0e0e0;
             border: 1px solid #333;
@@ -113,6 +116,8 @@
             resize: none;
             outline: none;
             transition: border-color 0.2s;
+            white-space: pre;
+            overflow-x: auto;
         }
 
         textarea:focus {
@@ -153,6 +158,7 @@
             pointer-events: none;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             z-index: 100;
+            will-change: transform, opacity;
         }
 
         #status-toast.show {

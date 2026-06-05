@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toast = document.getElementById('status-toast');
 
     let currentTrackFound = false;
+    let lastSavedText = '';
 
     // Retrieve active track and lyrics
     chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.lrcText !== undefined) {
                     editor.value = response.lrcText;
+                    lastSavedText = response.lrcText;
                 }
             });
         });
@@ -41,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveLyrics() {
         const rawText = editor.value;
+        lastSavedText = rawText;
 
         // Send SETTINGS_UPDATE with lyricOverride to all active music tabs.
         // The content script will handle persisting it to lyricsOverrides for the current track key.
@@ -78,6 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             saveLyrics();
+        }
+    });
+
+    // Warn on close if unsaved
+    window.addEventListener('beforeunload', (e) => {
+        if (editor.value !== lastSavedText) {
+            e.preventDefault();
+            e.returnValue = ''; // Required to trigger Chrome's native "Leave Site" dialog
         }
     });
 });
