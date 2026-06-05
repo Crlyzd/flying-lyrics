@@ -43,9 +43,12 @@
 
         const seekerContainer = doc.createElement('div');
         seekerContainer.id = 'seeker-container';
+        seekerContainer.style.display = 'none';
         const seekerBar = doc.createElement('div');
         seekerBar.id = 'seeker-bar';
-        seekerContainer.appendChild(seekerBar);
+        const seekerTooltip = doc.createElement('div');
+        seekerTooltip.id = 'seeker-tooltip';
+        seekerContainer.append(seekerBar, seekerTooltip);
 
         const controls = doc.createElement('div');
         controls.id = 'controls';
@@ -281,6 +284,24 @@
                 });
                 spotifyProgressBar.dispatchEvent(pointerUp);
             }
+        });
+
+        seekerContainer.addEventListener('mousemove', (e) => {
+            const rect = seekerContainer.getBoundingClientRect();
+            const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
+            const state = fl.getPlayerState();
+            const hoverTime = percent * state.duration;
+            seekerTooltip.textContent = fl.formatTime(hoverTime);
+
+            const tooltipWidth = seekerTooltip.offsetWidth || 35;
+            const leftPx = Math.max(tooltipWidth / 2, Math.min(rect.width - tooltipWidth / 2, percent * rect.width));
+            seekerTooltip.style.left = `${leftPx}px`;
+            seekerTooltip.style.opacity = '1';
+        });
+
+        seekerContainer.addEventListener('mouseleave', () => {
+            seekerTooltip.style.opacity = '0';
         });
     }
 

@@ -21,6 +21,7 @@
         fl._els = {
             bgCover: doc.getElementById('bg-cover'),
             seeker: doc.getElementById('seeker-bar'),
+            seekerContainer: doc.getElementById('seeker-container'),
             ppBtn: doc.getElementById('playpause'),
             muteBtn: doc.getElementById('mute-btn'),
         };
@@ -124,8 +125,17 @@
         }
 
         // --- OPT-4: Use cached element refs for per-frame DOM writes ---
+        const seekerContainer = fl._els?.seekerContainer;
+        const hasTrack = fl.currentTrack && 
+                         fl.currentTrack !== "" && 
+                         !(fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Waiting for music...");
+
+        if (seekerContainer) {
+            seekerContainer.style.display = hasTrack ? 'block' : 'none';
+        }
+
         const seeker = fl._els?.seeker;
-        if (seeker) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
+        if (seeker && hasTrack) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
 
         const ppBtn = fl._els?.ppBtn;
         if (ppBtn) {

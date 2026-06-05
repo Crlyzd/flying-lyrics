@@ -107,13 +107,18 @@ body:hover #ui-container,
 }
 
 #seeker-container {
+    position: relative;
     width: 90%;
     height: 5px;
     background: rgba(255, 255, 255, 0.3);
     border-radius: 3px;
     margin-bottom: 16px;
     cursor: pointer;
-    overflow: hidden;
+    transition: height 0.15s ease-in-out;
+}
+
+#seeker-container:hover {
+    height: 7px;
 }
 
 #seeker-bar {
@@ -123,6 +128,27 @@ body:hover #ui-container,
     border-radius: 3px;
     box-shadow: 0 0 10px var(--vibrant-color, #1DB954);
     transition: width 0.1s linear, background-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+}
+
+#seeker-tooltip {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #ffffff;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 #controls {
