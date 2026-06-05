@@ -35,35 +35,45 @@
             background-color: #1a1a1a;
             border-bottom: 1px solid #333;
             flex-shrink: 0;
+            gap: 15px;
         }
 
         .title-group {
             display: flex;
             flex-direction: column;
             gap: 4px;
+            min-width: 0;
         }
 
         h1 {
             margin: 0;
             font-size: 18px;
             color: #1DB954;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .subtitle {
             font-size: 13px;
             color: #aaa;
             margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .actions {
             display: flex;
             align-items: center;
             gap: 15px;
+            flex-shrink: 0;
         }
 
         .hint {
             font-size: 12px;
             color: #888;
+            text-align: right;
         }
 
         .btn {
@@ -78,7 +88,14 @@
             transition: background 0.2s, transform 0.1s, box-shadow 0.3s ease-out, color 0.2s;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .btn svg {
+            flex-shrink: 0;
         }
 
         .btn:hover {

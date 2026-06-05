@@ -569,39 +569,25 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">Searching...</div>';
 
         try {
-            const [lrcRes, neteaseRes] = await Promise.allSettled([
-                fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`).then(r => r.json()),
-                new Promise(resolve => chrome.runtime.sendMessage({ type: 'SEARCH_NETEASE', payload: { query } }, resolve))
-            ]);
+            // Build scoring hints from the active track's clean metadata
+            const cleanArtist = currentActiveTrack?.primaryArtist || currentActiveTrack?.artist || '';
+            const cleanTitleStr = currentActiveTrack?.cleanTitle || currentActiveTrack?.title || '';
+            const duration = currentActiveTrack?.duration || 0;
 
-            let results = [];
+            const response = await new Promise(resolve =>
+                chrome.runtime.sendMessage({
+                    type: 'UNIFIED_SEARCH',
+                    payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr }
+                }, resolve)
+            );
 
-            if (lrcRes.status === 'fulfilled' && Array.isArray(lrcRes.value)) {
-                results = results.concat(lrcRes.value.slice(0, 10).map(item => ({
-                    source: 'api',
-                    id: item.id,
-                    name: item.trackName,
-                    artistName: item.artistName,
-                    albumName: item.albumName,
-                    duration: item.duration,
-                    synced: !!item.syncedLyrics,
-                    badgeHtml: `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
-                        (item.syncedLyrics ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
-                })));
-            }
-
-            if (neteaseRes.status === 'fulfilled' && neteaseRes.value?.results) {
-                results = results.concat(neteaseRes.value.results.map(item => ({
-                    source: 'netease',
-                    id: item.id,
-                    name: item.trackName,
-                    artistName: item.artistName,
-                    albumName: item.albumName,
-                    duration: item.duration,
-                    synced: false,
-                    badgeHtml: `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`
-                })));
-            }
+            const results = (response?.results || []).map(item => ({
+                ...item,
+                badgeHtml: item.source === 'api'
+                    ? `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
+                      (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
+                    : `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`,
+            }));
 
             if (results.length === 0) {
                 resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
