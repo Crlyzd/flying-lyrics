@@ -351,9 +351,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (chrome.runtime.lastError) return;
                 if (response && response.source) {
                     activeSource = response.source;
-                    if (editLyricBtnText) editLyricBtnText.textContent = "Edit Lyrics";
-                } else {
-                    if (editLyricBtnText) editLyricBtnText.textContent = "Add Lyrics";
                 }
             });
 
