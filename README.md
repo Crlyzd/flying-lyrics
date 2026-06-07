@@ -42,6 +42,9 @@
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
 
+<img width="544" height="647" alt="image" src="https://github.com/user-attachments/assets/44387a3e-91bf-4852-b011-b95fa133109e" />
+
+
 ### ⚡ Smarter Performance & Polished Experience
 * **Smarter Search Accuracy:** Finding lyrics is now more reliable! The extension automatically cleans up and matches song titles across Spotify and YouTube Music, and even tries alternate searches if a song isn't found immediately.
 * **Silky Smooth Animations:** The lyrics scrolling engine has been completely rebuilt to be incredibly lightweight. It heavily reduces CPU usage so your PC stays fast while delivering butter-smooth cinematic animations.
@@ -50,7 +53,7 @@
 * **Privacy-First Performance Tracking:** To make Flying Lyrics faster and better, we optionally collect anonymous speed metrics (like how fast lyrics load). You have full control with an easy opt-out switch in the welcome screen.
 
 <img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/8c0c22a6-f855-494b-8fcc-b02c8c3aea76" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/50dfdf8f-87a0-45a2-9433-131629c41284" />
+<img width="330" height="628" alt="image" src="https://github.com/user-attachments/assets/4c7a184a-051f-42ad-b734-1e29c52e9cd0" />
 <img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/f0f43bc1-aed2-4d4a-95ab-e3e6c1bf8f7b" />
 <img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/5b98061f-ebd2-4b57-998b-6bf12ef46996" />
 
