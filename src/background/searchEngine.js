@@ -268,6 +268,13 @@ function fetchNeteaseRaw(id) {
         .catch(() => '');
 }
 
+/** Fetches the raw LRCLIB lyric data for a specific song ID. */
+function fetchLrcLibRaw(id) {
+    return fetchWithTimeout(`https://lrclib.net/api/get/${id}`, DEFAULT_TIMEOUT_MS)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+}
+
 const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
 
 // ─── Core search ─────────────────────────────────────────────────────────────

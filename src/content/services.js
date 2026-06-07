@@ -338,41 +338,6 @@
     // Note: _fetchWithTimeout, fetchFromLrcLib, and fetchFromNeteaseFallback have
     // been removed. All search network I/O is now handled exclusively by the
     // background engine (src/background/searchEngine.js) via UNIFIED_AUTO_SEARCH.
-    // However, fl._fetchWithTimeout is restored below for manual ID lookup overrides.
-
-    /**
-     * Wraps fetch() with a hard timeout and an optional parent AbortSignal.
-     *
-     * @param {string} url - URL to fetch.
-     * @param {number} ms - Timeout in milliseconds.
-     * @param {AbortSignal} [parentSignal] - Optional abort signal from the caller.
-     * @returns {Promise<Response>}
-     */
-    fl._fetchWithTimeout = function (url, ms = 5000, parentSignal = null) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms);
-
-        if (parentSignal) {
-            if (parentSignal.aborted) {
-                clearTimeout(timer);
-                return Promise.reject(new DOMException('Aborted', 'AbortError'));
-            }
-            parentSignal.addEventListener('abort', () => {
-                clearTimeout(timer);
-                controller.abort();
-            });
-        }
-
-        return fetch(url, { signal: controller.signal })
-            .then(res => {
-                clearTimeout(timer);
-                return res;
-            })
-            .catch(err => {
-                clearTimeout(timer);
-                throw err;
-            });
-    };
 
     fl.applySavedSyncOffset = function (key) {
         fl.activeLyricSource = null;
@@ -413,22 +378,14 @@
             fl.activateLyrics();
             return override.data;
         } else if (override.type === 'api' && override.id) {
-            try {
-                // Use fetch with timeout to avoid hanging if the API server is slow.
-                const res = await fl._fetchWithTimeout(`https://lrclib.net/api/get/${override.id}`, 5000, abortSignal);
-                const data = await res.json();
-                const raw = data.syncedLyrics || data.plainLyrics || "";
-                if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: data.trackName || key, synced: !!data.syncedLyrics };
-                return raw;
-            } catch (err) {
-                if (abortSignal?.aborted) throw new Error('TrackChanged');
-                // AbortError = 5s timeout fired; any other error = network/API failure.
-                // Return "" so fetchLyrics() falls through to the multi-pass search
-                // pipeline gracefully instead of crashing the session with "Network Error".
-                console.warn(`FL: Manual override fetch failed for ID ${override.id}:`,
-                    err.name === 'AbortError' ? 'Request timed out (5s)' : err.message);
-                return "";
-            }
+            const resData = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id } }, resolve);
+            });
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+
+            const raw = resData?.syncedLyrics || resData?.plainLyrics || "";
+            if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: resData.trackName || key, synced: !!resData.syncedLyrics };
+            return raw;
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
                 chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);

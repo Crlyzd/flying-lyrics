@@ -30,10 +30,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { id } = message.payload;
         if (!id) { sendResponse({ lyric: '' }); return false; }
 
-        fetch(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`)
-            .then(r => r.json())
-            .then(data => sendResponse({ lyric: data?.lrc?.lyric || '' }))
+        fetchNeteaseRaw(id)
+            .then(lyric => sendResponse({ lyric, id }))
             .catch(() => sendResponse({ lyric: '' }));
+        return true;
+    }
+
+    // ── Direct LRCLIB ID lookup (used by manual override resolution in services.js) ──
+    if (message.type === 'FETCH_LRCLIB') {
+        const { id } = message.payload;
+        if (!id) { sendResponse(null); return false; }
+
+        fetchLrcLibRaw(id)
+            .then(data => sendResponse(data))
+            .catch(() => sendResponse(null));
         return true;
     }
 
