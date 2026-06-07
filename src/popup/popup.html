@@ -863,6 +863,23 @@
             color: #ff7070;
         }
 
+        /* Telemetry toggle link — same color as bug link, no color change on hover */
+        .footer-telemetry {
+            margin-top: 6px;
+        }
+
+        .footer-telemetry a {
+            color: #484848;
+            text-decoration: none;
+            font-size: 10.5px;
+            cursor: pointer;
+        }
+
+        .footer-telemetry a:hover {
+            color: #484848;
+            text-decoration: underline;
+        }
+
         /* Album Cover Mode Toggle Card */
         .album-cover-toggle-card {
             display: flex;
@@ -1122,6 +1139,11 @@
                         </svg>
                         Report Bug / Request Feature
                     </a>
+                </p>
+
+                <!-- Row 5: Telemetry Consent Toggle -->
+                <p class="footer-telemetry">
+                    <a href="#" id="telemetry-toggle"></a>
                 </p>
 
             </div><!-- /footer -->

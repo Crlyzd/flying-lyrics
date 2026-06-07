@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const visualControlsWrapper = document.getElementById('visual-controls-wrapper');
     const albumCoverToggleCard = document.getElementById('album-cover-toggle-card');
     const importFile = document.getElementById('import-file');
+    const telemetryToggle = document.getElementById('telemetry-toggle');
 
     // State
     let currentResults = [];
@@ -237,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
-        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
+        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true
     };
 
     chrome.storage.local.get(fallbackDefaults, (items) => {
@@ -320,6 +321,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Apply font to preview
         glowPreview.style.fontFamily = items.customFont;
         glowPreview.style.fontSize = `${items.fontSize}px`;
+
+        // Telemetry toggle initialization
+        if (telemetryToggle) {
+            updateTelemetryUI(items.telemetryConsent);
+        }
     });
 
     // =========================================================
@@ -670,6 +676,28 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleTrans.addEventListener('change', () => {
         saveAndNotify({ showTranslation: toggleTrans.checked });
     });
+
+    if (telemetryToggle) {
+        telemetryToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            chrome.storage.local.get({ telemetryConsent: true }, (items) => {
+                const newConsent = !items.telemetryConsent;
+                chrome.storage.local.set({ telemetryConsent: newConsent }, () => {
+                    updateTelemetryUI(newConsent);
+                });
+            });
+        });
+    }
+
+    function updateTelemetryUI(consentEnabled) {
+        if (consentEnabled) {
+            telemetryToggle.textContent = "I'm in!";
+            telemetryToggle.title = "Anonymous Analytics: Opt-out";
+        } else {
+            telemetryToggle.textContent = "I'm out!";
+            telemetryToggle.title = "Anonymous Analytics: Opt-in";
+        }
+    }
 
     langSelect.addEventListener('change', () => {
         if (langSelect.value === 'request_language') {
