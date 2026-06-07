@@ -488,6 +488,10 @@
         btn.onmouseup = () => btn.style.transform = 'scale(1)';
 
         btn.onclick = async () => {
+            if (!window.documentPictureInPicture) {
+                alert("Flying Lyrics: Document Picture-in-Picture is not supported or is disabled in your browser.");
+                return;
+            }
             if (fl.isLaunchingPip || window.documentPictureInPicture.window) return;
             fl.isLaunchingPip = true;
             try {
