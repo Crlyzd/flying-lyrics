@@ -184,6 +184,11 @@
             // Tier 3: network fetch
             let raw = await fl.resolveManualOverride(key, abortSignal);
 
+            if (!raw && fl.lyricsOverrides && fl.lyricsOverrides[key]) {
+                delete fl.lyricsOverrides[key];
+                chrome.storage.local.set({ lyricsOverrides: fl.lyricsOverrides });
+            }
+
             // ─────────────────────────────────────────────────────────
             //  MULTI-PASS SEARCH PIPELINE
             //
@@ -528,7 +533,7 @@
             return override.data;
         } else if (override.type === 'api' && override.id) {
             const resData = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id } }, resolve);
+                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
             });
             if (abortSignal?.aborted) throw new Error('TrackChanged');
 
@@ -537,7 +542,7 @@
             return raw;
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id } }, resolve);
+                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
             });
             const raw = resMsg?.lyric || "";
             if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || override.id, name: resMsg?.name || key };
@@ -560,6 +565,7 @@
         fl.isMissingLyrics = false;
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: fl.activeLyricSource }).catch(() => {});
     };
 
     fl.handleMissingLyrics = function () {
@@ -570,6 +576,7 @@
         fl.isMissingLyrics = true;
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: null }).catch(() => {});
     }
 
     fl.parseLrcOrGeneratePseudoSync = function (lines, rawStr) {

@@ -47,10 +47,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── Direct Netease ID lookup (used by manual override resolution in services.js) ──
     if (message.type === 'FETCH_NETEASE') {
-        const { id } = message.payload;
+        const { id, timeoutMs } = message.payload;
         if (!id) { sendResponse({ lyric: '' }); return false; }
 
-        fetchNeteaseRaw(id)
+        fetchNeteaseRaw(id, timeoutMs)
             .then(lyric => sendResponse({ lyric, id }))
             .catch(() => sendResponse({ lyric: '' }));
         return true;
@@ -58,10 +58,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── Direct LRCLIB ID lookup (used by manual override resolution in services.js) ──
     if (message.type === 'FETCH_LRCLIB') {
-        const { id } = message.payload;
+        const { id, timeoutMs } = message.payload;
         if (!id) { sendResponse(null); return false; }
 
-        fetchLrcLibRaw(id)
+        fetchLrcLibRaw(id, timeoutMs)
             .then(data => sendResponse(data))
             .catch(() => sendResponse(null));
         return true;

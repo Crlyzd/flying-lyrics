@@ -409,13 +409,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (item.id === 'auto-match-card') {
             saveAndNotify({ lyricOverride: null });
-            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
-            resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
-            const dot = document.createElement('div');
-            dot.className = 'active-dot';
+            const spinner = document.createElement('div');
+            spinner.className = 'sync-spinner';
             const dotContainer = item.querySelector('.dot-container');
-            if (dotContainer) dotContainer.appendChild(dot);
-            item.classList.add('active-lyric');
+            if (dotContainer) {
+                const existingDot = dotContainer.querySelector('.active-dot');
+                if (existingDot) existingDot.remove();
+                dotContainer.appendChild(spinner);
+            }
             return;
         }
 
@@ -426,14 +427,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (source && id) {
             saveAndNotify({ lyricOverride: { type: source, id: id } });
-            activeSource = { type: source, id: id, name: name };
-            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
-            resultsContainer.querySelectorAll('.result-item').forEach(el => el.classList.remove('active-lyric'));
-            const dot = document.createElement('div');
-            dot.className = 'active-dot';
+            const spinner = document.createElement('div');
+            spinner.className = 'sync-spinner';
             const dotContainer = item.querySelector('.dot-container');
-            if (dotContainer) dotContainer.appendChild(dot);
-            item.classList.add('active-lyric');
+            if (dotContainer) {
+                const existingDot = dotContainer.querySelector('.active-dot');
+                if (existingDot) existingDot.remove();
+                dotContainer.appendChild(spinner);
+            }
         }
     });
 
@@ -737,6 +738,38 @@ document.addEventListener('DOMContentLoaded', () => {
             if (msg.payload.globalSyncOffset !== undefined) {
                 currentGlobalOffset = msg.payload.globalSyncOffset;
                 globalOffsetInput.value = currentGlobalOffset;
+            }
+        } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
+            activeSource = msg.payload;
+            resultsContainer.querySelectorAll('.sync-spinner').forEach(s => s.remove());
+            resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
+            resultsContainer.querySelectorAll('.result-item').forEach(d => d.classList.remove('active-lyric'));
+
+            if (activeSource) {
+                let activeItem = null;
+                if (activeSource.type === 'local') {
+                    activeItem = resultsContainer.querySelector('#local-file-card');
+                } else {
+                    activeItem = resultsContainer.querySelector(`[data-id="${activeSource.id}"][data-source="${activeSource.type}"]`);
+                }
+
+                if (activeItem) {
+                    activeItem.classList.add('active-lyric');
+                    const dot = document.createElement('div');
+                    dot.className = 'active-dot';
+                    const dotContainer = activeItem.querySelector('.dot-container');
+                    if (dotContainer) dotContainer.appendChild(dot);
+                } else if (!activeSource.id) {
+                    // Fallback to auto match card if no specific ID matched
+                    const autoItem = resultsContainer.querySelector('#auto-match-card');
+                    if (autoItem) {
+                        autoItem.classList.add('active-lyric');
+                        const dot = document.createElement('div');
+                        dot.className = 'active-dot';
+                        const dotContainer = autoItem.querySelector('.dot-container');
+                        if (dotContainer) dotContainer.appendChild(dot);
+                    }
+                }
             }
         }
     });
