@@ -5,6 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleCard = document.getElementById('toggle-card');
     const btnClose = document.getElementById('btn-close');
 
+    // Store the welcome page's own tab ID in local storage
+    chrome.tabs.getCurrent((tab) => {
+        if (tab && tab.id) {
+            chrome.storage.local.set({ welcomeTabId: tab.id });
+        }
+    });
+
     // 1. Initialise the checkbox status from chrome.storage.local
     chrome.storage.local.get({ telemetryConsent: true }, (items) => {
         consentCheckbox.checked = !!items.telemetryConsent;

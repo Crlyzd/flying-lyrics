@@ -9,6 +9,10 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.storage.local.set({ telemetryConsent: true }, () => {
             chrome.tabs.create({
                 url: chrome.runtime.getURL('src/pages/welcome.html')
+            }, (tab) => {
+                if (tab && tab.id) {
+                    chrome.storage.local.set({ welcomeTabId: tab.id });
+                }
             });
         });
     } else if (details.reason === 'update') {
@@ -80,4 +84,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             .catch(() => sendResponse({ result: null }));
         return true;
     }
+});
+
+// Listen for tab removals to reload music tabs when the welcome page is closed
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    chrome.storage.local.get(['welcomeTabId'], (result) => {
+        if (result.welcomeTabId === tabId) {
+            // Reload any open Spotify or YouTube Music tabs so they load the content scripts
+            chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                    if (tab.url && (tab.url.includes('open.spotify.com') || tab.url.includes('music.youtube.com'))) {
+                        chrome.tabs.reload(tab.id);
+                    }
+                });
+            });
+            chrome.storage.local.remove('welcomeTabId');
+        }
+    });
 });
