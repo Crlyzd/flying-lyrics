@@ -314,7 +314,10 @@
             if (fl.isMissingLyrics) {
                 ind.classList.remove('is-synced');
                 ind.classList.add('is-missing');
-                ind.title = 'No lyrics found for this track';
+                const isRetrying = ind.classList.contains('is-retrying');
+                ind.title = isRetrying
+                    ? 'No lyrics found for this track (Retrying...)'
+                    : 'No lyrics found for this track';
                 txt.textContent = 'NO LYRICS';
             } else {
                 // Remove retrying styling when lyrics are successfully loaded/changed
@@ -343,6 +346,8 @@
             } else {
                 ind.classList.remove('is-retrying');
             }
+            // Trigger update of sync indicator to update title/text appropriately
+            fl.updateSyncIndicator();
         }
     }
 
