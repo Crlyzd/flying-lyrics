@@ -314,15 +314,29 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
  */
 async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs) {
     const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
+
+    let lrcTimedOut = false;
+    let neteaseTimedOut = false;
+
     const [lrcRes, neteaseRes] = await Promise.allSettled([
         fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout)
             .then(r => r.ok ? r.json() : [])
-            .catch(() => []),
+            .catch((err) => {
+                if (err.name === 'AbortError' || err.message?.includes('timeout')) {
+                    lrcTimedOut = true;
+                }
+                return [];
+            }),
 
         fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout)
             .then(r => r.json())
             .then(data => data?.result?.songs || [])
-            .catch(() => [])
+            .catch((err) => {
+                if (err.name === 'AbortError' || err.message?.includes('timeout')) {
+                    neteaseTimedOut = true;
+                }
+                return [];
+            })
     ]);
 
     const candidates = [];
@@ -344,7 +358,7 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
         scoreCandidate(a, actualDuration, cleanTitle, cleanArtist)
     );
 
-    return candidates;
+    return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut };
 }
 
 // ─── Auto Search ─────────────────────────────────────────────────────────────
@@ -392,7 +406,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     const allCandidates = [];
     const seenCandidates = new Set();
 
-    for (const candidatesList of results) {
+    for (const res of results) {
+        const candidatesList = res?.candidates || [];
         for (const c of candidatesList) {
             const key = `${c.source}-${c.id}`;
             if (!seenCandidates.has(key)) {
@@ -516,11 +531,11 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
  * @param {string} cleanTitleStr – Noise-stripped title for scoring (may be empty)
  * @returns {Promise<object[]>}  – UI-ready candidate list
  */
-async function manualSearch(query, duration, cleanArtist, cleanTitleStr) {
-    const candidates = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist);
+async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs) {
+    const { candidates, hasTimeout } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs);
 
     // Map to a UI-friendly format (popup.js will render this directly)
-    return candidates.map(c => ({
+    const results = candidates.map(c => ({
         source:     c.source === 'lrclib' ? 'api' : 'netease',
         id:         c.id,
         name:       c.trackName,
@@ -532,4 +547,6 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr) {
         // the manual override immediately without an extra network round-trip
         rawLyric:   c.source === 'lrclib' ? (c.rawLyric || '') : null,
     }));
+
+    return { results, hasTimeout };
 }

@@ -69,10 +69,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── Unified Manual Search (called by popup.js) ────────────────────────────
     if (message.type === 'UNIFIED_SEARCH') {
-        const { query, duration, cleanArtist, cleanTitle } = message.payload;
-        manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '')
-            .then(results => sendResponse({ results }))
-            .catch(() => sendResponse({ results: [] }));
+        const { query, duration, cleanArtist, cleanTitle, timeoutMs } = message.payload;
+        manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs)
+            .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
+            .catch(() => sendResponse({ results: [], hasTimeout: false }));
         return true;
     }
 

@@ -95,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEffectiveOffset = 1000;
     let currentGlobalOffset = 1000;
     let activeSource = null;
+    let activeSearchQuery = "";
 
     // =========================================================
     //  LANGUAGE DROPDOWN POPULATION
@@ -404,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Delegation: Attach one click listener to the entire container
     resultsContainer.addEventListener('click', (e) => {
         const item = e.target.closest('.result-item');
-        if (!item || item.id === 'local-file-card') return; // Ignore clicks that aren't on result items or are on the read-only local card
+        if (!item || item.id === 'local-file-card' || item.id === 'deep-search-indicator') return; // Ignore clicks that aren't on result items or are on the read-only local card
 
         if (item.id === 'auto-match-card') {
             saveAndNotify({ lyricOverride: null });
@@ -571,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const query = searchInput.value.trim();
         if (!query) return;
 
+        activeSearchQuery = query;
         searchBtn.textContent = '...';
         resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">Searching...</div>';
 
@@ -583,9 +585,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await new Promise(resolve =>
                 chrome.runtime.sendMessage({
                     type: 'UNIFIED_SEARCH',
-                    payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr }
+                    payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 5000 }
                 }, resolve)
             );
+
+            if (activeSearchQuery !== query) return;
 
             const results = (response?.results || []).map(item => ({
                 ...item,
@@ -595,20 +599,91 @@ document.addEventListener('DOMContentLoaded', () => {
                     : `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`,
             }));
 
-            if (results.length === 0) {
+            const hasTimeout = !!response?.hasTimeout;
+
+            if (results.length === 0 && !hasTimeout) {
                 resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
                 return;
             }
 
             currentResults = results;
             const trackKey = `${currentActiveTrack.artist} - ${currentActiveTrack.title}`;
-            chrome.storage.local.set({
-                lastSearch: { key: trackKey, query: query, results: results }
-            });
+            if (results.length > 0) {
+                chrome.storage.local.set({
+                    lastSearch: { key: trackKey, query: query, results: results }
+                });
+            }
 
             chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
+                if (activeSearchQuery !== query) return;
+
                 const override = (items.lyricsOverrides || {})[trackKey] || null;
                 renderSearchResults(results, override);
+
+                if (hasTimeout) {
+                    // 1. Render spinning gold deep search indicator at the bottom
+                    const deepSearchCard = document.createElement('div');
+                    deepSearchCard.id = 'deep-search-indicator';
+                    deepSearchCard.className = 'result-item';
+                    deepSearchCard.style.cursor = 'default';
+                    deepSearchCard.style.justifyContent = 'center';
+                    deepSearchCard.style.backgroundColor = 'rgba(255, 204, 0, 0.05)';
+                    deepSearchCard.style.borderTop = '1px dashed rgba(255, 204, 0, 0.2)';
+                    deepSearchCard.style.borderBottom = 'none';
+                    deepSearchCard.innerHTML = `
+                        <div style="display: flex; align-items: center; color: #ffcc00; font-size: 11px; font-weight: 600;">
+                            <div class="sync-spinner"></div>
+                            Deep search running (up to 30s)...
+                        </div>
+                    `;
+                    resultsContainer.appendChild(deepSearchCard);
+                    resultsContainer.scrollTop = resultsContainer.scrollHeight;
+
+                    // 2. Launch background search with 30s timeout
+                    chrome.runtime.sendMessage({
+                        type: 'UNIFIED_SEARCH',
+                        payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 30000 }
+                    }, (secondResponse) => {
+                        if (activeSearchQuery !== query) return;
+
+                        const secondResults = (secondResponse?.results || []).map(item => ({
+                            ...item,
+                            badgeHtml: item.source === 'api'
+                                ? `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
+                                  (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
+                                : `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`,
+                        }));
+
+                        const finalResults = [];
+                        const seen = new Set();
+                        secondResults.forEach(item => {
+                            const key = `${item.source}-${item.id}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                finalResults.push(item);
+                            }
+                        });
+                        results.forEach(item => {
+                            const key = `${item.source}-${item.id}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                finalResults.push(item);
+                            }
+                        });
+
+                        if (finalResults.length === 0) {
+                            resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
+                            return;
+                        }
+
+                        currentResults = finalResults;
+                        chrome.storage.local.set({
+                            lastSearch: { key: trackKey, query: query, results: finalResults }
+                        });
+
+                        renderSearchResults(finalResults, override);
+                    });
+                }
             });
 
         } catch (e) {
