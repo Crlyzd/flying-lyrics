@@ -16,6 +16,8 @@
 //       lyrics on demand to check for LRC timestamps (Lazy Evaluation).
 // ─────────────────────────────────────────────────────────────────────────────
 
+const DEFAULT_TIMEOUT_MS = 5000;
+
 // ─── Levenshtein helpers ─────────────────────────────────────────────────────
 
 function levenshtein(a, b) {
@@ -260,7 +262,7 @@ function fetchWithTimeout(url, timeoutMs) {
 
 /** Fetches the raw Netease lyric text for a specific song ID. */
 function fetchNeteaseRaw(id) {
-    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, 15000)
+    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, DEFAULT_TIMEOUT_MS)
         .then(r => r.json())
         .then(data => data?.lrc?.lyric || '')
         .catch(() => '');
@@ -289,11 +291,11 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
  */
 async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist) {
     const [lrcRes, neteaseRes] = await Promise.allSettled([
-        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, 15000)
+        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, DEFAULT_TIMEOUT_MS)
             .then(r => r.ok ? r.json() : [])
             .catch(() => []),
 
-        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, 15000)
+        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, DEFAULT_TIMEOUT_MS)
             .then(r => r.json())
             .then(data => data?.result?.songs || [])
             .catch(() => [])
