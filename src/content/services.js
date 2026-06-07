@@ -213,6 +213,7 @@
                             rawArtist: meta.artist || '',
                             rawTitle:  meta.title  || '',
                             duration:  duration    || 0,
+                            timeoutMs: 5000 // Strict 5-second initial timeout
                         }
                     }, resolve)
                 );
@@ -226,14 +227,102 @@
             }
 
             if (!raw) {
+                // First attempt failed. Switch to Album Cover Mode immediately,
+                // and initiate a background search with a longer (30s) timeout.
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
                     payload: {
                         eventName: 'lyrics_fetch_result',
-                        params: { status: 'failure', error_type: 'no_match' }
+                        params: { status: 'failure', error_type: 'no_match_first_pass' }
                     }
                 });
+
                 fl.handleMissingLyrics();
+
+                if (typeof fl.setIndicatorRetrying === 'function') {
+                    fl.setIndicatorRetrying(true);
+                }
+
+                try {
+                    const { duration } = fl.getPlayerState();
+                    const retryResult = await new Promise(resolve =>
+                        chrome.runtime.sendMessage({
+                            type: 'UNIFIED_AUTO_SEARCH',
+                            payload: {
+                                rawArtist: meta.artist || '',
+                                rawTitle:  meta.title  || '',
+                                duration:  duration    || 0,
+                                timeoutMs: 30000 // 30-second timeout for background retry
+                            }
+                        }, resolve)
+                    );
+
+                    if (abortSignal?.aborted) {
+                        if (typeof fl.setIndicatorRetrying === 'function') fl.setIndicatorRetrying(false);
+                        return;
+                    }
+
+                    if (retryResult?.result) {
+                        raw = retryResult.result.rawLyric;
+                        fl.activeLyricSource = retryResult.result.source;
+
+                        chrome.runtime.sendMessage({
+                            type: 'TRACK_EVENT',
+                            payload: {
+                                eventName: 'lyrics_fetch_result',
+                                params: { status: 'success_on_retry' }
+                            }
+                        });
+
+                        // Deactivate Album Cover Mode and restore visuals
+                        fl.activateLyrics();
+
+                        const lines = raw.split('\n');
+                        fl.parseLrcOrGeneratePseudoSync(lines, raw);
+
+                        // Sync Validation
+                        if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
+                            const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
+                            const realDuration = fl.getPlayerState().duration;
+                            if (realDuration > 60 && lastTs < realDuration * 0.5) {
+                                fl.isCurrentLyricSynced = false;
+                                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                                const cleanLines = raw
+                                    .split('\n')
+                                    .map(l => l.replace(/^\[\d+:\d+\.\d+\]/, '').trim())
+                                    .filter(l => l);
+                                const timePerLine = realDuration / cleanLines.length;
+                                fl.lyricLines = cleanLines.map((text, i) => ({
+                                    time: i * timePerLine, text, romaji: "", translation: ""
+                                }));
+                            }
+                        }
+
+                        fl.cachedLyrics.key = key;
+                        fl.cachedLyrics.lines = fl.lyricLines;
+                        fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
+                        fl.cachedLyrics.translationLang = fl.translationLang;
+
+                        if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+
+                        await fl.translateExistingLyrics();
+                        fl.saveToPersistentCache(key);
+                    } else {
+                        chrome.runtime.sendMessage({
+                            type: 'TRACK_EVENT',
+                            payload: {
+                                eventName: 'lyrics_fetch_result',
+                                params: { status: 'failure', error_type: 'no_match_retry' }
+                            }
+                        });
+                    }
+                } catch (retryErr) {
+                    console.warn("FL: Background retry error:", retryErr);
+                } finally {
+                    if (typeof fl.setIndicatorRetrying === 'function') {
+                        fl.setIndicatorRetrying(false);
+                    }
+                }
                 return;
             } else {
                 chrome.runtime.sendMessage({

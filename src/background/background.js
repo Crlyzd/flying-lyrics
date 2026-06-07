@@ -78,8 +78,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // ── Unified Auto Search (called by services.js) ───────────────────────────
     if (message.type === 'UNIFIED_AUTO_SEARCH') {
-        const { rawArtist, rawTitle, duration } = message.payload;
-        getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0)
+        const { rawArtist, rawTitle, duration, timeoutMs } = message.payload;
+        getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs)
             .then(result => sendResponse({ result }))
             .catch(() => sendResponse({ result: null }));
         return true;

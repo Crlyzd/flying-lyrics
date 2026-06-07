@@ -96,11 +96,14 @@
         const syncDot = doc.createElement('div');
         syncDot.className = 'sync-dot';
 
+        const syncSpinner = doc.createElement('div');
+        syncSpinner.className = 'sync-spinner';
+
         const syncText = doc.createElement('span');
         syncText.id = 'sync-text';
         syncText.textContent = 'UNSYNCED';
 
-        syncIndicator.append(syncDot, syncText);
+        syncIndicator.append(syncDot, syncSpinner, syncText);
 
         // Size Warning
         const sizeWarning = doc.createElement('div');
@@ -167,6 +170,22 @@
         }
         #sync-indicator.is-missing {
             color: rgba(255, 215, 0, 0.9); border-color: rgba(255, 215, 0, 0.3);
+        }
+        .sync-spinner {
+            width: 6px; height: 6px; border-radius: 50%;
+            border: 1.5px solid rgba(255, 215, 0, 0.3);
+            border-top-color: #FFD700;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        #sync-indicator.is-retrying .sync-spinner {
+            display: block;
+        }
+        #sync-indicator.is-retrying .sync-dot {
+            display: none;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         @keyframes lyric-glow {
             0%   { text-shadow: 0 0 8px currentColor, 0 0 16px currentColor; }
@@ -297,15 +316,32 @@
                 ind.classList.add('is-missing');
                 ind.title = 'No lyrics found for this track';
                 txt.textContent = 'NO LYRICS';
-            } else if (fl.isCurrentLyricSynced) {
-                ind.classList.remove('is-missing');
-                ind.classList.add('is-synced');
-                ind.title = 'These lyrics have timestamp data';
-                txt.textContent = 'SYNCED';
             } else {
-                ind.classList.remove('is-synced', 'is-missing');
-                ind.title = 'These lyrics are missing timestamps and are roughly estimated';
-                txt.textContent = 'UNSYNCED';
+                // Remove retrying styling when lyrics are successfully loaded/changed
+                ind.classList.remove('is-retrying');
+
+                if (fl.isCurrentLyricSynced) {
+                    ind.classList.remove('is-missing');
+                    ind.classList.add('is-synced');
+                    ind.title = 'These lyrics have timestamp data';
+                    txt.textContent = 'SYNCED';
+                } else {
+                    ind.classList.remove('is-synced', 'is-missing');
+                    ind.title = 'These lyrics are missing timestamps and are roughly estimated';
+                    txt.textContent = 'UNSYNCED';
+                }
+            }
+        }
+    }
+
+    fl.setIndicatorRetrying = function (isRetrying) {
+        if (!fl.pipWin) return;
+        const ind = fl.pipWin.document.getElementById('sync-indicator');
+        if (ind) {
+            if (isRetrying) {
+                ind.classList.add('is-retrying');
+            } else {
+                ind.classList.remove('is-retrying');
             }
         }
     }

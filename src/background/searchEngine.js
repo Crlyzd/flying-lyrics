@@ -277,16 +277,16 @@ function fetchWithTimeout(url, timeoutMs) {
 }
 
 /** Fetches the raw Netease lyric text for a specific song ID. */
-function fetchNeteaseRaw(id) {
-    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, DEFAULT_TIMEOUT_MS)
+function fetchNeteaseRaw(id, timeoutMs) {
+    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, timeoutMs || DEFAULT_TIMEOUT_MS)
         .then(r => r.json())
         .then(data => data?.lrc?.lyric || '')
         .catch(() => '');
 }
 
 /** Fetches the raw LRCLIB lyric data for a specific song ID. */
-function fetchLrcLibRaw(id) {
-    return fetchWithTimeout(`https://lrclib.net/api/get/${id}`, DEFAULT_TIMEOUT_MS)
+function fetchLrcLibRaw(id, timeoutMs) {
+    return fetchWithTimeout(`https://lrclib.net/api/get/${id}`, timeoutMs || DEFAULT_TIMEOUT_MS)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null);
 }
@@ -312,13 +312,14 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
  * @param {string} cleanArtist     – Primary artist for scoring
  * @returns {Promise<object[]>}    – Sorted candidate array
  */
-async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist) {
+async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs) {
+    const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
     const [lrcRes, neteaseRes] = await Promise.allSettled([
-        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, DEFAULT_TIMEOUT_MS)
+        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout)
             .then(r => r.ok ? r.json() : [])
             .catch(() => []),
 
-        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, DEFAULT_TIMEOUT_MS)
+        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout)
             .then(r => r.json())
             .then(data => data?.result?.songs || [])
             .catch(() => [])
@@ -370,7 +371,7 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist) {
  * @param {number} duration     – Player duration in seconds
  * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
  */
-async function getBestAutoMatch(rawArtist, rawTitle, duration) {
+async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     const cArtistFull = cleanArtist(rawArtist || '');
     const cTitleFull  = cleanTitle(rawTitle || '');
     const cTitleShort = extractShortTitle(cTitleFull);
@@ -384,7 +385,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
     const uniquePasses = [...new Set(passes)];
 
     // 1. Run all searches concurrently
-    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cArtistFull));
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cArtistFull, timeoutMs));
     const results = await Promise.all(searchPromises);
 
     // 2. Combine and deduplicate candidates by source & id
@@ -463,7 +464,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration) {
         // 5. Fetch top Netease candidates concurrently
         const fetchPromises = topNetease.map(async (c) => {
             try {
-                const raw = await fetchNeteaseRaw(c.id);
+                const raw = await fetchNeteaseRaw(c.id, timeoutMs);
                 if (raw && raw.trim().length >= 5) {
                     const isSynced = LRC_TIMESTAMP_RE.test(raw);
                     const resolved = { ...c, synced: isSynced };
