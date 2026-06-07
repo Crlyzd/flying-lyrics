@@ -49,7 +49,7 @@
         seekerBar.id = 'seeker-bar';
         const seekerTooltip = doc.createElement('div');
         seekerTooltip.id = 'seeker-tooltip';
-        seekerContainer.append(seekerBar, seekerTooltip);
+        seekerContainer.append(seekerBar);
 
         const controls = doc.createElement('div');
         controls.id = 'controls';
@@ -194,7 +194,7 @@
         }
     `;
 
-        doc.body.replaceChildren(bgCover, bgDarkness, centerArt, lyricCanvas, backBtn, uiContainer, syncIndicator, sizeWarning);
+        doc.body.replaceChildren(bgCover, bgDarkness, centerArt, lyricCanvas, backBtn, uiContainer, syncIndicator, sizeWarning, seekerTooltip);
         doc.head.appendChild(styleEl);
 
         // Get active platform adapter (if any)
@@ -273,9 +273,15 @@
             const hoverTime = percent * state.duration;
             seekerTooltip.textContent = fl.formatTime(hoverTime);
 
+            // Position relative to body to bypass ui-container's CSS fade mask
+            const winW = fl.pipWin.innerWidth;
+            const winH = fl.pipWin.innerHeight;
+            const targetX = rect.left + (percent * rect.width);
             const tooltipWidth = seekerTooltip.offsetWidth || 35;
-            const leftPx = Math.max(tooltipWidth / 2, Math.min(rect.width - tooltipWidth / 2, percent * rect.width));
-            seekerTooltip.style.left = `${leftPx}px`;
+            const clampedX = Math.max(tooltipWidth / 2, Math.min(winW - tooltipWidth / 2, targetX));
+
+            seekerTooltip.style.left = `${clampedX}px`;
+            seekerTooltip.style.bottom = `${winH - rect.top + 6}px`;
             seekerTooltip.style.opacity = '1';
         });
 
