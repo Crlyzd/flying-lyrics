@@ -566,6 +566,14 @@
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
         chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: fl.activeLyricSource }).catch(() => {});
+
+        const meta = navigator.mediaSession.metadata;
+        if (meta && meta.title && meta.artist) {
+            const key = `${meta.artist} - ${meta.title}`;
+            if (typeof fl.incrementStatsTrack === 'function') {
+                fl.incrementStatsTrack(key);
+            }
+        }
     };
 
     fl.handleMissingLyrics = function () {
@@ -724,6 +732,7 @@
 
     fl.translateExistingLyrics = async function () {
         if (!fl.lyricLines || fl.lyricLines.length === 0) return;
+        if (fl.lyricLines.length === 1 && (fl.lyricLines[0].isWaitingPlaceholder || fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text))) return;
 
         const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
 

@@ -27,6 +27,204 @@
         };
     };
 
+    const EMPTY_STATE_TEXTS = [
+        // Category 1: User Stats
+        { type: "stat", key: "totalSynced", template: "You've synced {val} tracks so far. Nice." },
+        { type: "stat", key: "dailyStreak", template: "Current streak: {val} days of good music." },
+        { type: "stat", key: "totalSynced", template: "{val} songs and counting..." },
+        { type: "stat", key: "hoursListening", template: "You've spent {val} hours reading lyrics." },
+        { type: "stat", key: "favoriteTime", template: "Fun fact: your most active time is {val}." },
+        
+        // Category 2: Funny Memes & Text
+        { type: "meme", text: "Waiting for the beat to drop..." },
+        { type: "meme", text: "Tuning the digital piano..." },
+        { type: "meme", text: "Checking if the aux cord is plugged in..." },
+        { type: "meme", text: "Pigeons can recognize good music. Can you?" },
+        { type: "meme", text: "Loading the next banger..." },
+        { type: "meme", text: "Are you going to play something or just stare at me?" },
+        { type: "meme", text: "Polishing the vinyl..." },
+        { type: "meme", text: "Warming up the vocal cords..." },
+        { type: "meme", text: "Searching the multiverse for lyrics..." },
+        { type: "meme", text: "Did you forget to press play?" },
+        { type: "meme", text: "Mic check, one two, one two..." },
+        { type: "meme", text: "The silence is deafening." },
+        { type: "meme", text: "Vibing in the void..." },
+        { type: "meme", text: "Even silence has a rhythm..." },
+        { type: "meme", text: "Summoning the music gods..." },
+        { type: "meme", text: "Is this John Cage's 4'33\"?" },
+        { type: "meme", text: "Brewing some lo-fi beats..." },
+        { type: "meme", text: "Untangling the headphone wires..." },
+        { type: "meme", text: "Blowing dust off the cartridge..." },
+        { type: "meme", text: "Waiting for the DJ to show up..." },
+        { type: "meme", text: "Looking for the play button..." },
+        { type: "meme", text: "Translating silence into Japanese..." },
+        { type: "meme", text: "Connecting to the music matrix..." },
+        { type: "meme", text: "Charging the flux capacitor..." },
+        { type: "meme", text: "Still waiting..." }
+    ];
+
+    function resolveStatText(item) {
+        if (!fl.userStats) return null;
+        if (item.key === "totalSynced") {
+            const val = fl.userStats.totalSynced || 0;
+            if (val === 0) return null;
+            return item.template.replace("{val}", val);
+        }
+        if (item.key === "dailyStreak") {
+            const val = fl.userStats.dailyStreak || 0;
+            if (val === 0) return null;
+            return item.template.replace("{val}", val);
+        }
+        if (item.key === "hoursListening") {
+            const val = fl.userStats.hoursListening || 0;
+            const formatted = val.toFixed(1);
+            if (parseFloat(formatted) === 0) return null;
+            return item.template.replace("{val}", formatted);
+        }
+        if (item.key === "favoriteTime") {
+            const counts = fl.userStats.timeOfDayCounts || {};
+            let maxCount = 0;
+            let favPeriod = "";
+            for (let p in counts) {
+                if (counts[p] > maxCount) {
+                    maxCount = counts[p];
+                    favPeriod = p;
+                }
+            }
+            if (maxCount === 0 || !favPeriod) return null;
+            return item.template.replace("{val}", favPeriod);
+        }
+        return null;
+    }
+
+    function getResolvedText(idx) {
+        const item = EMPTY_STATE_TEXTS[idx];
+        if (item.type === "stat") {
+            const resolved = resolveStatText(item);
+            if (resolved !== null) return resolved;
+            
+            const memeIndex = (idx * 7) % 25;
+            return EMPTY_STATE_TEXTS[5 + memeIndex].text;
+        }
+        return item.text;
+    }
+
+    fl.drawWaitingState = function (w, h, vmin, maxWidth, anchorOffset) {
+        const cycleTimeMs = 30000;
+        const totalMs = performance.now();
+        const cycleIndex = Math.floor(totalMs / cycleTimeMs);
+        const currentTextIndex = cycleIndex % EMPTY_STATE_TEXTS.length;
+        const nextTextIndex = (cycleIndex + 1) % EMPTY_STATE_TEXTS.length;
+        
+        const timeInCycle = totalMs % cycleTimeMs;
+        const transitionMs = 600;
+        
+        const currentString = getResolvedText(currentTextIndex);
+        const nextString = getResolvedText(nextTextIndex);
+        
+        // Trigger layout update on text index switch to update lyricLines[0] wrapping
+        if (fl.lastEmptyStateIndex !== currentTextIndex) {
+            fl.lastEmptyStateIndex = currentTextIndex;
+            if (fl.lyricLines && fl.lyricLines[0]) {
+                fl.lyricLines[0].text = currentString;
+                fl.lyricLines[0].isWaitingPlaceholder = true;
+            }
+            fl.needsLayoutUpdate = true;
+        }
+        
+        const timeSec = totalMs / 1000;
+        const tColor = (Math.sin(timeSec * 0.4) + 1) / 2;
+        const r = Math.round(140 + (240 - 140) * tColor);
+        const g = Math.round(215 + (155 - 215) * tColor);
+        const b = Math.round(160 + (190 - 160) * tColor);
+        const activeColor = `rgb(${r}, ${g}, ${b})`;
+        
+        // Sync button colors
+        const uiContainer = fl._els?.seekerContainer?.parentElement;
+        if (uiContainer) {
+            uiContainer.style.setProperty('--vibrant-color', activeColor);
+        }
+        
+        const displayFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
+        const mainSize = vmin * 6.5;
+        const lineHeight = mainSize * 1.45; // relaxed line spacing
+        
+        const y = 0;
+        const drawX = 0;
+        
+        fl.ctx.save();
+        fl.ctx.shadowColor = activeColor;
+        fl.ctx.shadowBlur = 15;
+        fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
+        fl.ctx.fillStyle = "#FFFFFF";
+        fl.ctx.textAlign = 'center';
+        
+        if (timeInCycle > cycleTimeMs - transitionMs) {
+            const progress = (timeInCycle - (cycleTimeMs - transitionMs)) / transitionMs;
+            
+            // Draw current text fading out
+            fl.ctx.save();
+            fl.ctx.globalAlpha = 1.0 - progress;
+            const currentLines = fl.getWrapLines(fl.ctx, currentString, maxWidth);
+            const currentY = y - ((currentLines.length - 1) * lineHeight) / 2;
+            fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
+            fl.ctx.restore();
+            
+            // Draw next text fading in
+            fl.ctx.save();
+            fl.ctx.globalAlpha = progress;
+            const nextLines = fl.getWrapLines(fl.ctx, nextString, maxWidth);
+            const nextY = y - ((nextLines.length - 1) * lineHeight) / 2;
+            fl.wrapText(fl.ctx, nextString, drawX, nextY, maxWidth, lineHeight, false, false);
+            fl.ctx.restore();
+        } else {
+            const currentLines = fl.getWrapLines(fl.ctx, currentString, maxWidth);
+            const currentY = y - ((currentLines.length - 1) * lineHeight) / 2;
+            fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
+        }
+        fl.ctx.restore();
+        
+        // Draw Wide Equalizer at the bottom (growing downwards)
+        const barCount = 35;
+        const totalW = maxWidth * 0.65;
+        const barW = (totalW / barCount) * 0.7;
+        const barGap = (totalW / barCount) * 0.3;
+        const startX = -(totalW / 2) + (barW / 2);
+        
+        fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
+        const currentLinesCount = fl.getWrapLines(fl.ctx, currentString, maxWidth).length;
+        const nextLinesCount = fl.getWrapLines(fl.ctx, nextString, maxWidth).length;
+        const maxLines = Math.max(currentLinesCount, nextLinesCount);
+        const textHeightOffset = (maxLines - 1) * lineHeight;
+        
+        const eqY = y + (mainSize * 1.5) + textHeightOffset; // pushed down for relaxed breathing room
+        
+        fl.ctx.save();
+        const grad = fl.ctx.createLinearGradient(0, eqY, 0, eqY + mainSize * 1.2);
+        grad.addColorStop(0, activeColor);
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
+        fl.ctx.fillStyle = grad;
+        fl.ctx.shadowColor = activeColor;
+        fl.ctx.shadowBlur = 10;
+        
+        for (let b = 0; b < barCount; b++) {
+            const distFromCenter = Math.abs(b - (barCount - 1) / 2) / ((barCount - 1) / 2);
+            const bellFactor = Math.exp(-3 * distFromCenter * distFromCenter);
+            
+            const speed = 3.5;
+            const timeScale = timeSec * speed;
+            const noise = 0.3 * Math.sin(timeScale + b * 0.4) +
+                          0.4 * Math.sin(timeScale * 1.6 - b * 0.25) +
+                          0.3 * Math.sin(timeScale * 2.2 + b * 0.7);
+            
+            const maxH = mainSize * 1.1 * bellFactor;
+            const barH = Math.max(mainSize * 0.15, maxH * (0.35 + 0.65 * noise));
+            
+            fl.ctx.fillRect(startX + b * (barW + barGap) - barW / 2, eqY, barW, barH);
+        }
+        fl.ctx.restore();
+    };
+
     fl.renderLoop = function () {
         if (!fl.pipWin || fl.pipWin.closed) return;
 
@@ -37,29 +235,35 @@
         if (nowTitle !== fl.currentTrack) {
             fl.currentTrack = nowTitle;
 
-            // --- INSTANT FLUSH: Clear old lyrics immediately ---
-            fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
-            fl.isCurrentLyricSynced = false;
-            fl.isMissingLyrics = false;
-            fl.needsLayoutUpdate = true;
-            fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
-            if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
-            if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            if (nowTitle === "") {
+                fl.lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
+                fl.lyricLines[0].isWaitingPlaceholder = true;
+                fl.isCurrentLyricSynced = false;
+                fl.isMissingLyrics = false;
+                fl.needsLayoutUpdate = true;
+                fl._els = null;
+                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            } else {
+                // --- INSTANT FLUSH: Clear old lyrics immediately ---
+                fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
+                fl.isCurrentLyricSynced = false;
+                fl.isMissingLyrics = false;
+                fl.needsLayoutUpdate = true;
+                fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
+                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
-            // Reset media element cache so getPlayerState() re-scans on the next call.
-            // On YouTube Music (MSE gapless), the same <video> element is reused across
-            // tracks — clearing this forces a fresh readyState check which will return
-            // safe defaults if the element is still in a mid-transition state.
-            fl._mediaEl = null;
+                // Reset media element cache so getPlayerState() re-scans on the next call.
+                fl._mediaEl = null;
 
-            // Reset time interpolation state. Both the Spotify and YTM DOM branches share
-            // these variables. Clearing them prevents the old track's final position from
-            // being extrapolated into the first frames of the new track.
-            fl.lastTimeStr = "";
-            fl.lastTimeValue = 0;
-            fl.lastUpdateMs = performance.now();
+                // Reset time interpolation state.
+                fl.lastTimeStr = "";
+                fl.lastTimeValue = 0;
+                fl.lastUpdateMs = performance.now();
 
-            fl.fetchLyrics();
+                fl.fetchLyrics();
+            }
         }
 
         // OPT-4: Refresh element cache if not yet populated or canvas was replaced.
@@ -74,6 +278,7 @@
             // Only trigger a DOM repaint if the image actually changed
             if (bg.style.backgroundImage !== newBg) {
                 bg.style.backgroundImage = newBg;
+                bg.classList.remove('bg-waiting');
                 fl.extractPalette(art); // Trigger color extraction
 
                 // Also update the centered art (if in centered mode)
@@ -87,6 +292,14 @@
                 if (typeof fl.updateCenteredArt === 'function') {
                     fl.updateCenteredArt("");
                 }
+            }
+
+            // Only apply animated background when strictly waiting for music
+            const isWaiting = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+            if (isWaiting) {
+                if (!bg.classList.contains('bg-waiting')) bg.classList.add('bg-waiting');
+            } else {
+                if (bg.classList.contains('bg-waiting')) bg.classList.remove('bg-waiting');
             }
         }
 
@@ -130,7 +343,21 @@
         const seekerContainer = fl._els?.seekerContainer;
         const hasTrack = fl.currentTrack && 
                          fl.currentTrack !== "" && 
-                         !(fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Waiting for music...");
+                         !(fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
+
+        // Accumulate listening stats
+        if (hasTrack && !state.paused) {
+            const nowTick = performance.now();
+            if (fl.lastActiveTickMs) {
+                const deltaMs = nowTick - fl.lastActiveTickMs;
+                if (typeof fl.accumulateListeningTime === 'function') {
+                    fl.accumulateListeningTime(deltaMs);
+                }
+            }
+            fl.lastActiveTickMs = nowTick;
+        } else {
+            fl.lastActiveTickMs = null;
+        }
 
         if (seekerContainer) {
             seekerContainer.style.display = hasTrack ? 'block' : 'none';
@@ -324,119 +551,125 @@
         fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
 
         if (!fl.albumCoverMode) {
-            fl.lyricLines.forEach((line, i) => {
-                const entry = fl.cachedLayout[i];
-                if (!entry) return;
-                const y = entry.y;
+            const isWaiting = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+            if (isWaiting) {
+                fl.lyricLines[0].isWaitingPlaceholder = true;
+                fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
+            } else {
+                fl.lyricLines.forEach((line, i) => {
+                    const entry = fl.cachedLayout[i];
+                    if (!entry) return;
+                    const y = entry.y;
 
-                // --- CULLING: Skip drawing off-screen lines ---
-                // Calculate where this line will actually render on the screen
-                const screenY = (h / 2) - fl.scrollPos + anchorOffset + y;
+                    // --- CULLING: Skip drawing off-screen lines ---
+                    // Calculate where this line will actually render on the screen
+                    const screenY = (h / 2) - fl.scrollPos + anchorOffset + y;
 
-                // If it's more than half a full screen-height above or below the view, ignore it.
-                // We give it a generous buffer window so shadows don't abruptly pop in.
-                if (screenY < -h * 0.5 || screenY > h * 1.5) {
-                    return;
-                }
-
-                const dist = Math.abs(i - activeIdx);
-                // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
-                fl.ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
-
-                // OPT-1: O(1) Set lookup for system message detection in the draw pass.
-                const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(line.text);
-                let drawX = 0;
-                if (isSystemMessage) {
-                    fl.ctx.textAlign = 'center';
-                } else if (fl.userLyricAlignment === 'left') {
-                    fl.ctx.textAlign = 'left';
-                    drawX = -(maxWidth / 2);
-                } else if (fl.userLyricAlignment === 'right') {
-                    fl.ctx.textAlign = 'right';
-                    drawX = maxWidth / 2;
-                } else {
-                    fl.ctx.textAlign = 'center';
-                }
-
-                const isCurrent = (i === activeIdx);
-                const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
-
-                // Universal Dark Shadow for all text
-                fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                fl.ctx.shadowBlur = 8;
-
-                // Mirror the layout block's sizing logic exactly so draw positions
-                // match the pre-computed offsets in cachedLayout.
-                const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
-
-                // OPT-2: Reuse the mainSize already computed in the layout pass.
-                // For the active line this avoids a second calculateFitSize → measureText call.
-                const mainSize = entry.mainSize;
-                const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-                const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-
-                // 1. Romaji (Top)
-                if (line.romaji) {
-                    fl.ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
-                    // Revert inactive romaji to light gray for readability
-                    fl.ctx.fillStyle = isCurrent ? fl.currentPalette.romaji : "#DDDDDD";
-                    // Shift up to make room
-                    fl.wrapText(fl.ctx, line.romaji, drawX, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
-                }
-
-                // 2. Original Text (Middle)
-                fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                // Inactive main text stays white, active main text glows (white core if neon)
-                fl.ctx.fillStyle = (isCurrent && !fl.userGlowEnabled) ? fl.currentPalette.vibrant : "#FFFFFF";
-
-                // Draw main text
-                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
-
-                // Draw glow pass for the active line:
-                // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
-                // fixed vibrant glow that already existed (subtle, palette-matched).
-                if (isCurrent) {
-                    if (fl.userGlowEnabled && fl.userGlowStyle === 'rainbow') {
-                        const timeSec = performance.now() / 1000;
-                        const hue = (timeSec * 60) % 360;
-                        fl.ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
-                        fl.ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
-                    } else {
-                        fl.ctx.shadowColor = fl.currentPalette.vibrant;
-                        fl.ctx.strokeStyle = fl.currentPalette.vibrant;
+                    // If it's more than half a full screen-height above or below the view, ignore it.
+                    // We give it a generous buffer window so shadows don't abruptly pop in.
+                    if (screenY < -h * 0.5 || screenY > h * 1.5) {
+                        return;
                     }
 
-                    if (fl.userGlowEnabled && !isFastScroll) {
-                        fl.ctx.lineWidth = Math.max(2, mainSize * 0.04);
-                        // Pulse between 10 and 40 shadow blur over ~2s cycle
-                        const glowTime = performance.now() / 1000;
-                        const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
-                        fl.ctx.shadowBlur = pulsedBlur;
-                        // Request a re-render next frame so the animation is continuous
-                        // (handled by the outer requestAnimationFrame loop in renderLoop)
-                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                    const dist = Math.abs(i - activeIdx);
+                    // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
+                    fl.ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
+
+                    // OPT-1: O(1) Set lookup for system message detection in the draw pass.
+                    const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(line.text);
+                    let drawX = 0;
+                    if (isSystemMessage) {
+                        fl.ctx.textAlign = 'center';
+                    } else if (fl.userLyricAlignment === 'left') {
+                        fl.ctx.textAlign = 'left';
+                        drawX = -(maxWidth / 2);
+                    } else if (fl.userLyricAlignment === 'right') {
+                        fl.ctx.textAlign = 'right';
+                        drawX = maxWidth / 2;
                     } else {
-                        fl.ctx.shadowBlur = 15;
-                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                        fl.ctx.textAlign = 'center';
                     }
-                }
 
-                // 3. Translation (Bottom)
-                if (fl.showTranslation && line.translation) {
-                    // Calculate downward baseline shift for wrapped lyrics
-                    fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                    const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
-                    const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
+                    const isCurrent = (i === activeIdx);
+                    const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
 
+                    // Universal Dark Shadow for all text
                     fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
                     fl.ctx.shadowBlur = 8;
 
-                    fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
-                    fl.ctx.fillStyle = isCurrent ? fl.currentPalette.trans : "#CCCCCC";
+                    // Mirror the layout block's sizing logic exactly so draw positions
+                    // match the pre-computed offsets in cachedLayout.
+                    const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
-                    fl.wrapText(fl.ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
-                }
-            });
+                    // OPT-2: Reuse the mainSize already computed in the layout pass.
+                    // For the active line this avoids a second calculateFitSize → measureText call.
+                    const mainSize = entry.mainSize;
+                    const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
+                    const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
+
+                    // 1. Romaji (Top)
+                    if (line.romaji) {
+                        fl.ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
+                        // Revert inactive romaji to light gray for readability
+                        fl.ctx.fillStyle = isCurrent ? fl.currentPalette.romaji : "#DDDDDD";
+                        // Shift up to make room
+                        fl.wrapText(fl.ctx, line.romaji, drawX, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
+                    }
+
+                    // 2. Original Text (Middle)
+                    fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
+                    // Inactive main text stays white, active main text glows (white core if neon)
+                    fl.ctx.fillStyle = (isCurrent && !fl.userGlowEnabled) ? fl.currentPalette.vibrant : "#FFFFFF";
+
+                    // Draw main text
+                    fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
+
+                    // Draw glow pass for the active line:
+                    // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
+                    // fixed vibrant glow that already existed (subtle, palette-matched).
+                    if (isCurrent) {
+                        if (fl.userGlowEnabled && fl.userGlowStyle === 'rainbow') {
+                            const timeSec = performance.now() / 1000;
+                            const hue = (timeSec * 60) % 360;
+                            fl.ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
+                            fl.ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
+                        } else {
+                            fl.ctx.shadowColor = fl.currentPalette.vibrant;
+                            fl.ctx.strokeStyle = fl.currentPalette.vibrant;
+                        }
+
+                        if (fl.userGlowEnabled && !isFastScroll) {
+                            fl.ctx.lineWidth = Math.max(2, mainSize * 0.04);
+                            // Pulse between 10 and 40 shadow blur over ~2s cycle
+                            const glowTime = performance.now() / 1000;
+                            const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
+                            fl.ctx.shadowBlur = pulsedBlur;
+                            // Request a re-render next frame so the animation is continuous
+                            // (handled by the outer requestAnimationFrame loop in renderLoop)
+                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                        } else {
+                            fl.ctx.shadowBlur = 15;
+                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                        }
+                    }
+
+                    // 3. Translation (Bottom)
+                    if (fl.showTranslation && line.translation) {
+                        // Calculate downward baseline shift for wrapped lyrics
+                        fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
+                        const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
+                        const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
+
+                        fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                        fl.ctx.shadowBlur = 8;
+
+                        fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
+                        fl.ctx.fillStyle = isCurrent ? fl.currentPalette.trans : "#CCCCCC";
+
+                        fl.wrapText(fl.ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
+                    }
+                });
+            }
         }
 
         fl.ctx.restore();
@@ -447,7 +680,8 @@
         // while glow is active — but glow forces a repaint via the continuous rAF loop
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
-        if (isIdle && !fl.userGlowEnabled) {
+        const isWaitingState = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+        if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
             fl.pipWin.setTimeout(() => fl.pipWin.requestAnimationFrame(fl.renderLoop), 250);
         } else {
             fl.pipWin.requestAnimationFrame(fl.renderLoop);
