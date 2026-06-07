@@ -105,6 +105,16 @@
                 s.onload = function() { 
                     this.remove(); 
                 };
+                s.onerror = function() {
+                    chrome.runtime.sendMessage({
+                        type: 'TRACK_EVENT',
+                        payload: {
+                            eventName: 'context_failure',
+                            params: { failure_reason: 'script_injection_failed' }
+                        }
+                    });
+                    this.remove();
+                };
                 (document.head || document.documentElement).appendChild(s);
             }
         }

@@ -124,7 +124,17 @@
         const meta = navigator.mediaSession.metadata;
 
         if (!meta || !meta.title) {
-            if (retryCount < 5) setTimeout(() => fl.fetchLyrics(retryCount + 1), 1000);
+            if (retryCount < 5) {
+                setTimeout(() => fl.fetchLyrics(retryCount + 1), 1000);
+            } else if (retryCount === 5) {
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'context_failure',
+                        params: { failure_reason: 'metadata_extraction_failed' }
+                    }
+                });
+            }
             return;
         }
 
@@ -139,10 +149,37 @@
             fl.applySavedSyncOffset(key);
 
             // Tier 1: in-memory cache (instant, same session)
-            if (fl.checkLyricsCache(key)) return;
+            if (fl.checkLyricsCache(key)) {
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'cache_check',
+                        params: { result: 'hit', tier: 'memory' }
+                    }
+                });
+                return;
+            }
 
             // Tier 2: chrome.storage.local (survives tab refreshes and browser restarts)
-            if (await fl.loadFromPersistentCache(key)) return;
+            if (await fl.loadFromPersistentCache(key)) {
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'cache_check',
+                        params: { result: 'hit', tier: 'persistent' }
+                    }
+                });
+                return;
+            }
+
+            // Tier 3 Cache Miss
+            chrome.runtime.sendMessage({
+                type: 'TRACK_EVENT',
+                payload: {
+                    eventName: 'cache_check',
+                    params: { result: 'miss' }
+                }
+            });
 
             // Tier 3: network fetch
             let raw = await fl.resolveManualOverride(key, abortSignal);
@@ -189,8 +226,23 @@
             }
 
             if (!raw) {
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'lyrics_fetch_result',
+                        params: { status: 'failure', error_type: 'no_match' }
+                    }
+                });
                 fl.handleMissingLyrics();
                 return;
+            } else {
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'lyrics_fetch_result',
+                        params: { status: 'success' }
+                    }
+                });
             }
 
             const lines = raw.split('\n');
@@ -239,6 +291,14 @@
                 console.log("FL: Aborted previous fetchLyrics pipeline (track changed).");
                 return;
             }
+            const errType = e.name === 'AbortError' || e.message?.includes('timeout') ? 'timeout' : 'network_error';
+            chrome.runtime.sendMessage({
+                type: 'TRACK_EVENT',
+                payload: {
+                    eventName: 'lyrics_fetch_result',
+                    params: { status: 'failure', error_type: errType }
+                }
+            });
             fl.lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
             fl.isCurrentLyricSynced = false;
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
@@ -424,6 +484,7 @@
     }
 
     fl.parseLrcOrGeneratePseudoSync = function (lines, rawStr) {
+        const startTime = performance.now();
         if (typeof fl.wrapCache !== 'undefined') fl.wrapCache.clear();
         const temp = [];
 
@@ -460,12 +521,23 @@
         }
 
         fl.lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
+
+        const parseDuration = Math.round(performance.now() - startTime);
+        chrome.runtime.sendMessage({
+            type: 'TRACK_EVENT',
+            payload: {
+                eventName: 'processing_duration',
+                params: { parse_time_ms: parseDuration }
+            }
+        });
     }
 
+    let lastPlayerNotFoundLog = 0;
     fl.getPlayerState = function () {
         let currentTime = 0;
         let duration = 1;
         let paused = true;
+        let playerFound = false;
 
         // --- PLATFORM ADAPTER EXTRACTION ---
         const adapter = fl.getActiveAdapter?.();
@@ -479,6 +551,7 @@
             }
 
             if (currentVal !== null && !isNaN(currentVal)) {
+                playerFound = true;
                 if (currentVal !== fl.lastTimeValue) {
                     fl.lastTimeValue = currentVal;
                     fl.lastUpdateMs = performance.now();
@@ -511,7 +584,23 @@
 
         const activeMedia = fl._mediaEl;
         if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
+            playerFound = true;
             return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
+        }
+
+        // Throttled context failure reporting: if rendering but no active player element is found
+        if (!playerFound && fl.pipWin && !fl.pipWin.closed) {
+            const now = Date.now();
+            if (now - lastPlayerNotFoundLog > 30000) { // Log at most once per 30 seconds
+                lastPlayerNotFoundLog = now;
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'context_failure',
+                        params: { failure_reason: 'player_element_not_found' }
+                    }
+                });
+            }
         }
 
         return { currentTime, duration, paused };
@@ -611,6 +700,15 @@
                 const combinedText = chunk.map(q => q.text).join(DELIMITER);
                 try {
                     const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`);
+                    if (res.status === 429) {
+                        chrome.runtime.sendMessage({
+                            type: 'TRACK_EVENT',
+                            payload: {
+                                eventName: 'rate_limited',
+                                params: { url: 'https://translate.googleapis.com/translate_a/single' }
+                            }
+                        });
+                    }
                     if (!res.ok) return resolve();
 
                     const data = await res.json();

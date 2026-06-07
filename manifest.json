@@ -22,7 +22,8 @@
     "https://translate.googleapis.com/*",
     "https://i.scdn.co/*",
     "https://music.163.com/*",
-    "https://*.spotifycdn.com/*"
+    "https://*.spotifycdn.com/*",
+    "https://www.google-analytics.com/*"
   ],
   "content_scripts": [
     {

@@ -55,6 +55,36 @@
     fl.lastUpdateMs = performance.now();
     fl.needsLayoutUpdate = false;
 
+    let prefTimeout = null;
+    function reportPreferencesDebounced() {
+        if (prefTimeout) clearTimeout(prefTimeout);
+        prefTimeout = setTimeout(() => {
+            chrome.runtime.sendMessage({
+                type: 'TRACK_EVENT',
+                payload: {
+                    eventName: 'user_preferences',
+                    params: {
+                        showTranslation: fl.showTranslation,
+                        translationLang: fl.translationLang,
+                        globalSyncOffset: fl.globalSyncOffset,
+                        autoLaunch: fl.autoLaunch,
+                        customFont: fl.userFontFamily,
+                        fontSize: fl.userFontSize,
+                        bgBlur: fl.userBgBlur,
+                        bgDarkness: fl.userBgDarkness,
+                        coverMode: fl.userCoverMode,
+                        glowEnabled: fl.userGlowEnabled,
+                        glowStyle: fl.userGlowStyle,
+                        lyricAlignment: fl.userLyricAlignment,
+                        lineSpacing: fl.userLineSpacing,
+                        verticalAnchor: fl.userVerticalAnchor,
+                        albumCoverMode: fl.albumCoverMode
+                    }
+                }
+            });
+        }, 1000);
+    }
+
     // Load initial settings (main + visual customization) ONCE
     chrome.storage.local.get(fl.defaults, (items) => {
         // Functional
@@ -83,6 +113,9 @@
         if (typeof fl.applyVisualSettings === 'function') {
             fl.applyVisualSettings();
         }
+
+        // Report initial preferences snapshot
+        reportPreferencesDebounced();
     });
 
     // Listen for updates
@@ -212,6 +245,7 @@
                 // Re-apply visuals immediately — forces or releases the cover mode override
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
+            reportPreferencesDebounced();
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
         } else if (msg.type === 'GET_CURRENT_TRACK') {

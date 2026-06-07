@@ -247,15 +247,31 @@ function normalizeNetease(song) {
  * @returns {Promise<Response>}
  */
 function fetchWithTimeout(url, timeoutMs) {
+    const startTime = performance.now();
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
+    const cleanUrl = url.split('?')[0];
+
     return fetch(url, { signal: controller.signal })
         .then(res => {
             clearTimeout(id);
+            const latency = Math.round(performance.now() - startTime);
+            // Log api_latency event anonymously
+            if (typeof trackEvent === 'function') {
+                trackEvent('api_latency', { url: cleanUrl, latency_ms: latency, status: res.status });
+                if (res.status === 429) {
+                    trackEvent('rate_limited', { url: cleanUrl });
+                }
+            }
             return res;
         })
         .catch(err => {
             clearTimeout(id);
+            const latency = Math.round(performance.now() - startTime);
+            if (typeof trackEvent === 'function') {
+                const errName = err.name === 'AbortError' ? 'timeout' : (err.message || err.name || 'network_error');
+                trackEvent('api_latency', { url: cleanUrl, latency_ms: latency, error: errName });
+            }
             throw err;
         });
 }

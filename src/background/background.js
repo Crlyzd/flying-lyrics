@@ -1,12 +1,19 @@
-// Import unified search engine and romanizer helper
-importScripts('romanizer.js', 'searchEngine.js');
+// Import telemetry module, unified search engine, and romanizer helper
+importScripts('analytics.js', 'romanizer.js', 'searchEngine.js');
 
 chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
 
-    // Open the update notification page whenever the Web Store pushes an update.
-    // ("install" is skipped so first-time installs don't see the review prompt immediately.)
-    if (details.reason === 'update') {
+    if (details.reason === 'install') {
+        // Initialize consent status to true (opt-out default)
+        chrome.storage.local.set({ telemetryConsent: true }, () => {
+            chrome.tabs.create({
+                url: chrome.runtime.getURL('src/pages/welcome.html')
+            });
+        });
+    } else if (details.reason === 'update') {
+        // Open the update notification page whenever the Web Store pushes an update.
+        // ("install" is skipped so first-time installs don't see the review prompt immediately.)
         chrome.tabs.create({
             url: chrome.runtime.getURL('src/pages/update.html')
         });
@@ -16,6 +23,15 @@ chrome.runtime.onInstalled.addListener((details) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // ── Telemetry event routing ──────────────────────────────────────────────
+    if (message.type === 'TRACK_EVENT') {
+        const { eventName, params } = message.payload;
+        trackEvent(eventName, params)
+            .then(success => sendResponse({ success }))
+            .catch(() => sendResponse({ success: false }));
+        return true;
+    }
+
     if (message.type === 'FOCUS_TAB' && sender.tab) {
         // 1. Focus the tab itself
         chrome.tabs.update(sender.tab.id, { active: true });

@@ -16,6 +16,7 @@
     fl.ICON_VOL_MUTE = ICON_VOL_MUTE;
 
     fl.injectStructure = function () {
+        const startTime = performance.now();
         if (!fl.pipWin) return;
         const doc = fl.pipWin.document;
 
@@ -261,6 +262,15 @@
 
         seekerContainer.addEventListener('mouseleave', () => {
             seekerTooltip.style.opacity = '0';
+        });
+
+        const injectDuration = Math.round(performance.now() - startTime);
+        chrome.runtime.sendMessage({
+            type: 'TRACK_EVENT',
+            payload: {
+                eventName: 'processing_duration',
+                params: { render_time_ms: injectDuration }
+            }
         });
     }
 
