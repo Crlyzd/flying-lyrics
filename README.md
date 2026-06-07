@@ -36,10 +36,18 @@
 
 ### 🕹️ Full Control at Your Fingertips
 * **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
+* **Built-in Lyrics Editor:** Notice a typo or a lyric that's out of sync? Open the new popup editor to manually fix the text or timing tags, and save your custom version directly to your extension.
 * **Built-in Controls:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
+
+### ⚡ Smarter Performance & Polished Experience
+* **Smarter Search Accuracy:** Finding lyrics is now more reliable! The extension automatically cleans up and matches song titles across Spotify and YouTube Music, and even tries alternate searches if a song isn't found immediately.
+* **Silky Smooth Animations:** The lyrics scrolling engine has been completely rebuilt to be incredibly lightweight. It heavily reduces CPU usage so your PC stays fast while delivering butter-smooth cinematic animations.
+* **Welcome Onboarding Guide:** First time installing? A brand-new setup guide will walk you through exactly how to launch the floating window and use the player.
+* **Handy Tooltips & Indicators:** Hover over the progress bar to see exact timestamps before skipping, and get clearer status bubbles that tell you if lyrics are synced, unsynced, or still retrying.
+* **Privacy-First Performance Tracking:** To make Flying Lyrics faster and better, we optionally collect anonymous speed metrics (like how fast lyrics load). You have full control with an easy opt-out switch in the welcome screen.
 
 <img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/8c0c22a6-f855-494b-8fcc-b02c8c3aea76" />
 <img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/50dfdf8f-87a0-45a2-9433-131629c41284" />
