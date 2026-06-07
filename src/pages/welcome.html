@@ -59,18 +59,17 @@
             font-size: 24px;
             font-weight: 800;
             letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--primary-color);
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .logo svg {
+        .logo img {
             width: 28px;
             height: 28px;
-            stroke: var(--primary-color);
+            border-radius: 6px;
+            object-fit: contain;
         }
 
         main {
@@ -107,9 +106,7 @@
         }
 
         .title-group h1 span {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #a5b4fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--primary-color);
         }
 
         .subtitle {
@@ -449,12 +446,7 @@
 
     <header>
         <div class="logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                stroke-linejoin="round">
-                <path d="M9 18V5l12-2v13"></path>
-                <circle cx="6" cy="18" r="3"></circle>
-                <circle cx="18" cy="16" r="3"></circle>
-            </svg>
+            <img src="../../assets/icons/icon.png" alt="Flying Lyrics Logo">
             Flying Lyrics
         </div>
     </header>

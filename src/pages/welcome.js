@@ -26,14 +26,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3. CTA closes the onboarding tab
+    // 3. CTA closes the onboarding tab and redirects to music player
     btnClose.addEventListener('click', () => {
-        chrome.tabs.getCurrent((tab) => {
-            if (tab && tab.id) {
-                chrome.tabs.remove(tab.id);
+        chrome.tabs.query({}, (tabs) => {
+            const musicTab = tabs.find(t => 
+                t.url && (t.url.includes('open.spotify.com') || t.url.includes('music.youtube.com'))
+            );
+
+            const closeWelcomeTab = () => {
+                chrome.tabs.getCurrent((tab) => {
+                    if (tab && tab.id) {
+                        chrome.tabs.remove(tab.id);
+                    } else {
+                        window.close();
+                    }
+                });
+            };
+
+            if (musicTab) {
+                chrome.tabs.update(musicTab.id, { active: true });
+                chrome.windows.update(musicTab.windowId, { focused: true }, () => {
+                    closeWelcomeTab();
+                });
             } else {
-                // Fallback if tab context is not fully loaded
-                window.close();
+                chrome.tabs.create({ url: 'https://music.youtube.com' }, () => {
+                    closeWelcomeTab();
+                });
             }
         });
     });
