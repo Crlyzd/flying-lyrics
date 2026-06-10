@@ -547,6 +547,14 @@
             }
         }
 
+        const shouldShowLoadingPlaceholder =
+            fl.activePipType === 'video' &&
+            !fl.canvasBgImage &&
+            (fl.albumCoverMode || (fl.isMissingLyrics && fl.lyricLines.length === 0));
+
+        const isWaitingState = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
+            shouldShowLoadingPlaceholder;
+
         if (fl.activePipType === 'video') {
             if (!fl.canvas) {
                 return fl.pipWin ? window.requestAnimationFrame(fl.renderLoop) : null;
@@ -655,8 +663,9 @@
                 const gracePeriodOver = timeSinceLaunch > 400;
 
                 // Sync play/pause state (only after grace period to avoid black-frame freeze)
-                if (gracePeriodOver && state.paused !== video.paused) {
-                    if (state.paused) {
+                const shouldPauseVideo = state.paused && !isWaitingState;
+                if (gracePeriodOver && shouldPauseVideo !== video.paused) {
+                    if (shouldPauseVideo) {
                         video.pause();
                     } else {
                         video.play().catch(() => { });
@@ -847,11 +856,6 @@
         // else to render (albumCoverMode=true OR lyrics are missing), the canvas would
         // otherwise be solid black. Show the waiting animation regardless of albumCoverMode
         // so the user sees something meaningful while the image loads.
-        const shouldShowLoadingPlaceholder =
-            fl.activePipType === 'video' &&
-            !fl.canvasBgImage &&
-            (fl.albumCoverMode || (fl.isMissingLyrics && fl.lyricLines.length === 0));
-
         if (shouldShowLoadingPlaceholder) {
             fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
         } else if (!fl.albumCoverMode) {
@@ -988,8 +992,6 @@
         // while glow is active — but glow forces a repaint via the continuous rAF loop
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
-        const isWaitingState = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
-            shouldShowLoadingPlaceholder; // also animates when album art hasn't loaded yet
         const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
