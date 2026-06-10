@@ -34,7 +34,7 @@
         { type: "stat", key: "totalSynced", template: "{val} songs and counting..." },
         { type: "stat", key: "hoursListening", template: "You've spent {val} hours reading lyrics." },
         { type: "stat", key: "favoriteTime", template: "Fun fact: your most active time is {val}." },
-        
+
         // Category 2: Funny Memes & Text
         { type: "meme", text: "Waiting for the beat to drop..." },
         { type: "meme", text: "Tuning the digital piano..." },
@@ -102,7 +102,7 @@
         if (item.type === "stat") {
             const resolved = resolveStatText(item);
             if (resolved !== null) return resolved;
-            
+
             const memeIndex = (idx * 7) % 25;
             return EMPTY_STATE_TEXTS[5 + memeIndex].text;
         }
@@ -115,13 +115,13 @@
         const cycleIndex = Math.floor(totalMs / cycleTimeMs);
         const currentTextIndex = cycleIndex % EMPTY_STATE_TEXTS.length;
         const nextTextIndex = (cycleIndex + 1) % EMPTY_STATE_TEXTS.length;
-        
+
         const timeInCycle = totalMs % cycleTimeMs;
         const transitionMs = 600;
-        
+
         const currentString = getResolvedText(currentTextIndex);
         const nextString = getResolvedText(nextTextIndex);
-        
+
         // Trigger layout update on text index switch to update lyricLines[0] wrapping
         if (fl.lastEmptyStateIndex !== currentTextIndex) {
             fl.lastEmptyStateIndex = currentTextIndex;
@@ -131,37 +131,37 @@
             }
             fl.needsLayoutUpdate = true;
         }
-        
+
         const timeSec = totalMs / 1000;
         const tColor = (Math.sin(timeSec * 0.4) + 1) / 2;
         const r = Math.round(140 + (240 - 140) * tColor);
         const g = Math.round(215 + (155 - 215) * tColor);
         const b = Math.round(160 + (190 - 160) * tColor);
         const activeColor = `rgb(${r}, ${g}, ${b})`;
-        
+
         // Sync button colors
         const uiContainer = fl._els?.seekerContainer?.parentElement;
         if (uiContainer) {
             uiContainer.style.setProperty('--vibrant-color', activeColor);
         }
-        
+
         const displayFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
         const mainSize = vmin * 6.5;
         const lineHeight = mainSize * 1.45; // relaxed line spacing
-        
+
         const y = 0;
         const drawX = 0;
-        
+
         fl.ctx.save();
         fl.ctx.shadowColor = activeColor;
         fl.ctx.shadowBlur = 15;
         fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
         fl.ctx.fillStyle = "#FFFFFF";
         fl.ctx.textAlign = 'center';
-        
+
         if (timeInCycle > cycleTimeMs - transitionMs) {
             const progress = (timeInCycle - (cycleTimeMs - transitionMs)) / transitionMs;
-            
+
             // Draw current text fading out
             fl.ctx.save();
             fl.ctx.globalAlpha = 1.0 - progress;
@@ -169,7 +169,7 @@
             const currentY = y - ((currentLines.length - 1) * lineHeight) / 2;
             fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
             fl.ctx.restore();
-            
+
             // Draw next text fading in
             fl.ctx.save();
             fl.ctx.globalAlpha = progress;
@@ -183,22 +183,22 @@
             fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
         }
         fl.ctx.restore();
-        
+
         // Draw Wide Equalizer at the bottom (growing downwards)
         const barCount = 35;
         const totalW = maxWidth * 0.65;
         const barW = (totalW / barCount) * 0.7;
         const barGap = (totalW / barCount) * 0.3;
         const startX = -(totalW / 2) + (barW / 2);
-        
+
         fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
         const currentLinesCount = fl.getWrapLines(fl.ctx, currentString, maxWidth).length;
         const nextLinesCount = fl.getWrapLines(fl.ctx, nextString, maxWidth).length;
         const maxLines = Math.max(currentLinesCount, nextLinesCount);
         const textHeightOffset = (maxLines - 1) * lineHeight;
-        
+
         const eqY = y + (mainSize * 1.5) + textHeightOffset; // pushed down for relaxed breathing room
-        
+
         fl.ctx.save();
         const grad = fl.ctx.createLinearGradient(0, eqY, 0, eqY + mainSize * 1.2);
         grad.addColorStop(0, activeColor);
@@ -206,45 +206,129 @@
         fl.ctx.fillStyle = grad;
         fl.ctx.shadowColor = activeColor;
         fl.ctx.shadowBlur = 10;
-        
+
         for (let b = 0; b < barCount; b++) {
             const distFromCenter = Math.abs(b - (barCount - 1) / 2) / ((barCount - 1) / 2);
             const bellFactor = Math.exp(-3 * distFromCenter * distFromCenter);
-            
+
             const speed = 3.5;
             const timeScale = timeSec * speed;
             const noise = 0.3 * Math.sin(timeScale + b * 0.4) +
-                          0.4 * Math.sin(timeScale * 1.6 - b * 0.25) +
-                          0.3 * Math.sin(timeScale * 2.2 + b * 0.7);
-            
+                0.4 * Math.sin(timeScale * 1.6 - b * 0.25) +
+                0.3 * Math.sin(timeScale * 2.2 + b * 0.7);
+
             const maxH = mainSize * 1.1 * bellFactor;
             const barH = Math.max(mainSize * 0.15, maxH * (0.35 + 0.65 * noise));
-            
+
             fl.ctx.fillRect(startX + b * (barW + barGap) - barW / 2, eqY, barW, barH);
         }
         fl.ctx.restore();
     };
 
     fl.drawCanvasBackground = function (w, h) {
-        if (fl.activePipType !== 'video') return;
-
         const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
+        if (!isWaiting && fl.activePipType !== 'video') return;
+
         if (isWaiting) {
-            // Draw animated aurora gradient matching the CSS waiting-aurora
-            const time = performance.now() * 0.00015; // slow shifting speed
-            const x1 = w * (0.5 + 0.5 * Math.cos(time));
-            const y1 = h * (0.5 + 0.5 * Math.sin(time));
-            const x2 = w * (0.5 + 0.5 * Math.cos(time + Math.PI));
-            const y2 = h * (0.5 + 0.5 * Math.sin(time + Math.PI));
+            // --- AURORA SLOSH: three soft radial blobs (green, blue, purple) ---
+            // Each blob has an independently shifting center using different sin/cos
+            // frequencies, so they drift past each other in a slow organic slosh.
+            const t = performance.now() * 0.0002; // master time (slow)
+            const diag = Math.sqrt(w * w + h * h);
+            const blobR = diag * 0.65; // radius large enough to fill the canvas softly
 
-            const grad = fl.ctx.createLinearGradient(x1, y1, x2, y2);
-            grad.addColorStop(0, '#0d1e16');
-            grad.addColorStop(0.3 + 0.1 * Math.sin(time * 2), '#240d1d');
-            grad.addColorStop(0.6 + 0.1 * Math.cos(time * 1.5), '#12281d');
-            grad.addColorStop(1, '#2c1024');
-
-            fl.ctx.fillStyle = grad;
+            // Fill base dark background first
+            fl.ctx.fillStyle = '#060a0f';
             fl.ctx.fillRect(0, 0, w, h);
+
+            // Composite mode: 'lighter' adds blob colors together where they overlap,
+            // producing the bright aurora mixing effect.
+            fl.ctx.globalCompositeOperation = 'lighter';
+
+            const blobs = [
+                // [cx_offset_cos_freq, cy_offset_sin_freq, phase, innerColor, outerAlpha]
+                { cx: w * (0.4 + 0.25 * Math.cos(t * 0.7)), cy: h * (0.35 + 0.22 * Math.sin(t * 0.5)), color: 'rgba(20, 190, 100, 0.27)' }, // green (30% darker)
+                { cx: w * (0.6 + 0.22 * Math.cos(t * 0.4 + 1.2)), cy: h * (0.55 + 0.28 * Math.sin(t * 0.65 + 2)), color: 'rgba(30, 80, 200, 0.20)' }, // blue (30% darker)
+                { cx: w * (0.5 + 0.30 * Math.cos(t * 0.55 + 2.5)), cy: h * (0.45 + 0.20 * Math.sin(t * 0.45 + 1)), color: 'rgba(120, 30, 200, 0.18)' }, // purple (30% darker)
+            ];
+
+            for (const blob of blobs) {
+                const grad = fl.ctx.createRadialGradient(blob.cx, blob.cy, 0, blob.cx, blob.cy, blobR);
+                grad.addColorStop(0, blob.color);
+                grad.addColorStop(0.5, blob.color.replace(/[\d.]+\)$/, '0.07)')); // 30% darker intermediate stop
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                fl.ctx.fillStyle = grad;
+                fl.ctx.fillRect(0, 0, w, h);
+            }
+
+            // Restore default composite mode before any subsequent drawing
+            fl.ctx.globalCompositeOperation = 'source-over';
+
+            // --- SPARKLES / STARS EFFECT ---
+            if (!fl.waitingSparkles) {
+                fl.waitingSparkles = [];
+                for (let i = 0; i < 25; i++) {
+                    const maxOpacity = (0.3 + Math.random() * 0.5) * 0.7; // 30% reduction (multiplied by 0.7)
+                    fl.waitingSparkles.push({
+                        x: Math.random(),
+                        y: Math.random(),
+                        size: 1.5 + Math.random() * 2,
+                        opacity: Math.random() * maxOpacity,
+                        maxOpacity: maxOpacity,
+                        speed: (0.005 + Math.random() * 0.01) / 6, // 6 times longer fade in/out (divided by 6)
+                        phase: Math.random() > 0.5 ? 'in' : 'out'
+                    });
+                }
+            }
+
+            for (const s of fl.waitingSparkles) {
+                // Update opacity
+                if (s.phase === 'in') {
+                    s.opacity += s.speed;
+                    if (s.opacity >= s.maxOpacity) {
+                        s.opacity = s.maxOpacity;
+                        s.phase = 'out';
+                    }
+                } else {
+                    s.opacity -= s.speed;
+                    if (s.opacity <= 0) {
+                        s.opacity = 0;
+                        s.x = Math.random();
+                        s.y = Math.random();
+                        s.size = 1.5 + Math.random() * 2;
+                        s.maxOpacity = (0.3 + Math.random() * 0.5) * 0.7; // 30% reduction (multiplied by 0.7)
+                        s.speed = (0.005 + Math.random() * 0.01) / 6; // 6 times longer fade (divided by 6)
+                        s.phase = 'in';
+                    }
+                }
+
+                // Draw sparkle
+                const sx = s.x * w;
+                const sy = s.y * h;
+
+                fl.ctx.save();
+                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+                fl.ctx.shadowColor = '#ffffff';
+                fl.ctx.shadowBlur = s.size * 2;
+
+                // Core dot
+                fl.ctx.beginPath();
+                fl.ctx.arc(sx, sy, s.size * 0.4, 0, Math.PI * 2);
+                fl.ctx.fill();
+
+                // Cross flares
+                fl.ctx.beginPath();
+                fl.ctx.moveTo(sx - s.size * 2, sy);
+                fl.ctx.lineTo(sx + s.size * 2, sy);
+                fl.ctx.moveTo(sx, sy - s.size * 2);
+                fl.ctx.lineTo(sx, sy + s.size * 2);
+                fl.ctx.lineWidth = 0.6;
+                fl.ctx.strokeStyle = `rgba(255, 255, 255, ${s.opacity * 0.5})`;
+                fl.ctx.stroke();
+
+                fl.ctx.restore();
+            }
+
             return;
         }
 
@@ -366,11 +450,11 @@
         }
 
         // Auto-heal/re-fetch if duration becomes valid (transitioned from <= 5 to > 5)
-        if (fl.currentTrack && 
+        if (fl.currentTrack &&
             (fl.isMissingLyrics || (fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...")) &&
-            state.duration > 5 && 
+            state.duration > 5 &&
             (!fl.lastKnownValidDuration || fl.lastKnownValidDuration <= 5)) {
-            
+
             console.log(`FL: Duration became valid (${state.duration}s). Re-fetching lyrics...`);
             fl.fetchLyrics();
         }
@@ -434,7 +518,6 @@
                     if (bg.style.backgroundImage.includes('url(')) {
                         bg.style.backgroundImage = 'none';
                     }
-                    bg.classList.remove('bg-waiting');
                     if (fl.lastExtractedArt !== art) {
                         fl.extractPalette(art);
                         if (typeof fl.updateCenteredArt === 'function') {
@@ -446,7 +529,6 @@
                     // Only trigger a DOM repaint if the image actually changed
                     if (bg.style.backgroundImage !== newBg) {
                         bg.style.backgroundImage = newBg;
-                        bg.classList.remove('bg-waiting');
                         fl.extractPalette(art); // Trigger color extraction
 
                         // Also update the centered art (if in centered mode)
@@ -461,15 +543,6 @@
                     if (typeof fl.updateCenteredArt === 'function') {
                         fl.updateCenteredArt("");
                     }
-                }
-
-                // Only apply animated background when strictly waiting for music
-                const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
-                if (isWaiting) {
-                    if (bg.style.background) bg.style.background = '';
-                    if (!bg.classList.contains('bg-waiting')) bg.classList.add('bg-waiting');
-                } else {
-                    if (bg.classList.contains('bg-waiting')) bg.classList.remove('bg-waiting');
                 }
             }
         }
@@ -518,9 +591,9 @@
 
         // --- OPT-4: Use cached element refs for per-frame DOM writes ---
         const seekerContainer = fl._els?.seekerContainer;
-        const hasTrack = fl.currentTrack && 
-                         fl.currentTrack !== "" && 
-                         !((fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) || (state.paused && state.duration <= 5));
+        const hasTrack = fl.currentTrack &&
+            fl.currentTrack !== "" &&
+            !((fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) || (state.paused && state.duration <= 5));
 
         // Accumulate listening stats
         if (hasTrack && !state.paused) {
@@ -586,11 +659,11 @@
                     if (state.paused) {
                         video.pause();
                     } else {
-                        video.play().catch(() => {});
+                        video.play().catch(() => { });
                     }
                 } else if (!gracePeriodOver && video.paused) {
                     // During grace period: keep video playing so canvas stream stays live
-                    video.play().catch(() => {});
+                    video.play().catch(() => { });
                 }
 
                 // Sync muted state
@@ -916,7 +989,7 @@
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
         const isWaitingState = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
-                               shouldShowLoadingPlaceholder; // also animates when album art hasn't loaded yet
+            shouldShowLoadingPlaceholder; // also animates when album art hasn't loaded yet
         const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;

@@ -30,18 +30,6 @@ body {
     background-color: #121212;
 }
 
-.bg-waiting {
-    background: linear-gradient(-45deg, #0d1e16, #240d1d, #12281d, #2c1024, #0a0d0a);
-    background-size: 400% 400%;
-    animation: waiting-aurora 15s ease infinite;
-}
-
-@keyframes waiting-aurora {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
 /* Dark overlay — opacity is controlled at runtime via applyVisualSettings() */
 #bg-darkness {
     position: absolute;
