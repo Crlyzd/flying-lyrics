@@ -1,6 +1,21 @@
 (() => {
     const fl = window.FLYING_LYRICS = window.FLYING_LYRICS || {};
 
+    let cachedMedia = null;
+    const getSpotifyMedia = () => {
+        const medias = document.querySelectorAll('video, audio');
+        const uiDuration = fl.adapters?.spotify?.getDuration ? fl.adapters.spotify.getDuration() : null;
+        if (uiDuration && uiDuration > 1) {
+            const match = Array.from(medias).find(m => m.duration && Math.abs(m.duration - uiDuration) < 2);
+            if (match) return match;
+        }
+        if (cachedMedia && document.body.contains(cachedMedia) && cachedMedia.readyState >= 2 && cachedMedia.duration > 0 && !cachedMedia.ended) {
+            return cachedMedia;
+        }
+        cachedMedia = Array.from(medias).find(m => m.readyState >= 2 && m.duration > 0);
+        return cachedMedia;
+    };
+
     // --- PLATFORM ADAPTERS ---
     fl.adapters = {
         spotify: {
@@ -14,8 +29,22 @@
                 return durationEl ? (fl.parseTime ? fl.parseTime(durationEl.textContent) : 1) : null;
             },
             isPaused: () => {
+                const media = getSpotifyMedia();
+                if (media) return media.paused;
+
                 const playBtn = document.querySelector('[data-testid="control-button-playpause"]');
-                return playBtn ? playBtn.getAttribute('aria-label') === 'Play' : true;
+                if (playBtn) {
+                    const svg = playBtn.querySelector('svg');
+                    const path = svg ? svg.querySelector('path') : null;
+                    if (path) {
+                        const d = path.getAttribute('d') || '';
+                        const zCount = (d.match(/z/gi) || []).length;
+                        if (zCount > 1) return false;
+                        if (zCount === 1) return true;
+                    }
+                    return playBtn.getAttribute('aria-label') === 'Play';
+                }
+                return true;
             },
             getCoverArt: () => {
                 const spotiImg = document.querySelector('[data-testid="now-playing-widget"] img') ||
@@ -35,6 +64,19 @@
                 document.querySelector('[data-testid="volume-bar-toggle-mute-button"]')?.click();
             },
             isMuted: () => {
+                const media = getSpotifyMedia();
+                if (media) return media.muted || media.volume === 0;
+
+                const volumeInput = document.querySelector('[data-testid="volume-bar"] input') || 
+                                    document.querySelector('input[aria-label="Change volume"]') ||
+                                    document.querySelector('[data-testid="volume-bar"] [role="slider"]');
+                if (volumeInput) {
+                    const val = volumeInput.value || volumeInput.getAttribute('aria-valuenow');
+                    if (val !== null && val !== undefined) {
+                        return parseFloat(val) === 0;
+                    }
+                }
+
                 const muteToggleBtn = document.querySelector('[data-testid="volume-bar-toggle-mute-button"]');
                 return muteToggleBtn ? muteToggleBtn.getAttribute('aria-label') === 'Unmute' : false;
             },
