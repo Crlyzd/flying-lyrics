@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Slide navigation
     const popupSlides = document.getElementById('popup-slides');
     const btnOpenCustomize = document.getElementById('btn-open-customize');
+    const btnOpenHelp = document.getElementById('btn-open-help');
     const btnBack = document.getElementById('btn-back');
 
     // Customization controls
@@ -170,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     chrome.storage.local.get(
-        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0 },
+        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0 },
         (data) => {
             const newCount = data.popupOpenCount + 1;
             chrome.storage.local.set({ popupOpenCount: newCount });
@@ -202,6 +203,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
                 showReviewToast();
             }
+
+            // --- Help button: show within first 3 days if opened >= 10 times and clicked < 10 times ---
+            const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+            const withinThreeDays = (Date.now() - installedAt) <= threeDaysMs;
+            const tooManyOpens = newCount >= 10;
+            const clickedTooMuch = (data.helpClickCount || 0) >= 10;
+            if (btnOpenHelp) {
+                btnOpenHelp.style.display = (withinThreeDays && tooManyOpens && !clickedTooMuch) ? 'flex' : 'none';
+            }
         }
     );
 
@@ -231,6 +241,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.stopPropagation();
                 openReviewPage(index + 1);
             });
+        });
+    }
+
+    // Help button → open welcome/tutorial page in a new tab
+    if (btnOpenHelp) {
+        btnOpenHelp.addEventListener('click', () => {
+            chrome.storage.local.get({ helpClickCount: 0 }, (res) => {
+                const newClickCount = (res.helpClickCount || 0) + 1;
+                chrome.storage.local.set({ helpClickCount: newClickCount });
+                // If it reaches 10, hide it immediately
+                if (newClickCount >= 10) {
+                    btnOpenHelp.style.display = 'none';
+                }
+            });
+            chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/welcome.html') });
         });
     }
 

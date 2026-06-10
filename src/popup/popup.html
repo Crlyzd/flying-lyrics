@@ -256,6 +256,38 @@
         }
 
         /* =========================================================
+         *  HELP BUTTON (Yellow / Conditional)
+         * ========================================================= */
+        .button-help {
+            width: 100%;
+            background: #ffcc00;
+            color: #121212;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Segoe UI', sans-serif;
+            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(255, 204, 0, 0.15);
+        }
+
+        .button-help:hover {
+            background: #ffe066;
+            box-shadow: 0 6px 16px rgba(255, 204, 0, 0.35);
+        }
+
+        .button-help:active {
+            transform: scale(0.98);
+        }
+
+        /* =========================================================
          *  SEARCH UI STYLES
          * ========================================================= */
         .search-bar-row {
@@ -1038,6 +1070,11 @@
                         d="M13.95 6.805l.654 3.06c.593 2.773 2.759 4.939 5.532 5.532l3.06.654c1.024.219 1.024 1.68 0 1.899l-3.06.654c-2.773.593-4.939 2.759-5.532 5.532l-.654 3.06c-.219 1.024-1.68 1.024-1.899 0l-.654-3.06c-.593-2.773-2.759-4.939-5.532-5.532l-3.06-.654c-1.024-.219-1.024-1.68 0-1.899l3.06-.654c2.773-.593 4.939-2.759 5.532-5.532l.654-3.06C12.269 5.781 13.731 5.781 13.95 6.805zM23.641 2.525l.588 2.119c.152.547.58.975 1.127 1.127l2.119.588c.65.18.65 1.102 0 1.282l-2.119.588c-.547.152-.975.58-1.127 1.127l-.588 2.119c-.18.65-1.102.65-1.282 0l-.588-2.119c-.152-.547-.58-.975-1.127-1.127l-2.119-.588c-.65-.18-.65-1.102 0-1.282l2.119-.588c.547-.152.975-.58 1.127-1.127l.588-2.119C22.539 1.875 23.461 1.875 23.641 2.525z" />
                 </svg>
                 <span style="font-size: 14px;">Customize Visuals</span>
+            </button>
+
+            <!-- HELP BUTTON (Yellow / Conditional) -->
+            <button class="button-help" id="btn-open-help" style="display: none;">
+                Help, how to use Flying Lyrics ??
             </button>
 
             <!-- BORDERLESS PIP TOGGLE -->
