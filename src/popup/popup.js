@@ -625,23 +625,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderSearchResults(results, override);
 
                 if (hasTimeout) {
-                    // 1. Render spinning gold deep search indicator at the bottom
+                    // 1. Render spinning gold deep search indicator at the top
                     const deepSearchCard = document.createElement('div');
                     deepSearchCard.id = 'deep-search-indicator';
                     deepSearchCard.className = 'result-item';
                     deepSearchCard.style.cursor = 'default';
                     deepSearchCard.style.justifyContent = 'center';
                     deepSearchCard.style.backgroundColor = 'rgba(255, 204, 0, 0.05)';
-                    deepSearchCard.style.borderTop = '1px dashed rgba(255, 204, 0, 0.2)';
-                    deepSearchCard.style.borderBottom = 'none';
+                    deepSearchCard.style.borderBottom = '1px dashed rgba(255, 204, 0, 0.2)';
+                    deepSearchCard.style.borderTop = 'none';
                     deepSearchCard.innerHTML = `
                         <div style="display: flex; align-items: center; color: #ffcc00; font-size: 11px; font-weight: 600;">
                             <div class="sync-spinner"></div>
-                            Deep search running (up to 30s)...
+                            Deep search running...
                         </div>
                     `;
-                    resultsContainer.appendChild(deepSearchCard);
-                    resultsContainer.scrollTop = resultsContainer.scrollHeight;
+                    resultsContainer.insertBefore(deepSearchCard, resultsContainer.firstChild);
+                    resultsContainer.scrollTop = 0;
 
                     // 2. Launch background search with 30s timeout
                     chrome.runtime.sendMessage({
