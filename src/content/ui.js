@@ -394,7 +394,15 @@
                     const topBg = fl.deriveLightBg(rawColor);
                     if (bgCover) bgCover.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
                 } else {
-                    if (bgCover) bgCover.style.background = '#121212';
+                    if (bgCover) {
+                        const isWaiting = fl.lyricLines && fl.lyricLines.length === 1 && 
+                                          (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+                        if (isWaiting) {
+                            bgCover.style.background = '';
+                        } else {
+                            bgCover.style.background = '#121212';
+                        }
+                    }
                 }
 
                 targetDoc.body.style.background = '';

@@ -228,6 +228,26 @@
     fl.drawCanvasBackground = function (w, h) {
         if (fl.activePipType !== 'video') return;
 
+        const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
+        if (isWaiting) {
+            // Draw animated aurora gradient matching the CSS waiting-aurora
+            const time = performance.now() * 0.00015; // slow shifting speed
+            const x1 = w * (0.5 + 0.5 * Math.cos(time));
+            const y1 = h * (0.5 + 0.5 * Math.sin(time));
+            const x2 = w * (0.5 + 0.5 * Math.cos(time + Math.PI));
+            const y2 = h * (0.5 + 0.5 * Math.sin(time + Math.PI));
+
+            const grad = fl.ctx.createLinearGradient(x1, y1, x2, y2);
+            grad.addColorStop(0, '#0d1e16');
+            grad.addColorStop(0.3 + 0.1 * Math.sin(time * 2), '#240d1d');
+            grad.addColorStop(0.6 + 0.1 * Math.cos(time * 1.5), '#12281d');
+            grad.addColorStop(1, '#2c1024');
+
+            fl.ctx.fillStyle = grad;
+            fl.ctx.fillRect(0, 0, w, h);
+            return;
+        }
+
         const art = fl.getCoverArt();
 
         // Manage cover art image loading
@@ -444,9 +464,9 @@
                 }
 
                 // Only apply animated background when strictly waiting for music
-                const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
-                                  (state.paused && state.duration <= 5);
+                const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
                 if (isWaiting) {
+                    if (bg.style.background) bg.style.background = '';
                     if (!bg.classList.contains('bg-waiting')) bg.classList.add('bg-waiting');
                 } else {
                     if (bg.classList.contains('bg-waiting')) bg.classList.remove('bg-waiting');
@@ -764,9 +784,7 @@
         } else if (!fl.albumCoverMode) {
             // isMissingLyrics sets lyricLines = [] — no forEach would draw anything.
             // Treat that as a waiting state so the idle animation shows instead of a black canvas.
-            const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
-                              (state.paused && state.duration <= 5) ||
-                              (fl.isMissingLyrics && fl.lyricLines.length === 0 && !fl.canvasBgImage);
+            const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
             if (isWaiting) {
                 if (fl.lyricLines && fl.lyricLines[0]) {
                     fl.lyricLines[0].isWaitingPlaceholder = true;
@@ -898,8 +916,6 @@
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
         const isWaitingState = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
-                               (state.paused && state.duration <= 5) ||
-                               (fl.isMissingLyrics && fl.lyricLines.length === 0 && !fl.canvasBgImage) ||
                                shouldShowLoadingPlaceholder; // also animates when album art hasn't loaded yet
         const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
