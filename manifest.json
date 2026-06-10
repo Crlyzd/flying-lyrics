@@ -32,6 +32,17 @@
         "*://music.youtube.com/*"
       ],
       "js": [
+        "src/content/mainWorldHook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://open.spotify.com/*",
+        "*://music.youtube.com/*"
+      ],
+      "js": [
         "src/lib/vibrant.min.js",
         "src/content/config.js",
         "src/content/content.js",
@@ -39,6 +50,7 @@
         "src/content/utils.js",
         "src/content/services.js",
         "src/content/ui.js",
+        "src/content/pipDrivers.js",
         "src/content/renderer.js"
       ],
       "run_at": "document_end"

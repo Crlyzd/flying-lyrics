@@ -672,8 +672,8 @@
         // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
         // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
         // is gone or the element is no longer ready (e.g. after a page navigation).
-        if (!fl._mediaEl || fl._mediaEl.readyState < 1) {
-            const mediaElements = Array.from(document.querySelectorAll('video, audio'));
+        if (!fl._mediaEl || fl._mediaEl.readyState < 1 || fl._mediaEl.id === 'fl-video-pip-element') {
+            const mediaElements = fl.queryMediaAll('video, audio');
 
             // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
             // while still avoiding accidental matches on silent background videos elsewhere.

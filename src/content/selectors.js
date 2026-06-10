@@ -1,18 +1,28 @@
 (() => {
     const fl = window.FLYING_LYRICS = window.FLYING_LYRICS || {};
 
+    // Helper to query video/audio elements while excluding our virtual Video PiP element
+    fl.queryMedia = (selector) => {
+        const els = Array.from(document.querySelectorAll(selector || 'video, audio'));
+        return els.find(el => el.id !== 'fl-video-pip-element') || null;
+    };
+    fl.queryMediaAll = (selector) => {
+        return Array.from(document.querySelectorAll(selector || 'video, audio'))
+            .filter(el => el.id !== 'fl-video-pip-element');
+    };
+
     let cachedMedia = null;
     const getSpotifyMedia = () => {
-        const medias = document.querySelectorAll('video, audio');
+        const medias = fl.queryMediaAll('video, audio');
         const uiDuration = fl.adapters?.spotify?.getDuration ? fl.adapters.spotify.getDuration() : null;
         if (uiDuration && uiDuration > 1) {
-            const match = Array.from(medias).find(m => m.duration && Math.abs(m.duration - uiDuration) < 2);
+            const match = medias.find(m => m.duration && Math.abs(m.duration - uiDuration) < 2);
             if (match) return match;
         }
-        if (cachedMedia && document.body.contains(cachedMedia) && cachedMedia.readyState >= 2 && cachedMedia.duration > 0 && !cachedMedia.ended) {
+        if (cachedMedia && document.body.contains(cachedMedia) && cachedMedia.readyState >= 2 && cachedMedia.duration > 0 && !cachedMedia.ended && cachedMedia.id !== 'fl-video-pip-element') {
             return cachedMedia;
         }
-        cachedMedia = Array.from(medias).find(m => m.readyState >= 2 && m.duration > 0);
+        cachedMedia = medias.find(m => m.readyState >= 2 && m.duration > 0);
         return cachedMedia;
     };
 
@@ -112,7 +122,7 @@
                 return pb ? parseFloat(pb.getAttribute('aria-valuemax')) : null;
             },
             isPaused: () => {
-                const vid = document.querySelector('video');
+                const vid = fl.queryMedia('video');
                 return vid ? vid.paused : true;
             },
             getCoverArt: () => {
@@ -120,7 +130,7 @@
                 return ytImg ? ytImg.src : null;
             },
             clickPlayPause: () => {
-                const media = document.querySelector('video, audio');
+                const media = fl.queryMedia('video, audio');
                 // Guard: only play/pause YTM if a track is loaded with valid duration
                 if (media && media.duration && !isNaN(media.duration)) {
                     document.querySelector('[data-testid="control-button-playpause"], .play-pause-button')?.click();
@@ -133,31 +143,18 @@
                 document.querySelector('.next-button')?.click();
             },
             toggleMute: () => {
-                const media = document.querySelector('video, audio');
+                const media = fl.queryMedia('video, audio');
                 if (media) media.muted = !media.muted;
             },
             isMuted: () => {
-                const media = document.querySelector('audio') || document.querySelector('video, audio');
+                const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
                 return media ? (media.muted || media.volume === 0) : false;
             },
             seek: (percent) => {
-                const s = document.createElement('script');
-                s.src = chrome.runtime.getURL('src/content/inject.js');
-                s.dataset.percent = percent;
-                s.onload = function() { 
-                    this.remove(); 
-                };
-                s.onerror = function() {
-                    chrome.runtime.sendMessage({
-                        type: 'TRACK_EVENT',
-                        payload: {
-                            eventName: 'context_failure',
-                            params: { failure_reason: 'script_injection_failed' }
-                        }
-                    });
-                    this.remove();
-                };
-                (document.head || document.documentElement).appendChild(s);
+                const video = fl.queryMedia('video');
+                if (video && video.duration) {
+                    video.currentTime = percent * video.duration;
+                }
             }
         }
     };

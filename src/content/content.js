@@ -18,6 +18,7 @@
     fl.autoLaunch = fl.defaults.autoLaunch;
     fl.songOffsets = fl.defaults.songOffsets;
     fl.lyricsOverrides = fl.defaults.lyricsOverrides;
+    fl.pipMode = fl.defaults.pipMode;
 
     // Visual Settings
     fl.userFontFamily = fl.defaults.customFont;
@@ -187,6 +188,7 @@
         fl.autoLaunch = items.autoLaunch;
         fl.songOffsets = items.songOffsets;
         fl.lyricsOverrides = items.lyricsOverrides;
+        fl.pipMode = items.pipMode;
 
         // Visual
         fl.userFontFamily = items.customFont;
@@ -216,6 +218,27 @@
             const p = msg.payload;
             if (p.autoLaunch !== undefined) {
                 fl.autoLaunch = p.autoLaunch;
+            }
+            if (p.pipMode !== undefined) {
+                if (fl.pipMode !== p.pipMode) {
+                    fl.pipMode = p.pipMode;
+                    if (fl.pipWin) {
+                        const wasType = fl.activePipType;
+                        if (wasType === 'video') {
+                            document.exitPictureInPicture().catch(() => {});
+                        } else if (wasType === 'document' && !fl.pipWin.closed) {
+                            fl.pipWin.close();
+                        }
+                        // Automatically try to reopen in the new mode
+                        setTimeout(() => {
+                            if (typeof fl.launchPip === 'function') {
+                                fl.launchPip().catch(err => {
+                                    console.warn("Auto-reopen failed due to browser user-gesture restrictions:", err);
+                                });
+                            }
+                        }, 600);
+                    }
+                }
             }
             if (p.showTranslation !== undefined) {
                 fl.showTranslation = p.showTranslation;

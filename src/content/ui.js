@@ -233,7 +233,7 @@
             if (adapter) {
                 adapter.toggleMute();
             } else {
-                const media = document.querySelector('video, audio');
+                const media = fl.queryMedia('video, audio');
                 if (media) media.muted = !media.muted;
             }
         };
@@ -258,7 +258,7 @@
             if (adapter) {
                 adapter.seek(percent);
             } else {
-                const p = document.querySelector('video, audio');
+                const p = fl.queryMedia('video, audio');
                 if (p && p.duration > 0) {
                     p.currentTime = percent * p.duration;
                 }
@@ -300,7 +300,7 @@
     }
 
     fl.updateCCButtonState = function () {
-        if (!fl.pipWin) return;
+        if (!fl.pipWin || fl.activePipType === 'video') return;
         const btn = fl.pipWin.document.getElementById('cc-btn');
         if (btn) {
             if (fl.showTranslation) {
@@ -312,7 +312,7 @@
     }
 
     fl.updateSyncIndicator = function () {
-        if (!fl.pipWin) return;
+        if (!fl.pipWin || fl.activePipType === 'video') return;
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         const txt = fl.pipWin.document.getElementById('sync-text');
         if (ind && txt) {
@@ -344,7 +344,7 @@
     }
 
     fl.setIndicatorRetrying = function (isRetrying) {
-        if (!fl.pipWin) return;
+        if (!fl.pipWin || fl.activePipType === 'video') return;
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         if (ind) {
             if (isRetrying) {
@@ -359,78 +359,80 @@
 
     fl.applyVisualSettings = function () {
         if (!fl.pipWin || fl.pipWin.closed) return;
-        const doc = fl.pipWin.document;
+        const targetDoc = fl.activePipType === 'video' ? document : fl.pipWin.document;
 
-        const bgCover = doc.getElementById('bg-cover');
-        const centerArt = doc.getElementById('center-art');
+        if (fl.activePipType !== 'video') {
+            const bgCover = targetDoc.getElementById('bg-cover');
+            const centerArt = targetDoc.getElementById('center-art');
 
-        // When lyrics are missing OR the user has explicitly enabled Album Cover Mode,
-        // force Cover Album Mode: override to centered art with no blur and no darkening.
-        const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
-        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
-        const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
-        const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
+            // When lyrics are missing OR the user has explicitly enabled Album Cover Mode,
+            // force Cover Album Mode: override to centered art with no blur and no darkening.
+            const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+            const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
+            const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
+            const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
 
-        if (effectiveCoverMode === 'centered') {
-            if (bgCover) bgCover.style.display = 'none';
+            if (effectiveCoverMode === 'centered') {
+                if (bgCover) bgCover.style.display = 'none';
 
-            if (centerArt) {
-                // We rely on updateCenteredArt() to add '.visible' so it doesn't show a broken image if empty
-                centerArt.style.filter = `drop-shadow(0 8px 32px rgba(0,0,0,0.65)) drop-shadow(0 2px 8px rgba(0,0,0,0.45)) blur(${blurPx}px)`;
-            }
-
-            const artUrl = fl.getCoverArt();
-            // Only apply palette gradient if art has actually been extracted (not the default palette)
-            if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
-                const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
-                const baseBg = fl.deriveDarkBg(rawColor);
-                const topBg = fl.deriveLightBg(rawColor);
-                doc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
-            } else {
-                doc.body.style.background = '#121212';
-            }
-
-            fl.updateCenteredArt(artUrl);
-
-        } else {
-            if (bgCover) {
-                bgCover.style.display = '';
-                if (effectiveCoverMode === 'repeated') {
-                    bgCover.style.backgroundSize = '400px 400px';
-                    bgCover.style.backgroundRepeat = 'repeat';
-                    bgCover.style.backgroundPosition = 'center';
-                } else {
-                    bgCover.style.backgroundSize = 'cover';
-                    bgCover.style.backgroundRepeat = 'no-repeat';
-                    bgCover.style.backgroundPosition = 'center';
+                if (centerArt) {
+                    // We rely on updateCenteredArt() to add '.visible' so it doesn't show a broken image if empty
+                    centerArt.style.filter = `drop-shadow(0 8px 32px rgba(0,0,0,0.65)) drop-shadow(0 2px 8px rgba(0,0,0,0.45)) blur(${blurPx}px)`;
                 }
-                bgCover.style.filter = `blur(${blurPx}px)`;
+
+                const artUrl = fl.getCoverArt();
+                // Only apply palette gradient if art has actually been extracted (not the default palette)
+                if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
+                    const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
+                    const baseBg = fl.deriveDarkBg(rawColor);
+                    const topBg = fl.deriveLightBg(rawColor);
+                    targetDoc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
+                } else {
+                    targetDoc.body.style.background = '#121212';
+                }
+
+                fl.updateCenteredArt(artUrl);
+
+            } else {
+                if (bgCover) {
+                    bgCover.style.display = '';
+                    if (effectiveCoverMode === 'repeated') {
+                        bgCover.style.backgroundSize = '400px 400px';
+                        bgCover.style.backgroundRepeat = 'repeat';
+                        bgCover.style.backgroundPosition = 'center';
+                    } else {
+                        bgCover.style.backgroundSize = 'cover';
+                        bgCover.style.backgroundRepeat = 'no-repeat';
+                        bgCover.style.backgroundPosition = 'center';
+                    }
+                    bgCover.style.filter = `blur(${blurPx}px)`;
+                }
+
+                if (centerArt) {
+                    centerArt.classList.remove('visible');
+                }
+                targetDoc.body.style.background = '';
             }
 
-            if (centerArt) {
-                centerArt.classList.remove('visible');
+            const bgDark = targetDoc.getElementById('bg-darkness');
+            if (bgDark) {
+                bgDark.style.opacity = String(effectiveDarkness / 100);
             }
-            doc.body.style.background = '';
-        }
-
-        const bgDark = doc.getElementById('bg-darkness');
-        if (bgDark) {
-            bgDark.style.opacity = String(effectiveDarkness / 100);
         }
 
         const systemFontNames = ['noto sans', 'segoe ui', 'sans-serif', 'arial', 'helvetica', 'serif', 'monospace'];
         const primaryFont = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().toLowerCase();
         const isSystemFont = systemFontNames.some(sf => primaryFont.includes(sf));
 
-        doc.querySelectorAll('link[data-fl-font]').forEach(el => el.remove());
+        targetDoc.querySelectorAll('link[data-fl-font]').forEach(el => el.remove());
 
         if (!isSystemFont) {
             const formattedFontName = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().replace(/ /g, '+');
-            const fontLink = doc.createElement('link');
+            const fontLink = targetDoc.createElement('link');
             fontLink.rel = 'stylesheet';
             fontLink.dataset.flFont = '1';
             fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
-            doc.head.appendChild(fontLink);
+            targetDoc.head.appendChild(fontLink);
         }
 
         if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
@@ -462,7 +464,7 @@
         // Allow centered art to render when the user has chosen 'centered' mode
         // OR when we are in forced Cover Album Mode (missing lyrics or explicit albumCoverMode).
         const isCenteredActive = fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode;
-        if (!fl.pipWin || fl.pipWin.closed) return;
+        if (!fl.pipWin || fl.pipWin.closed || fl.activePipType === 'video') return;
 
         const img = fl.pipWin.document.getElementById('center-art');
         if (!img) return;
@@ -534,65 +536,10 @@
         btn.onmousedown = () => btn.style.transform = 'scale(0.98)';
         btn.onmouseup = () => btn.style.transform = 'scale(1)';
 
-        btn.onclick = async () => {
-            if (!window.documentPictureInPicture) {
-                alert("Flying Lyrics: Document Picture-in-Picture is not supported or is disabled in your browser.");
-                return;
-            }
-            if (fl.isLaunchingPip || window.documentPictureInPicture.window) return;
-            fl.isLaunchingPip = true;
-            try {
-                fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: 300, height: 300 });
-
-                // --- SANITIZE PIP WINDOW (Fixes Spotify white background bleed) ---
-                fl.pipWin.document.head.replaceChildren();
-                fl.pipWin.document.documentElement.removeAttribute('style');
-                fl.pipWin.document.documentElement.removeAttribute('class');
-                fl.pipWin.document.body.removeAttribute('style');
-                fl.pipWin.document.body.removeAttribute('class');
-
-                const link = fl.pipWin.document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = chrome.runtime.getURL('src/content/styles.css');
-                fl.pipWin.document.head.appendChild(link);
-
-                try {
-                    const primaryFont = fl.userFontFamily.split(',')[0].replace(/['"]/g, '').trim();
-
-                    const systemFonts = ['sans-serif', 'serif', 'monospace', 'segoe ui', 'arial', 'helvetica'];
-                    if (!systemFonts.includes(primaryFont.toLowerCase())) {
-                        const formattedFontName = primaryFont.replace(/ /g, '+');
-                        const fontLink = fl.pipWin.document.createElement('link');
-                        fontLink.rel = 'stylesheet';
-                        fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
-                        fl.pipWin.document.head.appendChild(fontLink);
-
-                        await fl.pipWin.document.fonts.ready;
-                    }
-                } catch (err) {
-                    console.warn("Failed to load Google Font, falling back to system fonts:", err);
-                }
-
-                fl.injectStructure();
-                fl._refreshEls(); // OPT-4: pre-cache DOM element refs for the render loop
-                fl.applyVisualSettings();
-
-                // Reset session state so the render loop always detects the
-                // current track as "new" on the first tick — even if the same
-                // song was playing in a previous PiP session. This fixes:
-                //   • Play button stuck in ⏸ after reopen
-                //   • Lyrics not loading when music plays after a no-music open
-                fl.currentTrack = "";
-                fl.lastExtractedArt = "";
-                fl._mediaEl = null; // OPT-5: clear stale media cache on session start
-
-                fl.pipWin.requestAnimationFrame(fl.renderLoop);
-            } catch (e) {
-                console.error("Launch Failed:", e);
-            } finally {
-                setTimeout(() => { fl.isLaunchingPip = false; }, 500);
-            }
-        };
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await fl.launchPip();
+        });
 
         if (isSpotify) {
             Object.assign(btn.style, {

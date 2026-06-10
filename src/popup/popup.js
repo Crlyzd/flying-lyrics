@@ -34,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     const toggleTrans = document.getElementById('toggle-translation');
     const toggleAutolaunch = document.getElementById('toggle-autolaunch');
+    const toggleBorderlessPip = document.getElementById('toggle-borderless-pip');
     const langSelect = document.getElementById('lang-select');
     const offsetMinus = document.getElementById('offset-minus');
     const offsetPlus = document.getElementById('offset-plus');
@@ -239,7 +240,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showTranslation: true, translationLang: 'id', globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
-        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true
+        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
+        pipMode: 'document'
     };
 
     chrome.storage.local.get(fallbackDefaults, (items) => {
@@ -249,6 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentGlobalOffset = items.globalSyncOffset;
         globalOffsetInput.value = currentGlobalOffset;
         toggleAutolaunch.checked = items.autoLaunch;
+        toggleBorderlessPip.checked = items.pipMode === 'video';
 
         // Customization settings — populate controls
         // Map stored raw values back to 1-10 UI scale
@@ -781,6 +784,10 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ autoLaunch: toggleAutolaunch.checked });
     });
 
+    toggleBorderlessPip.addEventListener('change', () => {
+        saveAndNotify({ pipMode: toggleBorderlessPip.checked ? 'video' : 'document' });
+    });
+
     toggleTrans.addEventListener('change', () => {
         saveAndNotify({ showTranslation: toggleTrans.checked });
     });
@@ -1228,7 +1235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaults = {
             customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
             coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
-            lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
+            lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, pipMode: 'document'
         };
 
         // Reset UI Elements
@@ -1258,6 +1265,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleAlbumCoverMode.checked = false;
         applyAlbumCoverModeState(false);
+        toggleBorderlessPip.checked = false;
 
         alignSelect.value = 'center';
 

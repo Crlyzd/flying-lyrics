@@ -225,10 +225,132 @@
         fl.ctx.restore();
     };
 
+    fl.drawCanvasBackground = function (w, h) {
+        if (fl.activePipType !== 'video') return;
+
+        const art = fl.getCoverArt();
+
+        // Manage cover art image loading
+        if (art) {
+            if (!fl.canvasBgImage || fl.canvasBgImageUrl !== art) {
+                fl.canvasBgImageUrl = art;
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    if (fl.canvasBgImageUrl === art) {
+                        fl.canvasBgImage = img;
+                        fl.needsLayoutUpdate = true;
+                    }
+                };
+                img.src = art;
+            }
+        } else {
+            fl.canvasBgImage = null;
+            fl.canvasBgImageUrl = "";
+        }
+
+        const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
+        const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
+        const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
+
+        if (effectiveCoverMode === 'centered') {
+            // Draw gradient background only when palette has been extracted from actual art.
+            // fl.currentPalette.raw is set by extractPalette() in rgb() format — safe for deriveDarkBg.
+            // The default fl.currentPalette.vibrant is a hex string (#1DB954) which the
+            // /\d+/g regex in deriveDarkBg misparses, producing near-black colours.
+            if (fl.canvasBgImage && fl.currentPalette && fl.currentPalette.raw) {
+                const rawColor = fl.currentPalette.raw;
+                const baseBg = fl.deriveDarkBg(rawColor);
+                const topBg = fl.deriveLightBg(rawColor);
+                const grad = fl.ctx.createLinearGradient(0, 0, 0, h);
+                grad.addColorStop(0, topBg);
+                grad.addColorStop(1, baseBg);
+                fl.ctx.fillStyle = grad;
+                fl.ctx.fillRect(0, 0, w, h);
+            } else {
+                fl.ctx.fillStyle = '#121212';
+                fl.ctx.fillRect(0, 0, w, h);
+            }
+
+            // Draw centered art with drop shadow
+            if (fl.canvasBgImage) {
+                fl.ctx.save();
+                const size = Math.min(w, h) * 0.65;
+                const x = (w - size) / 2;
+                const y = (h - size) / 2;
+                const vmin = Math.min(w, h) / 100;
+                fl.ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+                fl.ctx.shadowBlur = vmin * 8;
+                fl.ctx.shadowOffsetY = vmin * 2;
+                fl.ctx.drawImage(fl.canvasBgImage, x, y, size, size);
+                fl.ctx.restore();
+            }
+        } else {
+            // Fill or Repeated cover mode
+            if (fl.canvasBgImage) {
+                fl.ctx.save();
+                if (blurPx > 0) {
+                    fl.ctx.filter = `blur(${blurPx}px)`;
+                }
+
+                if (effectiveCoverMode === 'repeated') {
+                    // Create repeated pattern
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 400;
+                    tempCanvas.height = 400;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(fl.canvasBgImage, 0, 0, 400, 400);
+                    const pattern = fl.ctx.createPattern(tempCanvas, 'repeat');
+                    fl.ctx.fillStyle = pattern;
+                    // Extra margin to hide blur border artifacts
+                    fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+                } else {
+                    // Fill / Cover mode
+                    const imgW = fl.canvasBgImage.width;
+                    const imgH = fl.canvasBgImage.height;
+                    const scale = Math.max(w / imgW, h / imgH);
+                    const drawW = imgW * scale;
+                    const drawH = imgH * scale;
+                    const drawX = (w - drawW) / 2;
+                    const drawY = (h - drawH) / 2;
+                    fl.ctx.drawImage(fl.canvasBgImage, drawX - blurPx * 2, drawY - blurPx * 2, drawW + blurPx * 4, drawH + blurPx * 4);
+                }
+                fl.ctx.restore();
+            } else {
+                fl.ctx.fillStyle = '#121212';
+                fl.ctx.fillRect(0, 0, w, h);
+            }
+        }
+
+        // Draw darkness overlay
+        if (effectiveDarkness > 0) {
+            fl.ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness / 100})`;
+            fl.ctx.fillRect(0, 0, w, h);
+        }
+    };
+
     fl.renderLoop = function () {
-        if (!fl.pipWin || fl.pipWin.closed) return;
+        if (!fl.pipWin || (fl.activePipType !== 'video' && fl.pipWin.closed)) return;
 
         fl.isRenderLoopRunning = true;
+
+        const state = fl.getPlayerState();
+        // Apply Sync Offset
+        if (!state.paused) {
+            state.currentTime += (fl.syncOffset / 1000);
+        }
+
+        // Auto-heal/re-fetch if duration becomes valid (transitioned from <= 5 to > 5)
+        if (fl.currentTrack && 
+            (fl.isMissingLyrics || (fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...")) &&
+            state.duration > 5 && 
+            (!fl.lastKnownValidDuration || fl.lastKnownValidDuration <= 5)) {
+            
+            console.log(`FL: Duration became valid (${state.duration}s). Re-fetching lyrics...`);
+            fl.fetchLyrics();
+        }
+        fl.lastKnownValidDuration = state.duration;
 
         const meta = navigator.mediaSession.metadata;
         const nowTitle = meta?.title || "";
@@ -242,6 +364,7 @@
                 fl.isMissingLyrics = false;
                 fl.needsLayoutUpdate = true;
                 fl._els = null;
+                fl.lastKnownValidDuration = 0;
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             } else {
@@ -251,6 +374,7 @@
                 fl.isMissingLyrics = false;
                 fl.needsLayoutUpdate = true;
                 fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
+                fl.lastKnownValidDuration = 0;
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
@@ -267,58 +391,78 @@
         }
 
         // OPT-4: Refresh element cache if not yet populated or canvas was replaced.
-        if (!fl._els) fl._refreshEls();
+        if (fl.activePipType !== 'video' && !fl._els) fl._refreshEls();
 
         // --- CONTINUOUS BACKGROUND IMAGE SYNC ---
         const art = fl.getCoverArt();
-        const bg = fl._els?.bgCover;
-
-        if (bg && art) {
-            const newBg = `url("${art}")`;
-            // Only trigger a DOM repaint if the image actually changed
-            if (bg.style.backgroundImage !== newBg) {
-                bg.style.backgroundImage = newBg;
-                bg.classList.remove('bg-waiting');
-                fl.extractPalette(art); // Trigger color extraction
-
-                // Also update the centered art (if in centered mode)
-                if (typeof fl.updateCenteredArt === 'function') {
-                    fl.updateCenteredArt(art);
-                }
+        if (fl.activePipType === 'video') {
+            if (art && fl.lastExtractedArt !== art) {
+                fl.lastExtractedArt = art;
+                fl.extractPalette(art);
             }
-        } else if (bg && !art) {
-            if (bg.style.backgroundImage !== 'none' && bg.style.backgroundImage !== '') {
-                bg.style.backgroundImage = 'none';
-                if (typeof fl.updateCenteredArt === 'function') {
-                    fl.updateCenteredArt("");
-                }
-            }
+        } else {
+            const bg = fl._els?.bgCover;
 
-            // Only apply animated background when strictly waiting for music
-            const isWaiting = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
-            if (isWaiting) {
-                if (!bg.classList.contains('bg-waiting')) bg.classList.add('bg-waiting');
-            } else {
-                if (bg.classList.contains('bg-waiting')) bg.classList.remove('bg-waiting');
+            if (bg && art) {
+                const newBg = `url("${art}")`;
+                // Only trigger a DOM repaint if the image actually changed
+                if (bg.style.backgroundImage !== newBg) {
+                    bg.style.backgroundImage = newBg;
+                    bg.classList.remove('bg-waiting');
+                    fl.extractPalette(art); // Trigger color extraction
+
+                    // Also update the centered art (if in centered mode)
+                    if (typeof fl.updateCenteredArt === 'function') {
+                        fl.updateCenteredArt(art);
+                    }
+                }
+            } else if (bg && !art) {
+                if (bg.style.backgroundImage !== 'none' && bg.style.backgroundImage !== '') {
+                    bg.style.backgroundImage = 'none';
+                    if (typeof fl.updateCenteredArt === 'function') {
+                        fl.updateCenteredArt("");
+                    }
+                }
+
+                // Only apply animated background when strictly waiting for music
+                const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
+                                  (state.paused && state.duration <= 5);
+                if (isWaiting) {
+                    if (!bg.classList.contains('bg-waiting')) bg.classList.add('bg-waiting');
+                } else {
+                    if (bg.classList.contains('bg-waiting')) bg.classList.remove('bg-waiting');
+                }
             }
         }
 
-        if (!fl.canvas || !fl.pipWin.document.body.contains(fl.canvas)) {
-            fl.canvas = fl.pipWin.document.getElementById('lyricCanvas');
-            fl.ctx = null;
-            fl.lastW = -1; // Force resize for the new canvas
-            fl.lastH = -1;
-            fl._els = null; // Canvass replaced — re-cache all elements
+        if (fl.activePipType === 'video') {
+            if (!fl.canvas) {
+                return fl.pipWin ? window.requestAnimationFrame(fl.renderLoop) : null;
+            }
+        } else {
+            if (!fl.canvas || !fl.pipWin.document.body.contains(fl.canvas)) {
+                fl.canvas = fl.pipWin.document.getElementById('lyricCanvas');
+                fl.ctx = null;
+                fl.lastW = -1; // Force resize for the new canvas
+                fl.lastH = -1;
+                fl._els = null; // Canvass replaced — re-cache all elements
+            }
         }
-        if (!fl.canvas) return fl.pipWin.requestAnimationFrame(fl.renderLoop);
+        if (!fl.canvas) {
+            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
+            return nextFrame(fl.renderLoop);
+        }
         if (!fl.ctx) fl.ctx = fl.canvas.getContext('2d');
 
-        const w = fl.pipWin.innerWidth;
-        const h = fl.pipWin.innerHeight;
+        const w = fl.activePipType === 'video' ? fl.pipWin.width : fl.pipWin.innerWidth;
+        const h = fl.activePipType === 'video' ? fl.pipWin.height : fl.pipWin.innerHeight;
 
         // Bail out if the PiP window hasn't finished laying out yet (can happen on the very first frame).
         // Re-queuing the loop is cheaper than drawing garbage into a 0x0 canvas.
-        if (w <= 0 || h <= 0) return fl.pipWin.requestAnimationFrame(fl.renderLoop);
+        if (w <= 0 || h <= 0) {
+            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
+            return nextFrame(fl.renderLoop);
+        }
 
         // --- CANVAS RESIZE GUARD ---
         // Only resize when dimensions actually changed. Assigning canvas.width/height
@@ -333,17 +477,11 @@
         const vmin = Math.min(w, h) / 100;
         const maxWidth = w * 0.94;
 
-        const state = fl.getPlayerState();
-        // Apply Sync Offset
-        if (!state.paused) {
-            state.currentTime += (fl.syncOffset / 1000);
-        }
-
         // --- OPT-4: Use cached element refs for per-frame DOM writes ---
         const seekerContainer = fl._els?.seekerContainer;
         const hasTrack = fl.currentTrack && 
                          fl.currentTrack !== "" && 
-                         !(fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
+                         !((fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) || (state.paused && state.duration <= 5));
 
         // Accumulate listening stats
         if (hasTrack && !state.paused) {
@@ -359,45 +497,73 @@
             fl.lastActiveTickMs = null;
         }
 
-        if (seekerContainer) {
-            seekerContainer.style.display = hasTrack ? 'block' : 'none';
-        }
-
-        const seeker = fl._els?.seeker;
-        if (seeker && hasTrack) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
-
-        const ppBtn = fl._els?.ppBtn;
-        if (ppBtn) {
-            const targetState = state.paused ? 'paused' : 'playing';
-            if (ppBtn.dataset.state !== targetState) {
-                ppBtn.dataset.state = targetState;
-                ppBtn.innerHTML = state.paused ? fl.ICON_PLAY : fl.ICON_PAUSE;
+        if (fl.activePipType !== 'video') {
+            if (seekerContainer) {
+                seekerContainer.style.display = hasTrack ? 'block' : 'none';
             }
-        }
 
-        // Update mute button icon if changed externally (or by our toggle)
-        const muteBtn = fl._els?.muteBtn;
-        if (muteBtn) {
-            const adapter = fl.getActiveAdapter?.();
-            let isMuted = false;
-            if (adapter) {
-                isMuted = adapter.isMuted();
-            } else {
-                const media = document.querySelector('audio') || document.querySelector('video, audio');
-                isMuted = media ? (media.muted || media.volume === 0) : false;
+            const seeker = fl._els?.seeker;
+            if (seeker && hasTrack) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
+
+            const ppBtn = fl._els?.ppBtn;
+            if (ppBtn) {
+                const targetState = state.paused ? 'paused' : 'playing';
+                if (ppBtn.dataset.state !== targetState) {
+                    ppBtn.dataset.state = targetState;
+                    ppBtn.innerHTML = state.paused ? fl.ICON_PLAY : fl.ICON_PAUSE;
+                }
             }
-            const targetMuteIcon = isMuted ? fl.ICON_VOL_MUTE : fl.ICON_VOL_HIGH;
-            if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
+
+            // Update mute button icon if changed externally (or by our toggle)
+            const muteBtn = fl._els?.muteBtn;
+            if (muteBtn) {
+                const adapter = fl.getActiveAdapter?.();
+                let isMuted = false;
+                if (adapter) {
+                    isMuted = adapter.isMuted();
+                } else {
+                    const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
+                    isMuted = media ? (media.muted || media.volume === 0) : false;
+                }
+                const targetMuteIcon = isMuted ? fl.ICON_VOL_MUTE : fl.ICON_VOL_HIGH;
+                if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
+            }
+        } else {
+            // Sync host player state -> virtual video element in Video PiP
+            const video = document.getElementById('fl-video-pip-element');
+            if (video) {
+                // Sync play/pause state
+                if (state.paused !== video.paused) {
+                    if (state.paused) {
+                        video.pause();
+                    } else {
+                        video.play().catch(() => {});
+                    }
+                }
+                // Sync muted state
+                const adapter = fl.getActiveAdapter?.();
+                let isMuted = false;
+                if (adapter) {
+                    isMuted = adapter.isMuted();
+                } else {
+                    const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
+                    isMuted = media ? (media.muted || media.volume === 0) : false;
+                }
+                if (video.muted !== isMuted) {
+                    video.muted = isMuted;
+                }
+            }
         }
 
         // --- Optimization / Bounds Checking ---
         // If the window is too small, the CSS overlay is showing and the canvas is hidden.
-        if (w < 200 || h < 200) {
+        if (fl.activePipType !== 'video' && (w < 200 || h < 200)) {
             fl.pipWin.requestAnimationFrame(fl.renderLoop);
             return;
         }
 
         fl.ctx.clearRect(0, 0, w, h);
+        fl.drawCanvasBackground(w, h);
 
         let activeIdx = fl.lyricLines.findIndex((l, i) =>
             state.currentTime >= l.time && (!fl.lyricLines[i + 1] || state.currentTime < fl.lyricLines[i + 1].time)
@@ -550,10 +716,28 @@
         fl.ctx.save();
         fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
 
-        if (!fl.albumCoverMode) {
-            const isWaiting = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+        // --- VIDEO PIP LOADING PLACEHOLDER ---
+        // When the canvas album-art image hasn't loaded yet (async) AND there's nothing
+        // else to render (albumCoverMode=true OR lyrics are missing), the canvas would
+        // otherwise be solid black. Show the waiting animation regardless of albumCoverMode
+        // so the user sees something meaningful while the image loads.
+        const shouldShowLoadingPlaceholder =
+            fl.activePipType === 'video' &&
+            !fl.canvasBgImage &&
+            (fl.albumCoverMode || (fl.isMissingLyrics && fl.lyricLines.length === 0));
+
+        if (shouldShowLoadingPlaceholder) {
+            fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
+        } else if (!fl.albumCoverMode) {
+            // isMissingLyrics sets lyricLines = [] — no forEach would draw anything.
+            // Treat that as a waiting state so the idle animation shows instead of a black canvas.
+            const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
+                              (state.paused && state.duration <= 5) ||
+                              (fl.isMissingLyrics && fl.lyricLines.length === 0 && !fl.canvasBgImage);
             if (isWaiting) {
-                fl.lyricLines[0].isWaitingPlaceholder = true;
+                if (fl.lyricLines && fl.lyricLines[0]) {
+                    fl.lyricLines[0].isWaitingPlaceholder = true;
+                }
                 fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
             } else {
                 fl.lyricLines.forEach((line, i) => {
@@ -680,11 +864,16 @@
         // while glow is active — but glow forces a repaint via the continuous rAF loop
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
-        const isWaitingState = fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+        const isWaitingState = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) ||
+                               (state.paused && state.duration <= 5) ||
+                               (fl.isMissingLyrics && fl.lyricLines.length === 0 && !fl.canvasBgImage) ||
+                               shouldShowLoadingPlaceholder; // also animates when album art hasn't loaded yet
+        const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
-            fl.pipWin.setTimeout(() => fl.pipWin.requestAnimationFrame(fl.renderLoop), 250);
+            const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
+            timerHost.setTimeout(() => nextFrame(fl.renderLoop), 250);
         } else {
-            fl.pipWin.requestAnimationFrame(fl.renderLoop);
+            nextFrame(fl.renderLoop);
         }
     }
 
