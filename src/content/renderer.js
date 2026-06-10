@@ -255,6 +255,11 @@
         const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
 
         if (effectiveCoverMode === 'centered') {
+            fl.ctx.save();
+            if (blurPx > 0) {
+                fl.ctx.filter = `blur(${blurPx}px)`;
+            }
+
             // Draw gradient background only when palette has been extracted from actual art.
             // fl.currentPalette.raw is set by extractPalette() in rgb() format — safe for deriveDarkBg.
             // The default fl.currentPalette.vibrant is a hex string (#1DB954) which the
@@ -267,15 +272,14 @@
                 grad.addColorStop(0, topBg);
                 grad.addColorStop(1, baseBg);
                 fl.ctx.fillStyle = grad;
-                fl.ctx.fillRect(0, 0, w, h);
+                fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
             } else {
                 fl.ctx.fillStyle = '#121212';
-                fl.ctx.fillRect(0, 0, w, h);
+                fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
             }
 
             // Draw centered art with drop shadow
             if (fl.canvasBgImage) {
-                fl.ctx.save();
                 const size = Math.min(w, h) * 0.65;
                 const x = (w - size) / 2;
                 const y = (h - size) / 2;
@@ -284,8 +288,8 @@
                 fl.ctx.shadowBlur = vmin * 8;
                 fl.ctx.shadowOffsetY = vmin * 2;
                 fl.ctx.drawImage(fl.canvasBgImage, x, y, size, size);
-                fl.ctx.restore();
             }
+            fl.ctx.restore();
         } else {
             // Fill or Repeated cover mode
             if (fl.canvasBgImage) {
@@ -397,23 +401,38 @@
         const art = fl.getCoverArt();
         if (fl.activePipType === 'video') {
             if (art && fl.lastExtractedArt !== art) {
-                fl.lastExtractedArt = art;
                 fl.extractPalette(art);
             }
         } else {
             const bg = fl._els?.bgCover;
 
             if (bg && art) {
-                const newBg = `url("${art}")`;
-                // Only trigger a DOM repaint if the image actually changed
-                if (bg.style.backgroundImage !== newBg) {
-                    bg.style.backgroundImage = newBg;
-                    bg.classList.remove('bg-waiting');
-                    fl.extractPalette(art); // Trigger color extraction
+                const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+                const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
 
-                    // Also update the centered art (if in centered mode)
-                    if (typeof fl.updateCenteredArt === 'function') {
-                        fl.updateCenteredArt(art);
+                if (effectiveCoverMode === 'centered') {
+                    if (bg.style.backgroundImage.includes('url(')) {
+                        bg.style.backgroundImage = 'none';
+                    }
+                    bg.classList.remove('bg-waiting');
+                    if (fl.lastExtractedArt !== art) {
+                        fl.extractPalette(art);
+                        if (typeof fl.updateCenteredArt === 'function') {
+                            fl.updateCenteredArt(art);
+                        }
+                    }
+                } else {
+                    const newBg = `url("${art}")`;
+                    // Only trigger a DOM repaint if the image actually changed
+                    if (bg.style.backgroundImage !== newBg) {
+                        bg.style.backgroundImage = newBg;
+                        bg.classList.remove('bg-waiting');
+                        fl.extractPalette(art); // Trigger color extraction
+
+                        // Also update the centered art (if in centered mode)
+                        if (typeof fl.updateCenteredArt === 'function') {
+                            fl.updateCenteredArt(art);
+                        }
                     }
                 }
             } else if (bg && !art) {
@@ -532,14 +551,28 @@
             // Sync host player state -> virtual video element in Video PiP
             const video = document.getElementById('fl-video-pip-element');
             if (video) {
-                // Sync play/pause state
-                if (state.paused !== video.paused) {
+                // --- GRACE PERIOD: delay video.pause() for 400ms after launch ---
+                // video.pause() freezes the canvas stream on whatever was last drawn.
+                // If called on the very first frame (before any content is painted),
+                // the PiP locks on the initial black #121212 fill and stays black
+                // until the user clicks play. The grace period ensures at least a few
+                // frames of meaningful content (waiting animation, "Wait for it...",
+                // or actual lyrics) are drawn before the stream can be frozen.
+                const timeSinceLaunch = performance.now() - (fl.pipLaunchTime || 0);
+                const gracePeriodOver = timeSinceLaunch > 400;
+
+                // Sync play/pause state (only after grace period to avoid black-frame freeze)
+                if (gracePeriodOver && state.paused !== video.paused) {
                     if (state.paused) {
                         video.pause();
                     } else {
                         video.play().catch(() => {});
                     }
+                } else if (!gracePeriodOver && video.paused) {
+                    // During grace period: keep video playing so canvas stream stays live
+                    video.play().catch(() => {});
                 }
+
                 // Sync muted state
                 const adapter = fl.getActiveAdapter?.();
                 let isMuted = false;

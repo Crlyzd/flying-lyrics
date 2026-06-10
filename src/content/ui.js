@@ -373,7 +373,13 @@
             const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
 
             if (effectiveCoverMode === 'centered') {
-                if (bgCover) bgCover.style.display = 'none';
+                if (bgCover) {
+                    bgCover.style.display = '';
+                    bgCover.style.backgroundSize = '';
+                    bgCover.style.backgroundRepeat = '';
+                    bgCover.style.backgroundPosition = '';
+                    bgCover.style.filter = `blur(${blurPx}px)`;
+                }
 
                 if (centerArt) {
                     // We rely on updateCenteredArt() to add '.visible' so it doesn't show a broken image if empty
@@ -386,11 +392,12 @@
                     const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
                     const baseBg = fl.deriveDarkBg(rawColor);
                     const topBg = fl.deriveLightBg(rawColor);
-                    targetDoc.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
+                    if (bgCover) bgCover.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
                 } else {
-                    targetDoc.body.style.background = '#121212';
+                    if (bgCover) bgCover.style.background = '#121212';
                 }
 
+                targetDoc.body.style.background = '';
                 fl.updateCenteredArt(artUrl);
 
             } else {
@@ -486,19 +493,26 @@
             img.classList.remove('visible');
         }
 
+        const mySessionId = fl.pipSessionId;
         setTimeout(() => {
             if (!fl.pipWin || fl.pipWin.closed) return;
+            if (mySessionId !== fl.pipSessionId) return; // Reject stale sessions
             // Re-evaluate: mode may have changed by the time the timeout fires
             if (!(fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode)) return;
-            // Only apply palette-based gradient if there is actual art playing
-            if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
-                const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
-                const baseBg = fl.deriveDarkBg(rawColor);
-                const topBg = fl.deriveLightBg(rawColor);
-                fl.pipWin.document.body.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
-            } else {
-                fl.pipWin.document.body.style.background = '#121212';
+            
+            const bgCover = fl.pipWin.document.getElementById('bg-cover');
+            if (bgCover) {
+                // Only apply palette-based gradient if there is actual art playing
+                if (artUrl && fl.lastExtractedArt && fl.currentPalette && fl.currentPalette.vibrant) {
+                    const rawColor = fl.currentPalette.raw || fl.currentPalette.vibrant;
+                    const baseBg = fl.deriveDarkBg(rawColor);
+                    const topBg = fl.deriveLightBg(rawColor);
+                    bgCover.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
+                } else {
+                    bgCover.style.background = '#121212';
+                }
             }
+            fl.pipWin.document.body.style.background = '';
         }, 0);
     }
 

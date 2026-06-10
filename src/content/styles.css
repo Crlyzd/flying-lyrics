@@ -13,6 +13,7 @@ body {
     display: flex;
     flex-direction: column;
     user-select: none;
+    background-color: #121212;
 }
 
 

@@ -35,6 +35,7 @@
             const size = await getSavedSize();
             fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: size.pipWidth, height: size.pipHeight });
             fl.activePipType = 'document';
+            fl.pipSessionId = (fl.pipSessionId || 0) + 1;
 
             // --- SANITIZE PIP WINDOW (Fixes Spotify white background bleed) ---
             fl.pipWin.document.head.replaceChildren();
@@ -183,6 +184,7 @@
             const pipWin = await video.requestPictureInPicture();
             fl.pipWin = pipWin;
             fl.activePipType = 'video';
+            fl.pipSessionId = (fl.pipSessionId || 0) + 1;
 
             // Send signal to main world to hide seeker bar and skip buttons
             window.postMessage({ type: 'FL_VIDEO_PIP_START' }, '*');
@@ -229,13 +231,17 @@
             // Handle Resize
             const onResize = () => {
                 if (!fl.pipWin) return;
+                // pipWin.width/height may be 0 right after PiP creation before the browser
+                // has laid out the window. Skip the update in that case — renderLoop handles
+                // canvas sizing itself and will pick up the correct size on its next frame.
+                if (pipWin.width <= 0 || pipWin.height <= 0) return;
                 canvas.width = pipWin.width;
                 canvas.height = pipWin.height;
                 fl.needsLayoutUpdate = true;
             };
 
             pipWin.addEventListener('resize', onResize);
-            onResize(); // Initial sizing
+            onResize(); // Initial sizing (guarded — safe to call even if dimensions are 0)
 
             // Handle Exit
             const onLeave = () => {
@@ -268,6 +274,20 @@
             fl._mediaEl = null;
             fl.scrollPos = 0;
             fl.targetScroll = 0;
+            fl.lastW = -1;  // force canvas resize on first valid frame
+            fl.lastH = -1;
+            fl.canvasBgImage = null;       // clear stale art from previous session
+            fl.canvasBgImageUrl = "";
+            fl.pipLaunchTime = performance.now(); // used by renderer grace-period check
+
+            // Pre-warm palette extraction immediately so colors are ready by the time
+            // the first frame renders. Without this, fl.currentPalette.raw is undefined
+            // for the first 1-3s, causing a dark background and wrong lyric text color.
+            // (Previously only fixed by switching doc pip → video pip to force extraction.)
+            const preWarmArt = fl.getCoverArt();
+            if (preWarmArt) {
+                fl.extractPalette(preWarmArt);
+            }
 
             window.requestAnimationFrame(fl.renderLoop);
         } catch (e) {

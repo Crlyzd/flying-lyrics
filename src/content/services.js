@@ -712,22 +712,37 @@
 
     fl.getCoverArt = function () {
         const isValid = (src) => src && src !== window.location.href && src !== window.location.origin + '/';
+        let src = "";
 
         // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
         const meta = navigator.mediaSession?.metadata;
         if (meta && meta.artwork && meta.artwork.length > 0) {
-            const src = meta.artwork[meta.artwork.length - 1].src;
-            if (isValid(src)) return src;
+            const s = meta.artwork[meta.artwork.length - 1].src;
+            if (isValid(s)) src = s;
         }
 
         // 2. Active Platform Adapter Fallback
-        const adapter = fl.getActiveAdapter?.();
-        if (adapter) {
-            const src = adapter.getCoverArt();
-            if (isValid(src)) return src;
+        if (!src) {
+            const adapter = fl.getActiveAdapter?.();
+            if (adapter) {
+                const s = adapter.getCoverArt();
+                if (isValid(s)) src = s;
+            }
         }
 
-        return "";
+        if (src) {
+            // Upgrade Spotify CDN image URLs to high-res (640x640)
+            if (src.includes('i.scdn.co/image/')) {
+                src = src.replace(/ab67616d0000[0-9a-f]{4}/i, 'ab67616d0000b273');
+            }
+            // Upgrade YouTube Music image URLs to high-res (544x544)
+            else if (src.includes('googleusercontent.com') || src.includes('ggpht.com')) {
+                src = src.replace(/=w\d+-h\d+/i, '=w544-h544')
+                         .replace(/=s\d+/i, '=s544');
+            }
+        }
+
+        return src;
     }
 
     fl.translateExistingLyrics = async function () {

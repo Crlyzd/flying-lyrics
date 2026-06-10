@@ -5,6 +5,8 @@
 
     fl.extractPalette = async function (imgUrl) {
         if (!imgUrl || imgUrl === fl.lastExtractedArt) return;
+
+        const mySessionId = fl.pipSessionId;
         fl.lastExtractedArt = imgUrl;
 
         try {
@@ -16,6 +18,8 @@
                 img.src = imgUrl;
             });
 
+            if (mySessionId !== fl.pipSessionId) return;
+
             const v = new Vibrant(img, {
                 colorCount: 32, // Increase for better accuracy on sparse accents
                 quality: 3,
@@ -23,19 +27,26 @@
             });
             const palette = await v.getPalette();
 
-            // 1. Try Vibrant profile (the bright accent color like pink hair)
-            let best = palette.Vibrant;
+            if (mySessionId !== fl.pipSessionId) return;
 
-            // 2. Fallbacks: If Muted drastically outweighs Vibrant, it's likely a B&W cover. 
-            // We want to avoid tiny JPEG color artifacts overriding the main vibe.
-            if (palette.Muted && palette.Vibrant) {
-                if (palette.Muted.population > (palette.Vibrant.population * 10)) {
-                    best = palette.Muted || palette.DarkMuted;
+            let best = null;
+
+            // 1. First pass: try to find a swatch with decent saturation (color) in order of preference
+            for (const swatchName of ['Vibrant', 'DarkVibrant', 'LightVibrant', 'Muted', 'DarkMuted', 'LightMuted']) {
+                const s = palette[swatchName];
+                if (s) {
+                    const rgb = s.getRgb();
+                    const hsl = fl.rgbToHsl(rgb[0], rgb[1], rgb[2]);
+                    if (hsl.s >= 0.15 && s.population > 5) {
+                        best = s;
+                        break;
+                    }
                 }
             }
 
+            // 2. Second pass: absolute fallback if no colorful swatch is found (e.g. true B&W cover)
             if (!best) {
-                best = palette.Vibrant || palette.LightVibrant || palette.DarkVibrant || palette.Muted;
+                best = palette.Vibrant || palette.DarkVibrant || palette.LightVibrant || palette.Muted || palette.DarkMuted || palette.LightMuted;
             }
 
             if (best) {
@@ -55,6 +66,8 @@
                 }
             }
         } catch (e) {
+            // Do NOT reset fl.lastExtractedArt to "" on failure.
+            // Leaving it set to imgUrl prevents the render loop from retrying at 60fps.
             // Silently swallow extraction failures so they don't pollute the 
             // Chrome Extension Errors dashboard. The UI gracefully falls back 
             // to the default dark theme anyway.
