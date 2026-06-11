@@ -2,11 +2,54 @@
 
 window.FLYING_LYRICS = window.FLYING_LYRICS || {};
 
+function getBrowserDefaultLanguage() {
+    const supportedCodes = [
+        'en', 'zh-CN', 'zh-TW', 'es', 'fr', 'ar', 'ru', 'pt', 
+        'id', 'de', 'ja', 'tr', 'vi', 'ko', 'fa', 'it', 'th', 'ku'
+    ];
+    
+    const preferences = [];
+    if (typeof chrome !== 'undefined' && chrome.i18n && typeof chrome.i18n.getUILanguage === 'function') {
+        preferences.push(chrome.i18n.getUILanguage());
+    }
+    if (typeof navigator !== 'undefined') {
+        if (Array.isArray(navigator.languages)) {
+            preferences.push(...navigator.languages);
+        }
+        if (navigator.language) {
+            preferences.push(navigator.language);
+        }
+    }
+    
+    for (const lang of preferences) {
+        if (!lang) continue;
+        const normalized = lang.toLowerCase();
+        
+        // Exact matches for Chinese dialects
+        if (normalized === 'zh-cn' || normalized === 'zh-hans' || normalized === 'zh-sg' || normalized === 'zh-my') return 'zh-CN';
+        if (normalized === 'zh-tw' || normalized === 'zh-hk' || normalized === 'zh-mo' || normalized === 'zh-hant') return 'zh-TW';
+        
+        // Exact match check
+        const exactMatch = supportedCodes.find(code => code.toLowerCase() === normalized);
+        if (exactMatch) return exactMatch;
+        
+        // Base match (e.g. "en-US" -> "en")
+        const base = normalized.split('-')[0];
+        if (base === 'zh') {
+            return 'zh-CN';
+        }
+        const baseMatch = supportedCodes.find(code => code.toLowerCase() === base);
+        if (baseMatch) return baseMatch;
+    }
+    
+    return 'en';
+}
+
 // Unified User Preferences Defaults
 window.FLYING_LYRICS.defaults = {
     // Functional Settings
     showTranslation: true,
-    translationLang: 'id',
+    translationLang: getBrowserDefaultLanguage(),
     globalSyncOffset: 1000,
     autoLaunch: false,
     songOffsets: {},
