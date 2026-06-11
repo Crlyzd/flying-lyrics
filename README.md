@@ -13,6 +13,7 @@
 ### 🚀 The "Always-on-Top" Player
 * **Floating Window:** Watch your lyrics in a small, resizable window that stays on top of everything else on your screen.
 * **Spotify & YouTube Music:** Works perfectly with both Spotify Web Player and YouTube Music.
+* **Borderless Mode (Video PiP):** Toggle Borderless Mode in the settings to run native Video Picture-in-Picture. This hides title bars and window borders, disabling clicks inside the PiP and stripping progress sliders/seeking controls for a clean, distraction-free overlay.
 * **No Setup Required:** Automatically finds and downloads the right lyrics as soon as you hit play.
 * **Multi-Source Support:** Automatically fetches from LRCLIB (Default), Netease, or your Local Files.
 * **Local LRC Support:** Have a rare track? Load your own `.lrc` files directly into the player.
@@ -20,6 +21,7 @@
 
 ### 🌍 Read & Understand Everything
 * **Triple-Layer View:** See original lyrics, romanization (supporting **Japanese, Korean, or Mandarin**), and translations—all at the same time.
+* **Auto-Detected Translation:** Automatically matches your browser or operating system's language to select the default translation locale (supporting 18 languages).
 * **Instant Translation:** Uses Google Translate to provide translations on the fly if none are available.
 * **Cinematic Feel:** The current line glows and stays in focus, while inactive lines fade out.
 * **Smart "Pseudo-Scroll":** For unsynced lyrics, the panel automatically scrolls based on song duration and line count.
@@ -29,10 +31,13 @@
 
 ### 🎨 Beautiful & Adaptive Design
 * **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
+* **Smart Color Swatch Selection:** Color extraction evaluates saturation and swatch population to ensure the most vibrant accents are chosen, with graceful monochrome fallbacks.
 * **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
 * **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size**, **Alignment** (Left, Center, Right), **Line Spacing** and **Vertical Position**, to your liking.
 * **Album Cover Mode:** Want to just vibe with the album art? Use the "Album Cover Mode" toggle to hide the text and see only the cover.
 * **Background Modes:** Choose how your background looks with **Center**, **Repeat**, or **Fill** modes.
+* **Aurora & Sparkles Wait State:** When waiting for music or loading lyrics, enjoy a fluid canvas animation of shifting radial color blobs and procedurally generated stars.
+* **High-Res Art Upgrades:** Spotify and YouTube Music album artwork URLs are automatically upgraded to high resolution (640x640 and 544x544).
 
 ### 🕹️ Full Control at Your Fingertips
 * **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
@@ -41,6 +46,7 @@
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
+* **Help button:** A yellow "Help, how to use Flying Lyrics ??" button appears dynamically in the popup for new installs to quickly access troubleshooting tips.
 
 <img width="544" height="647" alt="image" src="https://github.com/user-attachments/assets/44387a3e-91bf-4852-b011-b95fa133109e" />
 
@@ -48,7 +54,9 @@
 ### ⚡ Smarter Performance & Polished Experience
 * **Smarter Search Accuracy:** Finding lyrics is now more reliable! The extension automatically cleans up and matches song titles across Spotify and YouTube Music, and even tries alternate searches if a song isn't found immediately.
 * **Silky Smooth Animations:** The lyrics scrolling engine has been completely rebuilt to be incredibly lightweight. It heavily reduces CPU usage so your PC stays fast while delivering butter-smooth cinematic animations.
-* **Welcome Onboarding Guide:** First time installing? A brand-new setup guide will walk you through exactly how to launch the floating window and use the player.
+* **Cinematic Scroll Easing:** Large timing jumps instantly teleport close to the destination line before smoothly easing in, eliminating lag spikes.
+* **Battery Saver (Idle Throttle):** Canvas drawing frame rates automatically drop to ~4fps when playback is paused and the layout is static, reducing CPU wakeups to save battery.
+* **Welcome Onboarding Guide:** First time installing? A brand-new setup guide (featuring a video tutorial) will walk you through exactly how to launch the floating window and use the player.
 * **Handy Tooltips & Indicators:** Hover over the progress bar to see exact timestamps before skipping, and get clearer status bubbles that tell you if lyrics are synced, unsynced, or still retrying.
 * **Privacy-First Performance Tracking:** To make Flying Lyrics faster and better, we optionally collect anonymous speed metrics (like how fast lyrics load). You have full control with an easy opt-out switch in the welcome screen.
 
@@ -74,7 +82,6 @@
 ---
 
 ## ⚠️ Known Limitations & Tips
-* **Browser UI Bug:** In Spotify Web Player (Non-English languages), player icons may occasionally fail to visually toggle, though the controls remain functional.
 * **Translation Speed:** Due to the free Google Translate API, translations may take 1-2 seconds to load.
 * **API Protection:** Avoid switching translation languages too rapidly to prevent temporary API rate-limiting.
 
