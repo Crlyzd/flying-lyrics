@@ -5,14 +5,16 @@
     function saveWindowSize(w, h) {
         if (resizeTimeout) clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-            chrome.storage.local.set({ pipWidth: w, pipHeight: h });
+            fl.lastPipWidth = w;
+            fl.lastPipHeight = h;
         }, 500);
     }
 
     function getSavedSize() {
-        return new Promise((resolve) => {
-            chrome.storage.local.get({ pipWidth: 300, pipHeight: 300 }, resolve);
-        });
+        return {
+            pipWidth: fl.lastPipWidth || 200,
+            pipHeight: fl.lastPipHeight || 250
+        };
     }
 
     fl.launchPip = async function () {
@@ -32,7 +34,8 @@
         fl.isLaunchingPip = true;
 
         try {
-            const size = await getSavedSize();
+            fl.pipLaunchTime = performance.now();
+            const size = getSavedSize();
             fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: size.pipWidth, height: size.pipHeight });
             fl.activePipType = 'document';
             fl.pipSessionId = (fl.pipSessionId || 0) + 1;
@@ -79,6 +82,7 @@
             fl.targetScroll = 0;
 
             fl.pipWin.addEventListener('resize', () => {
+                if (performance.now() - fl.pipLaunchTime < 1000) return;
                 if (fl.pipWin) {
                     saveWindowSize(fl.pipWin.innerWidth, fl.pipWin.innerHeight);
                 }
@@ -144,8 +148,8 @@
                 });
                 document.body.appendChild(canvas);
             }
-            canvas.width = 300;
-            canvas.height = 300;
+            canvas.width = 200;
+            canvas.height = 200;
 
             fl.canvas = canvas;
             fl.ctx = canvas.getContext('2d');
