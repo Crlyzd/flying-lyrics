@@ -986,6 +986,11 @@
 
         fl.ctx.restore();
 
+        // Draw video PiP sync status badge directly onto the canvas
+        if (fl.activePipType === 'video') {
+            fl.drawVideoPipSyncStatus(w, h);
+        }
+
         // OPT-3: If truly idle (paused + scroll settled + no layout dirty), sleep for
         // ~250ms before the next rAF tick. This cuts CPU wakeups from ~60/s to ~4/s.
         // Glow animations bypass the throttle because needsLayoutUpdate stays false
@@ -1000,5 +1005,132 @@
             nextFrame(fl.renderLoop);
         }
     }
+
+    // --- VIDEO PIP SYNC STATUS BADGE ---
+    // Draws a rounded pill badge in the top-right corner of the canvas showing
+    // the current sync status (SYNCED / UNSYNCED / NO LYRICS / retrying spinner).
+    // Mirrors the Document PiP DOM indicator but rendered via Canvas 2D API.
+    fl.drawVideoPipSyncStatus = function (w, h) {
+        if (fl.activePipType !== 'video') return;
+
+        // Determine status, colors — same logic as the DOM version in ui.js
+        let statusText;
+        let dotColor;
+        let borderColor;
+        let textColor;
+        const isRetrying = fl.isRetrying || false;
+
+        if (fl.isMissingLyrics) {
+            statusText  = 'NO LYRICS';
+            dotColor    = '#FFD700';
+            borderColor = 'rgba(255, 215, 0, 0.3)';
+            textColor   = 'rgba(255, 215, 0, 0.9)';
+        } else if (fl.isCurrentLyricSynced) {
+            statusText  = 'SYNCED';
+            dotColor    = '#1DB954';
+            borderColor = 'rgba(29, 185, 84, 0.3)';
+            textColor   = 'rgba(255, 255, 255, 0.9)';
+        } else {
+            statusText  = 'UNSYNCED';
+            dotColor    = '#555555';
+            borderColor = 'rgba(255, 255, 255, 0.1)';
+            textColor   = 'rgba(255, 255, 255, 0.7)';
+        }
+
+        fl.ctx.save();
+
+        // Mirror Doc PiP's: transform: scale(0.6); transform-origin: top right
+        // Translate origin to the top-right corner then scale — all raw values
+        // below intentionally match the Doc PiP CSS numbers exactly.
+        const margin = 15; // matches Doc PiP: top: 15px; right: 15px
+        fl.ctx.translate(w - margin, margin);
+        fl.ctx.scale(0.6, 0.6);
+
+        // Raw values — identical to Doc PiP CSS (pre-scale)
+        const fontName    = "'Noto Sans', 'Segoe UI', sans-serif";
+        const fontSize    = 10;  // matches font-size: 10px
+        const paddingX    = 8;   // matches padding: 4px 8px
+        const paddingY    = 4;   // matches padding: 4px 8px
+        const gap         = 6;   // matches gap: 6px
+        const dotRadius   = 3;   // matches .sync-dot: width/height 6px → radius 3px
+        const cornerR     = 4;   // matches border-radius: 4px
+
+        fl.ctx.font         = `700 ${fontSize}px ${fontName}`;
+        fl.ctx.textBaseline = 'middle';
+        fl.ctx.textAlign    = 'left';
+
+        const textWidth   = fl.ctx.measureText(statusText).width;
+        const badgeHeight = fontSize + paddingY * 2;
+        const badgeWidth  = paddingX * 2 + dotRadius * 2 + gap + textWidth;
+
+        // Origin is at top-right; badge grows leftward (negative x)
+        const bx = -badgeWidth;
+        const by = 0;
+
+        // Background fill
+        fl.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        fl.ctx.beginPath();
+        fl.ctx.moveTo(bx + cornerR, by);
+        fl.ctx.lineTo(bx + badgeWidth - cornerR, by);
+        fl.ctx.quadraticCurveTo(bx + badgeWidth, by, bx + badgeWidth, by + cornerR);
+        fl.ctx.lineTo(bx + badgeWidth, by + badgeHeight - cornerR);
+        fl.ctx.quadraticCurveTo(bx + badgeWidth, by + badgeHeight, bx + badgeWidth - cornerR, by + badgeHeight);
+        fl.ctx.lineTo(bx + cornerR, by + badgeHeight);
+        fl.ctx.quadraticCurveTo(bx, by + badgeHeight, bx, by + badgeHeight - cornerR);
+        fl.ctx.lineTo(bx, by + cornerR);
+        fl.ctx.quadraticCurveTo(bx, by, bx + cornerR, by);
+        fl.ctx.closePath();
+        fl.ctx.fill();
+
+        // Border stroke (lineWidth is also scaled by 0.6 — intentional)
+        fl.ctx.strokeStyle = borderColor;
+        fl.ctx.lineWidth   = 1;
+        fl.ctx.stroke();
+
+        const dotX = bx + paddingX + dotRadius;
+        const dotY = by + badgeHeight / 2;
+
+        if (isRetrying) {
+            // Animated spinner — mirrors .sync-spinner CSS animation (spin 0.8s linear)
+            fl.ctx.save();
+            fl.ctx.translate(dotX, dotY);
+            const angle = (performance.now() / 150) % (Math.PI * 2);
+            fl.ctx.rotate(angle);
+
+            // Spinner track — matches border: 1.5px solid rgba(255, 215, 0, 0.3)
+            fl.ctx.beginPath();
+            fl.ctx.arc(0, 0, dotRadius, 0, Math.PI * 2);
+            fl.ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+            fl.ctx.lineWidth   = 1.5;
+            fl.ctx.stroke();
+
+            // Spinner head — matches border-top-color: #FFD700
+            fl.ctx.beginPath();
+            fl.ctx.arc(0, 0, dotRadius, -Math.PI / 2, 0);
+            fl.ctx.strokeStyle = '#FFD700';
+            fl.ctx.stroke();
+            fl.ctx.restore();
+        } else {
+            // Static colored dot — matches box-shadow glow on .sync-dot
+            fl.ctx.beginPath();
+            fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+            fl.ctx.fillStyle = dotColor;
+            if (fl.isCurrentLyricSynced) {
+                fl.ctx.shadowColor = 'rgba(29, 185, 84, 0.6)'; // matches box-shadow: 0 0 6px rgba(29, 185, 84, 0.6)
+                fl.ctx.shadowBlur  = 6;
+            } else if (fl.isMissingLyrics) {
+                fl.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)'; // matches box-shadow: 0 0 6px rgba(255, 215, 0, 0.6)
+                fl.ctx.shadowBlur  = 6;
+            }
+            fl.ctx.fill();
+            fl.ctx.shadowBlur = 0;
+        }
+
+        // Status text
+        fl.ctx.fillStyle = textColor;
+        fl.ctx.fillText(statusText, dotX + dotRadius + gap, dotY);
+
+        fl.ctx.restore();
+    };
 
 })();

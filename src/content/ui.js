@@ -344,6 +344,7 @@
     }
 
     fl.setIndicatorRetrying = function (isRetrying) {
+        fl.isRetrying = isRetrying; // Persist for video PiP canvas renderer
         if (!fl.pipWin || fl.activePipType === 'video') return;
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         if (ind) {
