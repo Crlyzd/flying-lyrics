@@ -41,11 +41,51 @@
         });
     }
 
-    // ── Dismiss button (closes this tab) ────────────────────────────────────
+    // ── Dismiss button (closes this tab and redirects to music player) ──────
     const btnDismiss = document.getElementById('btn-dismiss');
     if (btnDismiss) {
         btnDismiss.addEventListener('click', () => {
-            window.close();
+            try {
+                chrome.tabs.query({}, (tabs) => {
+                    const musicTabs = tabs.filter(t => 
+                        t.url && (t.url.includes('open.spotify.com') || t.url.includes('music.youtube.com'))
+                    );
+
+                    // Sort to prioritize audible tabs, then most recently accessed
+                    musicTabs.sort((a, b) => {
+                        if (a.audible && !b.audible) return -1;
+                        if (!a.audible && b.audible) return 1;
+                        return (b.lastAccessed || 0) - (a.lastAccessed || 0);
+                    });
+
+                    const musicTab = musicTabs[0];
+
+                    const closeUpdateTab = () => {
+                        chrome.tabs.getCurrent((tab) => {
+                            if (tab && tab.id) {
+                                chrome.tabs.remove(tab.id);
+                            } else {
+                                window.close();
+                            }
+                        });
+                    };
+
+                    if (musicTab) {
+                        chrome.tabs.update(musicTab.id, { active: true });
+                        chrome.windows.update(musicTab.windowId, { focused: true }, () => {
+                            chrome.tabs.reload(musicTab.id);
+                            closeUpdateTab();
+                        });
+                    } else {
+                        chrome.tabs.create({ url: 'https://music.youtube.com' }, () => {
+                            closeUpdateTab();
+                        });
+                    }
+                });
+            } catch {
+                // Fallback for non-extension environments (e.g. direct file load)
+                window.close();
+            }
         });
     }
 })();
