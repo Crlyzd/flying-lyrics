@@ -273,8 +273,8 @@ body:hover #ui-container,
 }
 
 /* Activate Overlay when too small */
-@media (max-width: 199px),
-(max-height: 199px) {
+@media (max-width: 139px),
+(max-height: 139px) {
     #size-warning {
         display: flex;
     }
@@ -284,6 +284,24 @@ body:hover #ui-container,
     #sync-indicator,
     #back-btn {
         display: none !important;
+    }
+}
+
+/* Responsive spacing for controls in small viewports to prevent overflow */
+@media (max-width: 199px) {
+    #controls {
+        gap: 8px;
+    }
+}
+
+/* Scale down the warning text inside if the window gets very narrow */
+@media (max-width: 179px) {
+    .warning-pill span {
+        font-size: 16px;
+    }
+    .warning-subtext {
+        font-size: 9px;
+        max-width: 95%;
     }
 }
 

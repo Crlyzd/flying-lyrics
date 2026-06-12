@@ -692,7 +692,7 @@
 
         // --- Optimization / Bounds Checking ---
         // If the window is too small, the CSS overlay is showing and the canvas is hidden.
-        if (fl.activePipType !== 'video' && (w < 200 || h < 200)) {
+        if (fl.activePipType !== 'video' && (w < 140 || h < 140)) {
             fl.pipWin.requestAnimationFrame(fl.renderLoop);
             return;
         }
