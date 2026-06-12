@@ -57,7 +57,7 @@ body {
     transform: translate(-50%, -50%);
     /* Soft blurred shadow around the cover */
     filter: drop-shadow(0 8px 32px rgba(0, 0, 0, 0.65)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
-    border-radius: 4px;
+    border-radius: 24px;
     object-fit: contain;
     display: none;
     /* hidden by default, shown only in centered mode */

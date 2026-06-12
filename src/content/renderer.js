@@ -382,16 +382,32 @@
                 fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
             }
 
-            // Draw centered art with drop shadow
+            // Draw centered art with drop shadow and rounded corners
             if (fl.canvasBgImage) {
                 const size = Math.min(w, h) * 0.65;
                 const x = (w - size) / 2;
                 const y = (h - size) / 2;
                 const vmin = Math.min(w, h) / 100;
+                const cornerRadius = vmin * 4.5;
+
+                // 1. Draw the drop shadow using a filled rounded rectangle matching the image bounds
+                fl.ctx.save();
                 fl.ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
                 fl.ctx.shadowBlur = vmin * 8;
                 fl.ctx.shadowOffsetY = vmin * 2;
+                fl.ctx.fillStyle = '#000000';
+                fl.ctx.beginPath();
+                fl.ctx.roundRect(x, y, size, size, cornerRadius);
+                fl.ctx.fill();
+                fl.ctx.restore();
+
+                // 2. Clip and draw the album cover image inside the rounded rectangle
+                fl.ctx.save();
+                fl.ctx.beginPath();
+                fl.ctx.roundRect(x, y, size, size, cornerRadius);
+                fl.ctx.clip();
                 fl.ctx.drawImage(fl.canvasBgImage, x, y, size, size);
+                fl.ctx.restore();
             }
             fl.ctx.restore();
         } else {
