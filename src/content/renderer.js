@@ -1038,21 +1038,37 @@
         let dotColor;
         let borderColor;
         let textColor;
+        let spinnerTrackColor;
+        let spinnerHeadColor;
+        let dotGlowColor;
+        let dotGlowBlur = 0;
         const isRetrying = fl.isRetrying || false;
 
         if (fl.isMissingLyrics) {
-            statusText  = 'NO LYRICS';
-            dotColor    = '#FFD700';
-            borderColor = 'rgba(255, 215, 0, 0.3)';
-            textColor   = 'rgba(255, 215, 0, 0.9)';
+            if (isRetrying) {
+                statusText  = 'SEARCHING';
+                borderColor = 'rgba(0, 210, 255, 0.35)';
+                textColor   = '#E0F7FA';
+                spinnerTrackColor = 'rgba(0, 210, 255, 0.2)';
+                spinnerHeadColor   = '#00D2FF';
+            } else {
+                statusText  = 'NO LYRICS';
+                dotColor    = '#F59E0B';
+                borderColor = 'rgba(245, 158, 11, 0.25)';
+                textColor   = '#FEF3C7';
+                dotGlowColor = 'rgba(245, 158, 11, 0.4)';
+                dotGlowBlur  = 6;
+            }
         } else if (fl.isCurrentLyricSynced) {
             statusText  = 'SYNCED';
-            dotColor    = '#1DB954';
-            borderColor = 'rgba(29, 185, 84, 0.3)';
-            textColor   = 'rgba(255, 255, 255, 0.9)';
+            dotColor    = '#10B981';
+            borderColor = 'rgba(16, 185, 129, 0.25)';
+            textColor   = '#E6F4EA';
+            dotGlowColor = 'rgba(16, 185, 129, 0.5)';
+            dotGlowBlur  = 8;
         } else {
             statusText  = 'UNSYNCED';
-            dotColor    = '#555555';
+            dotColor    = '#94A3B8';
             borderColor = 'rgba(255, 255, 255, 0.1)';
             textColor   = 'rgba(255, 255, 255, 0.7)';
         }
@@ -1117,17 +1133,17 @@
             const angle = (performance.now() / 150) % (Math.PI * 2);
             fl.ctx.rotate(angle);
 
-            // Spinner track — matches border: 1.5px solid rgba(255, 215, 0, 0.3)
+            // Spinner track
             fl.ctx.beginPath();
             fl.ctx.arc(0, 0, dotRadius, 0, Math.PI * 2);
-            fl.ctx.strokeStyle = 'rgba(255, 215, 0, 0.3)';
+            fl.ctx.strokeStyle = spinnerTrackColor || 'rgba(0, 210, 255, 0.2)';
             fl.ctx.lineWidth   = 1.5;
             fl.ctx.stroke();
 
-            // Spinner head — matches border-top-color: #FFD700
+            // Spinner head
             fl.ctx.beginPath();
             fl.ctx.arc(0, 0, dotRadius, -Math.PI / 2, 0);
-            fl.ctx.strokeStyle = '#FFD700';
+            fl.ctx.strokeStyle = spinnerHeadColor || '#00D2FF';
             fl.ctx.stroke();
             fl.ctx.restore();
         } else {
@@ -1135,12 +1151,9 @@
             fl.ctx.beginPath();
             fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
             fl.ctx.fillStyle = dotColor;
-            if (fl.isCurrentLyricSynced) {
-                fl.ctx.shadowColor = 'rgba(29, 185, 84, 0.6)'; // matches box-shadow: 0 0 6px rgba(29, 185, 84, 0.6)
-                fl.ctx.shadowBlur  = 6;
-            } else if (fl.isMissingLyrics) {
-                fl.ctx.shadowColor = 'rgba(255, 215, 0, 0.6)'; // matches box-shadow: 0 0 6px rgba(255, 215, 0, 0.6)
-                fl.ctx.shadowBlur  = 6;
+            if (dotGlowBlur > 0) {
+                fl.ctx.shadowColor = dotGlowColor;
+                fl.ctx.shadowBlur  = dotGlowBlur;
             }
             fl.ctx.fill();
             fl.ctx.shadowBlur = 0;

@@ -354,7 +354,7 @@
                 ind.title = isRetrying
                     ? 'No lyrics found for this track (Retrying...)'
                     : 'No lyrics found for this track';
-                txt.textContent = isRetrying ? 'SEARCHING...' : 'NO LYRICS';
+                txt.textContent = isRetrying ? 'SEARCHING' : 'NO LYRICS';
             } else {
                 if (fl.isCurrentLyricSynced) {
                     ind.classList.remove('is-missing');
