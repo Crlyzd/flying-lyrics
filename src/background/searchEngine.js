@@ -405,8 +405,12 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     // 2. Combine and deduplicate candidates by source & id
     const allCandidates = [];
     const seenCandidates = new Set();
+    let hasTimeout = false;
 
     for (const res of results) {
+        if (res?.hasTimeout) {
+            hasTimeout = true;
+        }
         const candidatesList = res?.candidates || [];
         for (const c of candidatesList) {
             const key = `${c.source}-${c.id}`;
@@ -459,25 +463,9 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
         }
     }
 
-    // 4. Optimistically pre-score and limit Netease candidates
-    if (neteaseToFetch.length > 0) {
-        // Score Netease candidate assuming the best case: it is synced (synced: true)
-        const optimisticScoredNetease = neteaseToFetch.map(c => {
-            const optimisticCandidate = { ...c, synced: true };
-            return {
-                candidate: c,
-                optimisticScore: scoreCandidate(optimisticCandidate, duration, cTitleFull, cArtistFull)
-            };
-        });
-
-        // Sort descending by optimistic score
-        optimisticScoredNetease.sort((a, b) => b.optimisticScore - a.optimisticScore);
-
-        // Take only the top 3 Netease candidates to lazy fetch
-        const topNetease = optimisticScoredNetease.slice(0, 3).map(x => x.candidate);
-
-        // 5. Fetch top Netease candidates concurrently
-        const fetchPromises = topNetease.map(async (c) => {
+    // Helper to download Netease lyrics and check sync status
+    const fetchNeteaseCandidates = async (candidatesList) => {
+        const promises = candidatesList.map(async (c) => {
             try {
                 const raw = await fetchNeteaseRaw(c.id, timeoutMs);
                 if (raw && raw.trim().length >= 5) {
@@ -495,23 +483,66 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
             }
             return null;
         });
+        const fetched = await Promise.all(promises);
+        return fetched.filter(Boolean);
+    };
 
-        const fetchedResults = await Promise.all(fetchPromises);
-        for (const res of fetchedResults) {
-            if (res) resolvedPool.push(res);
+    // 4. Optimistically pre-score and limit Netease candidates
+    if (neteaseToFetch.length > 0) {
+        // Score Netease candidate assuming the best case: it is synced (synced: true)
+        const optimisticScoredNetease = neteaseToFetch.map(c => {
+            const optimisticCandidate = { ...c, synced: true };
+            return {
+                candidate: c,
+                optimisticScore: scoreCandidate(optimisticCandidate, duration, cTitleFull, cArtistFull)
+            };
+        });
+
+        // Sort descending by optimistic score
+        optimisticScoredNetease.sort((a, b) => b.optimisticScore - a.optimisticScore);
+
+        // Determine fetch depth based on whether LRCLIB has a synced candidate
+        const hasSyncedLrcLib = resolvedPool.some(r => r.synced);
+        const initialDepth = hasSyncedLrcLib ? 3 : 5;
+
+        // Take only the top initialDepth Netease candidates for Batch 1
+        const firstBatch = optimisticScoredNetease.slice(0, initialDepth).map(x => x.candidate);
+
+        // 5. Fetch first batch concurrently
+        const resolvedBatch1 = await fetchNeteaseCandidates(firstBatch);
+        resolvedPool.push(...resolvedBatch1);
+
+        // 6. Check if we found a synced lyric in Batch 1
+        const hasSyncedInBatch1 = resolvedBatch1.some(r => r.synced);
+
+        // 7. Tiered fetch fallback: If no synced lyric is found in Batch 1, fetch Batch 2 (next 3)
+        if (!hasSyncedInBatch1 && optimisticScoredNetease.length > initialDepth) {
+            const secondBatch = optimisticScoredNetease
+                .slice(initialDepth, initialDepth + 3)
+                .map(x => x.candidate);
+            const resolvedBatch2 = await fetchNeteaseCandidates(secondBatch);
+            resolvedPool.push(...resolvedBatch2);
         }
     }
 
-    if (resolvedPool.length === 0) return null;
+    if (resolvedPool.length === 0) {
+        return {
+            rawLyric: null,
+            source:   null,
+            synced:   false,
+            hasTimeout
+        };
+    }
 
-    // 6. Sort the fully-resolved pool by score (descending) and return the winner
+    // 8. Sort the fully-resolved pool by score (descending) and return the winner
     resolvedPool.sort((a, b) => b.score - a.score);
     const winner = resolvedPool[0];
 
     return {
-        rawLyric: winner.rawLyric,
-        source:   winner.source,
-        synced:   winner.synced,
+        rawLyric:   winner.rawLyric,
+        source:     winner.source,
+        synced:     winner.synced,
+        hasTimeout
     };
 }
 

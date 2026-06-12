@@ -204,6 +204,8 @@
             //  - If the loop exhausts all passes, we use the best plain
             //    text we collected (LRCLIB preferred over Netease).
             // ─────────────────────────────────────────────────────────
+            let initialSearchTimedOut = false;
+
             if (!raw) {
                 // Delegate all search work to the background engine.
                 // It runs LRCLIB + Netease concurrently and uses lazy evaluation
@@ -228,21 +230,68 @@
                 if (searchResult?.result) {
                     raw = searchResult.result.rawLyric;
                     fl.activeLyricSource = searchResult.result.source;
+                    initialSearchTimedOut = !!searchResult.result.hasTimeout;
                 }
             }
 
-            if (!raw) {
-                // First attempt failed. Switch to Album Cover Mode immediately,
-                // and initiate a background search with a longer (30s) timeout.
+            // Immediately parse and render if we got something in the first pass
+            if (raw) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
                     payload: {
                         eventName: 'lyrics_fetch_result',
-                        params: { status: 'failure', error_type: 'no_match_first_pass' }
+                        params: { status: 'success' }
                     }
                 });
 
-                fl.handleMissingLyrics();
+                const lines = raw.split('\n');
+                fl.parseLrcOrGeneratePseudoSync(lines, raw);
+
+                // --- LYRIC TIMESTAMP SPAN VALIDATION ---
+                if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
+                    const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
+                    const realDuration = fl.getPlayerState().duration;
+                    if (realDuration > 60 && lastTs < realDuration * 0.5) {
+                        console.log(`FL: Synced lyrics span only ${Math.round(lastTs)}s vs ${Math.round(realDuration)}s track — demoting to pseudo-sync.`);
+                        fl.isCurrentLyricSynced = false;
+                        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                        const cleanLines = raw
+                            .split('\n')
+                            .map(l => l.replace(/^\[\d+:\d+\.\d+\]/, '').trim())
+                            .filter(l => l);
+                        const timePerLine = realDuration / cleanLines.length;
+                        fl.lyricLines = cleanLines.map((text, i) => ({
+                            time: i * timePerLine, text, romaji: "", translation: ""
+                        }));
+                    }
+                }
+
+                fl.cachedLyrics.key = key;
+                fl.cachedLyrics.lines = fl.lyricLines;
+                fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
+                fl.cachedLyrics.translationLang = fl.translationLang;
+
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+
+                // Fire-and-forget translation and cache saving
+                fl.translateExistingLyrics().then(() => {
+                    fl.saveToPersistentCache(key);
+                });
+            }
+
+            // Trigger retry/deep search if we found nothing OR if a timeout occurred
+            if (!raw || initialSearchTimedOut) {
+                if (!raw) {
+                    // Switch to Album Cover Mode immediately (loading indicator / background retry)
+                    chrome.runtime.sendMessage({
+                        type: 'TRACK_EVENT',
+                        payload: {
+                            eventName: 'lyrics_fetch_result',
+                            params: { status: 'failure', error_type: 'no_match_first_pass' }
+                        }
+                    });
+                    fl.handleMissingLyrics();
+                }
 
                 if (typeof fl.setIndicatorRetrying === 'function') {
                     fl.setIndicatorRetrying(true);
@@ -267,7 +316,10 @@
                         return;
                     }
 
-                    if (retryResult?.result) {
+                    if (retryResult?.result?.rawLyric) {
+                        if (retryResult.result.rawLyric === raw) {
+                            return;
+                        }
                         raw = retryResult.result.rawLyric;
                         fl.activeLyricSource = retryResult.result.source;
 
@@ -279,7 +331,6 @@
                             }
                         });
 
-                        // Deactivate Album Cover Mode and restore visuals
                         fl.activateLyrics();
 
                         const lines = raw.split('\n');
@@ -313,13 +364,15 @@
                         await fl.translateExistingLyrics();
                         fl.saveToPersistentCache(key);
                     } else {
-                        chrome.runtime.sendMessage({
-                            type: 'TRACK_EVENT',
-                            payload: {
-                                eventName: 'lyrics_fetch_result',
-                                params: { status: 'failure', error_type: 'no_match_retry' }
-                            }
-                        });
+                        if (!raw) {
+                            chrome.runtime.sendMessage({
+                                type: 'TRACK_EVENT',
+                                payload: {
+                                    eventName: 'lyrics_fetch_result',
+                                    params: { status: 'failure', error_type: 'no_match_retry' }
+                                }
+                            });
+                        }
                     }
                 } catch (retryErr) {
                     console.warn("FL: Background retry error:", retryErr);
@@ -328,58 +381,7 @@
                         fl.setIndicatorRetrying(false);
                     }
                 }
-                return;
-            } else {
-                chrome.runtime.sendMessage({
-                    type: 'TRACK_EVENT',
-                    payload: {
-                        eventName: 'lyrics_fetch_result',
-                        params: { status: 'success' }
-                    }
-                });
             }
-
-            const lines = raw.split('\n');
-            fl.parseLrcOrGeneratePseudoSync(lines, raw);
-
-            // --- LYRIC TIMESTAMP SPAN VALIDATION ---
-            // Guard against synced lyric files whose timestamps cover less than 50% of
-            // the real track duration (e.g. a garbage LRCLIB entry that only goes to 30s
-            // on a 3-minute song). In that case, demote to pseudo-sync so the lines are
-            // spread evenly across the real duration instead of freezing on the last line.
-            if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
-                const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
-                const realDuration = fl.getPlayerState().duration;
-                if (realDuration > 60 && lastTs < realDuration * 0.5) {
-                    console.log(`FL: Synced lyrics span only ${Math.round(lastTs)}s vs ${Math.round(realDuration)}s track — demoting to pseudo-sync.`);
-                    fl.isCurrentLyricSynced = false;
-                    if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
-                    // Strip timestamps and rebuild with even spacing across real duration
-                    const cleanLines = raw
-                        .split('\n')
-                        .map(l => l.replace(/^\[\d+:\d+\.\d+\]/, '').trim())
-                        .filter(l => l);
-                    const timePerLine = realDuration / cleanLines.length;
-                    fl.lyricLines = cleanLines.map((text, i) => ({
-                        time: i * timePerLine, text, romaji: "", translation: ""
-                    }));
-                }
-            }
-
-            // Warm the in-memory cache immediately so fast navigation is instant
-            fl.cachedLyrics.key = key;
-            fl.cachedLyrics.lines = fl.lyricLines;
-            fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
-            fl.cachedLyrics.translationLang = fl.translationLang;
-
-            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-
-            // Await translations so the persistent entry is always fully-enriched
-            // (romaji + translations baked in — no re-fetch on future loads).
-            await fl.translateExistingLyrics();
-
-            // Persist the enriched entry to chrome.storage.local (fire-and-forget).
-            fl.saveToPersistentCache(key);
         } catch (e) {
             if (e.message === 'TrackChanged' || e.name === 'AbortError') {
                 console.log("FL: Aborted previous fetchLyrics pipeline (track changed).");

@@ -147,7 +147,7 @@
         #sync-indicator {
             position: absolute; top: 15px; right: 15px; z-index: 20;
             display: flex; align-items: center; gap: 6px;
-            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+            background: rgba(18, 18, 18, 0.75); backdrop-filter: blur(4px);
             border: 1px solid rgba(255, 255, 255, 0.1); padding: 4px 8px;
             border-radius: 4px; font-size: 10px; font-weight: 700;
             letter-spacing: 0.5px; color: rgba(255, 255, 255, 0.7);
@@ -156,25 +156,13 @@
         }
         .sync-dot {
             width: 6px; height: 6px; border-radius: 50%;
-            background-color: #555; box-shadow: 0 0 0px transparent;
+            background-color: #94A3B8; box-shadow: 0 0 0px transparent;
             transition: all 0.3s ease;
-        }
-        #sync-indicator.is-synced .sync-dot {
-            background-color: #1DB954; box-shadow: 0 0 6px rgba(29, 185, 84, 0.6);
-        }
-        #sync-indicator.is-synced {
-            color: rgba(255, 255, 255, 0.9); border-color: rgba(29, 185, 84, 0.3);
-        }
-        #sync-indicator.is-missing .sync-dot {
-            background-color: #FFD700; box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
-        }
-        #sync-indicator.is-missing {
-            color: rgba(255, 215, 0, 0.9); border-color: rgba(255, 215, 0, 0.3);
         }
         .sync-spinner {
             width: 6px; height: 6px; border-radius: 50%;
-            border: 1.5px solid rgba(255, 215, 0, 0.3);
-            border-top-color: #FFD700;
+            border: 1.5px solid rgba(148, 163, 184, 0.2);
+            border-top-color: #94A3B8;
             animation: spin 0.8s linear infinite;
             display: none;
         }
@@ -184,6 +172,41 @@
         #sync-indicator.is-retrying .sync-dot {
             display: none;
         }
+
+        /* 1. SYNCED */
+        #sync-indicator.is-synced {
+            color: #E6F4EA;
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+        #sync-indicator.is-synced .sync-dot {
+            background-color: #10B981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+        #sync-indicator.is-synced .sync-spinner {
+            border-color: rgba(16, 185, 129, 0.2);
+            border-top-color: #10B981;
+        }
+
+        /* 2. SEARCHING (Cyan theme - applied when missing lyrics AND retrying) */
+        #sync-indicator.is-missing.is-retrying {
+            color: #E0F7FA;
+            border-color: rgba(0, 210, 255, 0.35);
+        }
+        #sync-indicator.is-missing.is-retrying .sync-spinner {
+            border-color: rgba(0, 210, 255, 0.2);
+            border-top-color: #00D2FF;
+        }
+
+        /* 3. NO LYRICS (Amber theme - applied when missing lyrics and NOT retrying) */
+        #sync-indicator.is-missing:not(.is-retrying) {
+            color: #FEF3C7;
+            border-color: rgba(245, 158, 11, 0.25);
+        }
+        #sync-indicator.is-missing:not(.is-retrying) .sync-dot {
+            background-color: #F59E0B;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -316,6 +339,13 @@
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         const txt = fl.pipWin.document.getElementById('sync-text');
         if (ind && txt) {
+            // Apply retrying state based on global flag
+            if (fl.isRetrying) {
+                ind.classList.add('is-retrying');
+            } else {
+                ind.classList.remove('is-retrying');
+            }
+
             // Priority order: missing > synced > unsynced
             if (fl.isMissingLyrics) {
                 ind.classList.remove('is-synced');
@@ -324,11 +354,8 @@
                 ind.title = isRetrying
                     ? 'No lyrics found for this track (Retrying...)'
                     : 'No lyrics found for this track';
-                txt.textContent = 'NO LYRICS';
+                txt.textContent = isRetrying ? 'SEARCHING...' : 'NO LYRICS';
             } else {
-                // Remove retrying styling when lyrics are successfully loaded/changed
-                ind.classList.remove('is-retrying');
-
                 if (fl.isCurrentLyricSynced) {
                     ind.classList.remove('is-missing');
                     ind.classList.add('is-synced');
