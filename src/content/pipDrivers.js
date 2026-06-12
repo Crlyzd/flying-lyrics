@@ -39,6 +39,7 @@
             fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: size.pipWidth, height: size.pipHeight });
             fl.activePipType = 'document';
             fl.pipSessionId = (fl.pipSessionId || 0) + 1;
+            fl.hasAutoLaunched = true;
 
             // --- SANITIZE PIP WINDOW (Fixes Spotify white background bleed) ---
             fl.pipWin.document.head.replaceChildren();
@@ -110,85 +111,51 @@
         fl.isLaunchingPip = true;
 
         try {
-            // 1. Create or get hidden video element
-            let video = document.getElementById('fl-video-pip-element');
-            if (!video) {
-                video = document.createElement('video');
-                video.id = 'fl-video-pip-element';
-                video.autoplay = true;
-                video.playsInline = true;
-                video.muted = true;
-                Object.assign(video.style, {
-                    position: 'fixed',
-                    top: '0',
-                    left: '0',
-                    width: '4px',
-                    height: '4px',
-                    opacity: '0.001',
-                    pointerEvents: 'none',
-                    zIndex: '-99999'
-                });
-                document.body.appendChild(video);
-            }
+            // Ensure elements are created and stream is set up
+            fl.prepareVideoPip();
 
-            // 2. Create or get hidden canvas
-            let canvas = document.getElementById('fl-video-pip-canvas');
-            if (!canvas) {
-                canvas = document.createElement('canvas');
-                canvas.id = 'fl-video-pip-canvas';
-                Object.assign(canvas.style, {
-                    position: 'fixed',
-                    top: '0',
-                    left: '0',
-                    width: '4px',
-                    height: '4px',
-                    opacity: '0.001',
-                    pointerEvents: 'none',
-                    zIndex: '-99999'
-                });
-                document.body.appendChild(canvas);
-            }
-            canvas.width = 200;
-            canvas.height = 200;
-
-            fl.canvas = canvas;
-            fl.ctx = canvas.getContext('2d');
-
-            // 3. Set up the canvas stream to the video
-            const stream = canvas.captureStream(30);
-            video.srcObject = stream;
-
-            // Continuously draw initial frames until video metadata is loaded
-            let metadataLoaded = false;
-            const drawLoadingFrame = () => {
-                if (metadataLoaded || video.readyState >= 1) return;
-                fl.ctx.fillStyle = '#121212';
-                fl.ctx.fillRect(0, 0, canvas.width, canvas.height);
-                requestAnimationFrame(drawLoadingFrame);
-            };
-            requestAnimationFrame(drawLoadingFrame);
+            const video = document.getElementById('fl-video-pip-element');
+            const canvas = document.getElementById('fl-video-pip-canvas');
 
             // Wait for video metadata to load so requestPictureInPicture does not throw HAVE_NOTHING / InvalidStateError
-            await new Promise((resolve) => {
-                const onLoaded = () => {
-                    metadataLoaded = true;
-                    resolve();
+            if (video.readyState < 1) {
+                let metadataLoaded = false;
+                const drawLoadingFrame = () => {
+                    if (metadataLoaded || video.readyState >= 1) return;
+                    fl.ctx.fillStyle = '#121212';
+                    fl.ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    requestAnimationFrame(drawLoadingFrame);
                 };
-                video.onloadedmetadata = onLoaded;
-                // If it's already loaded metadata, resolve immediately
-                if (video.readyState >= 1) {
-                    metadataLoaded = true;
-                    resolve();
-                }
-            });
+                requestAnimationFrame(drawLoadingFrame);
 
-            await video.play();
+                await new Promise((resolve) => {
+                    const onLoaded = () => {
+                        metadataLoaded = true;
+                        resolve();
+                    };
+                    video.onloadedmetadata = onLoaded;
+                    // If it's already loaded metadata, resolve immediately
+                    if (video.readyState >= 1) {
+                        metadataLoaded = true;
+                        resolve();
+                    }
+                    setTimeout(() => {
+                        metadataLoaded = true;
+                        resolve();
+                    }, 1000);
+                });
+            }
+
+            if (video.paused) {
+                await video.play().catch(err => console.warn("video.play() failed:", err));
+            }
 
             // 4. Request Native Video PiP
             const pipWin = await video.requestPictureInPicture();
             fl.pipWin = pipWin;
             fl.activePipType = 'video';
             fl.pipSessionId = (fl.pipSessionId || 0) + 1;
+            fl.hasAutoLaunched = true;
 
             // Send signal to main world to hide seeker bar and skip buttons
             window.postMessage({ type: 'FL_VIDEO_PIP_START' }, '*');
@@ -269,6 +236,10 @@
                 fl.ctx = null;
                 fl.lastW = -1;
                 fl.lastH = -1;
+
+                if (fl.pipMode === 'video') {
+                    fl.prepareVideoPip();
+                }
             };
             video.addEventListener('leavepictureinpicture', onLeave);
 
@@ -298,6 +269,70 @@
             console.error("Video PiP Launch Failed:", e);
         } finally {
             setTimeout(() => { fl.isLaunchingPip = false; }, 500);
+        }
+    };
+
+    fl.prepareVideoPip = function () {
+        if (fl.pipWin) return; // Already running
+
+        // 1. Create or get hidden video element
+        let video = document.getElementById('fl-video-pip-element');
+        if (!video) {
+            video = document.createElement('video');
+            video.id = 'fl-video-pip-element';
+            video.autoplay = true;
+            video.playsInline = true;
+            video.muted = true;
+            Object.assign(video.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '4px',
+                height: '4px',
+                opacity: '0.001',
+                pointerEvents: 'none',
+                zIndex: '-99999'
+            });
+            document.body.appendChild(video);
+        }
+
+        // 2. Create or get hidden canvas
+        let canvas = document.getElementById('fl-video-pip-canvas');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.id = 'fl-video-pip-canvas';
+            Object.assign(canvas.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '4px',
+                height: '4px',
+                opacity: '0.001',
+                pointerEvents: 'none',
+                zIndex: '-99999'
+            });
+            document.body.appendChild(canvas);
+        }
+
+        if (canvas.width !== 200) canvas.width = 200;
+        if (canvas.height !== 200) canvas.height = 200;
+
+        fl.canvas = canvas;
+        fl.ctx = canvas.getContext('2d');
+
+        // Draw initial black frame
+        fl.ctx.fillStyle = '#121212';
+        fl.ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 3. Set up the canvas stream to the video if not already set
+        if (!video.srcObject) {
+            const stream = canvas.captureStream(30);
+            video.srcObject = stream;
+        }
+
+        // Play the video so it's ready
+        if (video.paused) {
+            video.play().catch(() => {});
         }
     };
 })();

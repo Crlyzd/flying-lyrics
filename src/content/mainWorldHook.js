@@ -49,6 +49,59 @@
                     originalSetActionHandler.call(window.navigator.mediaSession, 'seekforward', null);
                     originalSetActionHandler.call(window.navigator.mediaSession, 'seekto', null);
                 } catch (e) {}
+
+                // Register dummy handlers for play/pause/prev/next to force browser native controls
+                try {
+                    const isTrackLoaded = () => {
+                        const medias = Array.from(document.querySelectorAll('video, audio'))
+                            .filter(el => el.id !== 'fl-video-pip-element');
+                        return medias.some(m => m.readyState >= 1 && m.duration > 0 && !isNaN(m.duration));
+                    };
+
+                    const dummyPlayHandler = () => {
+                        if (savedHandlers['play']) {
+                            savedHandlers['play']();
+                        } else if (isTrackLoaded()) {
+                            const playBtn = document.querySelector('[data-testid="control-button-playpause"], .play-pause-button');
+                            if (playBtn) playBtn.click();
+                        }
+                    };
+                    const dummyPauseHandler = () => {
+                        if (savedHandlers['pause']) {
+                            savedHandlers['pause']();
+                        } else if (isTrackLoaded()) {
+                            const playBtn = document.querySelector('[data-testid="control-button-playpause"], .play-pause-button');
+                            if (playBtn) playBtn.click();
+                        }
+                    };
+                    const dummyPrevHandler = () => {
+                        if (savedHandlers['previoustrack']) {
+                            savedHandlers['previoustrack']();
+                        } else if (isTrackLoaded()) {
+                            document.querySelector('.previous-button')?.click();
+                        }
+                    };
+                    const dummyNextHandler = () => {
+                        if (savedHandlers['nexttrack']) {
+                            savedHandlers['nexttrack']();
+                        } else if (isTrackLoaded()) {
+                            document.querySelector('.next-button')?.click();
+                        }
+                    };
+
+                    if (!savedHandlers['play']) {
+                        originalSetActionHandler.call(window.navigator.mediaSession, 'play', dummyPlayHandler);
+                    }
+                    if (!savedHandlers['pause']) {
+                        originalSetActionHandler.call(window.navigator.mediaSession, 'pause', dummyPauseHandler);
+                    }
+                    if (!savedHandlers['previoustrack']) {
+                        originalSetActionHandler.call(window.navigator.mediaSession, 'previoustrack', dummyPrevHandler);
+                    }
+                    if (!savedHandlers['nexttrack']) {
+                        originalSetActionHandler.call(window.navigator.mediaSession, 'nexttrack', dummyNextHandler);
+                    }
+                } catch (e) {}
             }
         } else if (event.data.type === 'FL_VIDEO_PIP_STOP') {
             window.__flVideoPipActive = false;
@@ -67,6 +120,10 @@
                     originalSetActionHandler.call(window.navigator.mediaSession, 'seekbackward', savedHandlers['seekbackward'] || null);
                     originalSetActionHandler.call(window.navigator.mediaSession, 'seekforward', savedHandlers['seekforward'] || null);
                     originalSetActionHandler.call(window.navigator.mediaSession, 'seekto', savedHandlers['seekto'] || null);
+                    originalSetActionHandler.call(window.navigator.mediaSession, 'play', savedHandlers['play'] || null);
+                    originalSetActionHandler.call(window.navigator.mediaSession, 'pause', savedHandlers['pause'] || null);
+                    originalSetActionHandler.call(window.navigator.mediaSession, 'previoustrack', savedHandlers['previoustrack'] || null);
+                    originalSetActionHandler.call(window.navigator.mediaSession, 'nexttrack', savedHandlers['nexttrack'] || null);
                 } catch (e) {}
             }
         }

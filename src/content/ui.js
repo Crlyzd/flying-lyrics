@@ -607,13 +607,18 @@
             document.body.appendChild(btn);
         }
 
-        if (fl.autoLaunch && (!fl.pipWin || fl.pipWin.closed)) {
-            document.addEventListener('click', () => {
-                if (!fl.pipWin || fl.pipWin.closed) {
-                    btn.click();
-                }
-            }, { once: true });
+        if (fl.pipMode === 'video' && typeof fl.prepareVideoPip === 'function') {
+            fl.prepareVideoPip();
         }
     };
 
+    // Global auto-launch click listener
+    document.addEventListener('click', () => {
+        if (fl.autoLaunch && !fl.hasAutoLaunched && (!fl.pipWin || fl.pipWin.closed)) {
+            const btn = document.getElementById('pip-trigger');
+            if (btn) {
+                btn.click();
+            }
+        }
+    });
 })();

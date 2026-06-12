@@ -663,7 +663,11 @@
                 const gracePeriodOver = timeSinceLaunch > 400;
 
                 // Sync play/pause state (only after grace period to avoid black-frame freeze)
-                const shouldPauseVideo = state.paused && !isWaitingState;
+                const isBgLoading = fl.canvasBgImageUrl && !fl.canvasBgImage;
+                const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
+                const isAnimating = absScrollDelta >= 0.5;
+                const shouldPauseVideo = state.paused && !isWaitingState && !isBgLoading && !fl.needsLayoutUpdate && !isAnimating;
+
                 if (gracePeriodOver && shouldPauseVideo !== video.paused) {
                     if (shouldPauseVideo) {
                         video.pause();

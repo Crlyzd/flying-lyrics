@@ -9,6 +9,7 @@
     fl.scrollPos = 0;
     fl.targetScroll = 0;
     fl.pipWin = null;
+    fl.hasAutoLaunched = false;
 
     // Settings
     fl.showTranslation = fl.defaults.showTranslation;
@@ -222,6 +223,9 @@
             if (p.pipMode !== undefined) {
                 if (fl.pipMode !== p.pipMode) {
                     fl.pipMode = p.pipMode;
+                    if (fl.pipMode === 'video' && typeof fl.prepareVideoPip === 'function') {
+                        fl.prepareVideoPip();
+                    }
                     if (fl.pipWin) {
                         const wasType = fl.activePipType;
                         if (wasType === 'video') {
