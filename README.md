@@ -20,6 +20,9 @@
 * **Local LRC Support:** Have a rare track? Load your own `.lrc` files directly into the player.
 * **Auto-Launch:** Enable "Auto-Launch Lyrics" in settings to have the player open automatically when music starts.
 
+<img width="242" height="285" alt="image" src="https://github.com/user-attachments/assets/098ce219-9250-4fdd-8510-d8fe13d1fba4" />
+<img width="284" height="284" alt="image" src="https://github.com/user-attachments/assets/63e6052a-ae56-4820-ab59-f9d5faac0d32" />
+
 ### 🌍 Read & Understand Everything
 * **Triple-Layer View:** See original lyrics, romanization (supporting **Japanese, Korean, or Mandarin**), and translations—all at the same time.
 * **Non-Blocking Translations:** Lyrics render immediately upon download; translation queries and local storage caching run asynchronously in the background so you never have to wait.
