@@ -13,7 +13,8 @@
 ### 🚀 The "Always-on-Top" Player
 * **Floating Window:** Watch your lyrics in a small, resizable window that stays on top of everything else on your screen.
 * **Spotify & YouTube Music:** Works perfectly with both Spotify Web Player and YouTube Music.
-* **Borderless Mode (Video PiP):** Toggle Borderless Mode in the settings to run native Video Picture-in-Picture. This hides title bars and window borders, disabling clicks inside the PiP and stripping progress sliders/seeking controls for a clean, distraction-free overlay.
+* **Borderless Mode (Video PiP):** Toggle Borderless Mode in the settings to run native Video Picture-in-Picture. This hides title bars and window borders, providing a clean, completely borderless overlay.
+* **Bi-directional Controls:** Sync playback controls directly from the native PiP window back to Spotify or YouTube Music. Controlling volume, pausing, or playing from the borderless window works seamlessly.
 * **No Setup Required:** Automatically finds and downloads the right lyrics as soon as you hit play.
 * **Multi-Source Support:** Automatically fetches from LRCLIB (Default), Netease, or your Local Files.
 * **Local LRC Support:** Have a rare track? Load your own `.lrc` files directly into the player.
@@ -21,42 +22,45 @@
 
 ### 🌍 Read & Understand Everything
 * **Triple-Layer View:** See original lyrics, romanization (supporting **Japanese, Korean, or Mandarin**), and translations—all at the same time.
+* **Non-Blocking Translations:** Lyrics render immediately upon download; translation queries and local storage caching run asynchronously in the background so you never have to wait.
 * **Auto-Detected Translation:** Automatically matches your browser or operating system's language to select the default translation locale (supporting 18 languages).
 * **Instant Translation:** Uses Google Translate to provide translations on the fly if none are available.
 * **Cinematic Feel:** The current line glows and stays in focus, while inactive lines fade out.
 * **Smart "Pseudo-Scroll":** For unsynced lyrics, the panel automatically scrolls based on song duration and line count.
-* **Sync Indicators:** Easily see whether you are viewing Synced or Unsynced lyrics at a glance.
+* **Sync Indicators:** Easily see whether you are viewing Synced, Unsynced, or No Lyrics with a color-coded status badge (Emerald Green for Synced, Slate Gray for Unsynced, Amber/Gold for No Lyrics) featuring text glows and spin animations. Works in both Document and Video PiP modes!
 
 <img width="138" height="135" alt="Sync Indicator" src="https://github.com/user-attachments/assets/db46a459-24a1-4b2e-a0ae-90d81ceb5c3a" />
 
 ### 🎨 Beautiful & Adaptive Design
 * **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
-* **Smart Color Swatch Selection:** Color extraction evaluates saturation and swatch population to ensure the most vibrant accents are chosen, with graceful monochrome fallbacks.
+* **Smart Color Swatch Selection:** Color extraction evaluates saturation and population to ensure the most vibrant colors are chosen (even for colorful or black-and-white art) with graceful dark/monochrome fallbacks.
+* **Rounded Album Art & Drop Shadows:** Album covers feature a sleek `24px` border-radius with smooth clipping and a subtle, premium drop-shadow box.
 * **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
 * **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size**, **Alignment** (Left, Center, Right), **Line Spacing** and **Vertical Position**, to your liking.
 * **Album Cover Mode:** Want to just vibe with the album art? Use the "Album Cover Mode" toggle to hide the text and see only the cover.
 * **Background Modes:** Choose how your background looks with **Center**, **Repeat**, or **Fill** modes.
-* **Aurora & Sparkles Wait State:** When waiting for music or loading lyrics, enjoy a fluid canvas animation of shifting radial color blobs and procedurally generated stars.
-* **High-Res Art Upgrades:** Spotify and YouTube Music album artwork URLs are automatically upgraded to high resolution (640x640 and 544x544).
+* **Dynamic Aurora & Twinkling Sparkles:** When waiting for music or loading lyrics, enjoy a smooth animated aurora gradient that shifts dynamically alongside a premium particle system that spawns 25 twinkling sparkles and cross-flare stars.
+* **High-Res Art Upgrades:** Spotify and YouTube Music album artwork URLs are automatically upgraded to high resolution (up to 640x640 for Spotify and 544x544 for YouTube Music).
 
 ### 🕹️ Full Control at Your Fingertips
+* **Universal Language Support:** Play/pause controls work perfectly regardless of your browser's display language. Uses direct HTML5 media elements state monitoring and a smart SVG path shape analyzer to translate click actions.
 * **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
 * **Built-in Lyrics Editor:** Notice a typo or a lyric that's out of sync? Open the new popup editor to manually fix the text or timing tags, and save your custom version directly to your extension.
 * **Built-in Controls:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
-* **Help button:** A yellow "Help, how to use Flying Lyrics ??" button appears dynamically in the popup for new installs to quickly access troubleshooting tips.
+* **Dynamic Help Button:** A handy "Help, how to use Flying Lyrics ??" button appears in the extension popup for quick access to setup and onboarding guides.
 
 <img width="544" height="647" alt="image" src="https://github.com/user-attachments/assets/44387a3e-91bf-4852-b011-b95fa133109e" />
 
 
 ### ⚡ Smarter Performance & Polished Experience
-* **Smarter Search Accuracy:** Finding lyrics is now more reliable! The extension automatically cleans up and matches song titles across Spotify and YouTube Music, and even tries alternate searches if a song isn't found immediately.
-* **Silky Smooth Animations:** The lyrics scrolling engine has been completely rebuilt to be incredibly lightweight. It heavily reduces CPU usage so your PC stays fast while delivering butter-smooth cinematic animations.
+* **Tiered Lyric Searching:** Smarter and faster lyric lookups! Dynamically adjusts search depth based on whether synced candidates exist (e.g. Netease vs LRCLIB) to reduce network waste and rate limiting.
+* **Silky Smooth Animations:** The lyrics scrolling engine is incredibly lightweight, reducing CPU usage while delivering butter-smooth animations.
 * **Cinematic Scroll Easing:** Large timing jumps instantly teleport close to the destination line before smoothly easing in, eliminating lag spikes.
 * **Battery Saver (Idle Throttle):** Canvas drawing frame rates automatically drop to ~4fps when playback is paused and the layout is static, reducing CPU wakeups to save battery.
-* **Welcome Onboarding Guide:** First time installing? A brand-new setup guide (featuring a video tutorial) will walk you through exactly how to launch the floating window and use the player.
+* **Welcome Onboarding Guide:** First time installing? A brand-new setup guide (featuring a video tutorial at https://youtu.be/f-DYtvHDSas) will walk you through exactly how to launch the floating window. If no active player is found, it can automatically open YouTube Music for you.
 * **Handy Tooltips & Indicators:** Hover over the progress bar to see exact timestamps before skipping, and get clearer status bubbles that tell you if lyrics are synced, unsynced, or still retrying.
 * **Privacy-First Performance Tracking:** To make Flying Lyrics faster and better, we optionally collect anonymous speed metrics (like how fast lyrics load). You have full control with an easy opt-out switch in the welcome screen.
 
