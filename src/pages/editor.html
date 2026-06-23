@@ -109,7 +109,7 @@
 
         .btn {
             background-color: var(--accent-1);
-            color: #000;
+            color: #fff;
             border: none;
             padding: 8px 16px;
             border-radius: 4px;
@@ -141,7 +141,7 @@
         .btn.saved {
             background-color: var(--accent-1);
             box-shadow: 0 0 15px 3px var(--accent-glow);
-            color: #000;
+            color: #fff;
         }
 
         .editor-container {
@@ -194,11 +194,15 @@
 
         textarea::-webkit-scrollbar-thumb {
             background: #535353;
-            border-radius: 4px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
 
         textarea::-webkit-scrollbar-thumb:hover {
             background: var(--accent-1);
+            border: 2px solid transparent;
+            background-clip: padding-box;
         }
 
         #status-toast {
@@ -207,7 +211,7 @@
             left: 50%;
             transform: translateX(-50%) translateY(50px);
             background: var(--accent-1);
-            color: #000;
+            color: #fff;
             padding: 10px 20px;
             border-radius: 30px;
             font-weight: bold;

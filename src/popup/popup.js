@@ -266,6 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- Pending flag: toast was shown but popup closed before user acted on it ---
             // Re-surface immediately on next open until explicitly dismissed via X or Remind me later.
+            // installedAt hoisted here so the help-button logic below always has it in scope.
+            const installedAt = data.firstInstalledAt || Date.now();
+
             if (data.reviewToastPending) {
                 showReviewToast();
             } else {
@@ -278,7 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // --- Trigger 3: 7-day milestone (fires only once, guarded by stored flag) ---
                 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-                const installedAt = data.firstInstalledAt || Date.now();
                 const is7DayMilestone =
                     !data.milestone7DayShown &&   // guard: only fire once
                     newCount > 3 &&               // at least 3 opens (not a brand-new user)
