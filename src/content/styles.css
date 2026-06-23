@@ -253,6 +253,8 @@ body:hover #ui-container,
     isolation: isolate;
     backface-visibility: hidden;
     transform: translate3d(0, 0, 0);
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .warning-pill::before {
@@ -301,6 +303,7 @@ body:hover #ui-container,
     position: relative;
     /* Stack above ::before gradient */
     z-index: 2;
+    flex-shrink: 0;
 }
 
 /* Activate Overlay when too small */
@@ -325,14 +328,38 @@ body:hover #ui-container,
     }
 }
 
-/* Scale down the warning text inside if the window gets very narrow */
-@media (max-width: 179px) {
+/* Scale down the warning elements if the window gets short or narrow */
+@media (max-width: 179px), (max-height: 119px) {
+    #size-warning {
+        padding: 12px;
+        gap: 8px;
+    }
+    .warning-pill {
+        padding: 5px 12px;
+    }
     .warning-pill span {
         font-size: 16px;
     }
     .warning-subtext {
         font-size: 9px;
         max-width: 95%;
+    }
+}
+
+@media (max-height: 89px) {
+    #size-warning {
+        padding: 6px;
+        gap: 4px;
+    }
+    .warning-pill {
+        padding: 3px 10px;
+    }
+    .warning-pill span {
+        font-size: 13px;
+    }
+    .warning-subtext {
+        font-size: 8px;
+        max-width: 98%;
     }
 }
 
