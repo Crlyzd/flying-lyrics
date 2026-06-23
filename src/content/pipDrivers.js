@@ -244,6 +244,7 @@
                 fl.ctx = null;
                 fl.lastW = -1;
                 fl.lastH = -1;
+                fl.lastHostMutedState = undefined;
 
                 if (fl.pipMode === 'video') {
                     fl.prepareVideoPip();
@@ -262,6 +263,7 @@
             fl.canvasBgImage = null;       // clear stale art from previous session
             fl.canvasBgImageUrl = "";
             fl.pipLaunchTime = performance.now(); // used by renderer grace-period check
+            fl.lastHostMutedState = undefined;
 
             // Pre-warm palette extraction immediately so colors are ready by the time
             // the first frame renders. Without this, fl.currentPalette.raw is undefined

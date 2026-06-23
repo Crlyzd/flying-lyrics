@@ -707,7 +707,12 @@
                     const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
                     isMuted = media ? (media.muted || media.volume === 0) : false;
                 }
-                if (video.muted !== isMuted) {
+
+                if (fl.lastHostMutedState === undefined) {
+                    fl.lastHostMutedState = isMuted;
+                    video.muted = isMuted;
+                } else if (isMuted !== fl.lastHostMutedState) {
+                    fl.lastHostMutedState = isMuted;
                     video.muted = isMuted;
                 }
             }
