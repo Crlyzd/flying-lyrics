@@ -686,13 +686,16 @@
 
                 if (gracePeriodOver && shouldPauseVideo !== video.paused) {
                     if (shouldPauseVideo) {
+                        fl.ignoreVideoPauseEvent = true;
                         video.pause();
                     } else {
-                        video.play().catch(() => { });
+                        fl.ignoreVideoPlayEvent = true;
+                        video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
                     }
                 } else if (!gracePeriodOver && video.paused) {
                     // During grace period: keep video playing so canvas stream stays live
-                    video.play().catch(() => { });
+                    fl.ignoreVideoPlayEvent = true;
+                    video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
                 }
 
                 // Sync muted state

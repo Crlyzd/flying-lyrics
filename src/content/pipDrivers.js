@@ -162,6 +162,10 @@
 
             // Play/Pause and Mute syncing from PiP Window back to Host Tab
             const onPlay = () => {
+                if (fl.ignoreVideoPlayEvent) {
+                    fl.ignoreVideoPlayEvent = false;
+                    return;
+                }
                 const adapter = fl.getActiveAdapter?.();
                 const state = fl.getPlayerState();
                 if (state.paused) {
@@ -170,6 +174,10 @@
                 }
             };
             const onPause = () => {
+                if (fl.ignoreVideoPauseEvent) {
+                    fl.ignoreVideoPauseEvent = false;
+                    return;
+                }
                 const adapter = fl.getActiveAdapter?.();
                 const state = fl.getPlayerState();
                 if (!state.paused) {
@@ -280,7 +288,9 @@
         if (!video) {
             video = document.createElement('video');
             video.id = 'fl-video-pip-element';
-            video.autoplay = true;
+            // Note: autoplay intentionally omitted — play() is called explicitly below
+            // only when the music player is active, to avoid accidentally unlocking a
+            // paused player via Chromium's user-activation propagation.
             video.playsInline = true;
             video.muted = true;
             Object.assign(video.style, {
@@ -330,9 +340,16 @@
             video.srcObject = stream;
         }
 
-        // Play the video so it's ready
+        // Play the canvas-stream video so it's ready for PiP — but only if the
+        // music player is NOT currently paused. Calling video.play() while music
+        // is paused can propagate Chromium's user-activation token and inadvertently
+        // resume playback on the music page (e.g. when toggling Album BG Mode).
         if (video.paused) {
-            video.play().catch(() => {});
+            const _playerState = typeof fl.getPlayerState === 'function' ? fl.getPlayerState() : null;
+            const _musicIsPaused = _playerState ? _playerState.paused : false;
+            if (!_musicIsPaused) {
+                video.play().catch(() => {});
+            }
         }
     };
 })();
