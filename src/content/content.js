@@ -382,6 +382,9 @@
             } else {
                 sendResponse({ error: 'No active track' });
             }
+        } else if (msg.type === 'IS_PIP_OPEN') {
+            const isOpen = !!(fl.pipWin && !fl.pipWin.closed) || (fl.activePipType === 'video' && !!document.pictureInPictureElement);
+            sendResponse({ isOpen: isOpen });
         } else if (msg.type === 'GET_ACTIVE_LYRIC') {
             sendResponse({ source: fl.activeLyricSource });
         } else if (msg.type === 'GET_LYRIC_LRC') {

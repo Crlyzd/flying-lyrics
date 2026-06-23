@@ -464,18 +464,39 @@
         }
 
         const systemFontNames = ['noto sans', 'segoe ui', 'sans-serif', 'arial', 'helvetica', 'serif', 'monospace'];
-        const primaryFont = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().toLowerCase();
+        const fontName = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim();
+        const primaryFont = fontName.toLowerCase();
         const isSystemFont = systemFontNames.some(sf => primaryFont.includes(sf));
 
         targetDoc.querySelectorAll('link[data-fl-font]').forEach(el => el.remove());
 
         if (!isSystemFont) {
-            const formattedFontName = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim().replace(/ /g, '+');
+            const formattedFontName = fontName.replace(/ /g, '+');
             const fontLink = targetDoc.createElement('link');
             fontLink.rel = 'stylesheet';
             fontLink.dataset.flFont = '1';
             fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
+            
+            fontLink.onload = () => {
+                targetDoc.fonts.load(`1em "${fontName}"`).then(() => {
+                    chrome.runtime.sendMessage({
+                        type: 'FONT_LOADED_IN_PIP',
+                        payload: { fontName: fontName }
+                    });
+                }).catch(() => {
+                    chrome.runtime.sendMessage({
+                        type: 'FONT_LOADED_IN_PIP',
+                        payload: { fontName: fontName }
+                    });
+                });
+            };
+            
             targetDoc.head.appendChild(fontLink);
+        } else {
+            chrome.runtime.sendMessage({
+                type: 'FONT_LOADED_IN_PIP',
+                payload: { fontName: fontName }
+            });
         }
 
         if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;

@@ -150,6 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentGlobalOffset = 1000;
     let activeSource = null;
     let activeSearchQuery = "";
+    let currentlyAppliedFont = "";
+    let currentlyLoadingFont = "";
 
     // =========================================================
     //  LANGUAGE DROPDOWN POPULATION
@@ -349,6 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let rawFontName = items.customFont.split(',')[0].replace(/['"]/g, '').trim();
             customFontInput.value = rawFontName;
+            currentlyAppliedFont = rawFontName;
 
             const formattedFontName = rawFontName.replace(/ /g, '+');
             const link = document.createElement('link');
@@ -815,6 +818,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentGlobalOffset = msg.payload.globalSyncOffset;
                 globalOffsetInput.value = currentGlobalOffset;
             }
+        } else if (msg.type === 'FONT_LOADED_IN_PIP') {
+            const fontName = msg.payload.fontName;
+            onFontFinishedLoading(fontName);
         } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
             activeSource = msg.payload;
             resultsContainer.querySelectorAll('.sync-spinner').forEach(s => s.remove());
@@ -1062,8 +1068,27 @@ document.addEventListener('DOMContentLoaded', () => {
      * Applies a font by name: loads the Google Font stylesheet and
      * persists the value. Returns the css font-family string.
      */
+    /**
+     * Applies a font by name: loads the Google Font stylesheet and
+     * persists the value. Returns the css font-family string.
+     */
     function applyFontByName(fontName) {
         if (!fontName) return;
+        currentlyLoadingFont = fontName;
+
+        // Visual feedback: update the search result checks immediately to show loading
+        fontResultsContainer.querySelectorAll('.google-font-item').forEach(card => {
+            const nameSpan = card.querySelector('span:first-child');
+            const checkSpan = card.querySelector('.google-font-check');
+            if (nameSpan && checkSpan) {
+                if (nameSpan.textContent === fontName) {
+                    checkSpan.className = 'google-font-check active loading';
+                } else {
+                    checkSpan.className = 'google-font-check';
+                }
+            }
+        });
+
         const formattedFontName = fontName.replace(/ /g, '+');
         const fontUrl = `https://fonts.googleapis.com/css2?family=${formattedFontName}:wght@400;600;700&display=swap`;
 
@@ -1074,11 +1099,30 @@ document.addEventListener('DOMContentLoaded', () => {
             link.rel = 'stylesheet';
             document.head.appendChild(link);
         }
-        link.href = fontUrl;
 
         const familyValue = `"${fontName}", sans-serif`;
         glowPreview.style.fontFamily = familyValue;
+
+        // Save & notify tabs
         saveAndNotify({ customFont: familyValue });
+
+        checkIfPipOpen().then(isOpen => {
+            if (isOpen) {
+                // Wait for FONT_LOADED_IN_PIP message from the tab.
+                // We still update the local preview URL
+                link.href = fontUrl;
+            } else {
+                // Wait for local popup load
+                link.href = fontUrl;
+                link.onload = () => {
+                    document.fonts.load(`1em "${fontName}"`).then(() => {
+                        onFontFinishedLoading(fontName);
+                    }).catch(() => {
+                        onFontFinishedLoading(fontName);
+                    });
+                };
+            }
+        });
 
         // Track in recent fonts (max 10, no duplicates)
         FLYING_LYRICS.storage.get({ recentFonts: [] }, ({ recentFonts }) => {
@@ -1090,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /** Renders clickable font result cards inside fontResultsContainer. */
-    function renderFontResults(results, activeFont) {
+    function renderFontResults(results) {
         fontResultsContainer.innerHTML = '';
         if (results.length === 0) {
             fontResultsContainer.innerHTML = '<div class="status-msg">No fonts found</div>';
@@ -1107,7 +1151,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const checkSpan = document.createElement('span');
             checkSpan.textContent = '✓';
-            checkSpan.className = 'google-font-check' + (activeFont === name ? ' active' : '');
+            if (currentlyLoadingFont === name) {
+                checkSpan.className = 'google-font-check active loading';
+            } else if (currentlyAppliedFont === name) {
+                checkSpan.className = 'google-font-check active';
+            } else {
+                checkSpan.className = 'google-font-check';
+            }
 
             card.appendChild(nameSpan);
             card.appendChild(checkSpan);
@@ -1115,9 +1165,6 @@ document.addEventListener('DOMContentLoaded', () => {
             card.onclick = () => {
                 applyFontByName(name);
                 customFontInput.value = name;
-                // Clear all previous checkmarks, set ours
-                fontResultsContainer.querySelectorAll('.google-font-check').forEach(s => s.classList.remove('active'));
-                checkSpan.classList.add('active');
             };
 
             fontResultsContainer.appendChild(card);
@@ -1141,9 +1188,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .slice(0, 20)
             .map(x => x.name);
 
-        // Find active font name (strip quotes/weight from stored value)
-        const activeFontRaw = customFontInput.value.trim();
-        renderFontResults(scored, activeFontRaw);
+        renderFontResults(scored);
     }
 
     /** Picks 5 random fonts from the full Google Fonts catalogue and shows them as chips. */
@@ -1486,5 +1531,69 @@ document.addEventListener('DOMContentLoaded', () => {
         FLYING_LYRICS.storage.set(changes, () => {
             notifyTab(changes);
         });
+    }
+
+    function checkIfPipOpen() {
+        return new Promise(resolve => {
+            chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+                if (!tabs || tabs.length === 0) {
+                    resolve(false);
+                    return;
+                }
+                let resolved = false;
+                let checkedCount = 0;
+                tabs.forEach(tab => {
+                    if (!tab.id) {
+                        checkedCount++;
+                        if (checkedCount === tabs.length && !resolved) {
+                            resolved = true;
+                            resolve(false);
+                        }
+                        return;
+                    }
+                    chrome.tabs.sendMessage(tab.id, { type: 'IS_PIP_OPEN' }, (response) => {
+                        checkedCount++;
+                        if (chrome.runtime.lastError) {
+                            if (checkedCount === tabs.length && !resolved) {
+                                resolved = true;
+                                resolve(false);
+                            }
+                            return;
+                        }
+                        if (response && response.isOpen) {
+                            if (!resolved) {
+                                resolved = true;
+                                resolve(true);
+                            }
+                        } else {
+                            if (checkedCount === tabs.length && !resolved) {
+                                resolved = true;
+                                resolve(false);
+                            }
+                        }
+                    });
+                });
+            });
+        });
+    }
+
+    function onFontFinishedLoading(fontName) {
+        if (currentlyLoadingFont === fontName) {
+            currentlyLoadingFont = "";
+            currentlyAppliedFont = fontName;
+
+            // Update the checkmarks in results
+            fontResultsContainer.querySelectorAll('.google-font-item').forEach(card => {
+                const nameSpan = card.querySelector('span:first-child');
+                const checkSpan = card.querySelector('.google-font-check');
+                if (nameSpan && checkSpan) {
+                    if (nameSpan.textContent === fontName) {
+                        checkSpan.className = 'google-font-check active';
+                    } else {
+                        checkSpan.className = 'google-font-check';
+                    }
+                }
+            });
+        }
     }
 });
