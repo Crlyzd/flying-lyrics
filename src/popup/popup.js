@@ -62,14 +62,22 @@ const LANGUAGES = [
     { code: 'ku', name: 'Kurdish' }
 ];
 
-// Maps dropdown values to the font family strings stored in chrome.storage / config.js
-const GOOGLE_FONTS_MAP = {
-    "'Indie Flower', cursive": 'Indie Flower',
-    "'Gaegu', cursive": 'Gaegu',
-    "'Patrick Hand', cursive": 'Patrick Hand',
-    "'Gochi Hand', cursive": 'Gochi Hand',
-    "'Nanum Pen Script', cursive": 'Nanum Pen Script',
-};
+
+// =========================================================
+//  UNIT CONVERSION HELPERS (single source of truth)
+// =========================================================
+
+/** Font size: UI step 1–10  ↔  actual px 18–36 */
+const fontStepToPx = step => 18 + ((step - 1) * 2);
+const fontPxToStep = px   => Math.round((px - 18) / 2) + 1;
+
+/** Background darkness: UI step 0–10  ↔  actual percent 0–100 */
+const darkStepToPct = step => step * 10;
+const darkPctToStep = pct  => Math.round(pct / 10);
+
+/** Line spacing: UI step 1–10  ↔  actual vmin multiplier 3–12 */
+const spacingStepToActual = step => step + 2;
+const spacingActualToStep = val  => Math.round(val - 2);
 
 document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
@@ -157,7 +165,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestLangOption = document.createElement('option');
     requestLangOption.value = 'request_language';
     requestLangOption.textContent = '+ Request a language...';
-    requestLangOption.style.color = '#1DB954';
     langSelect.appendChild(requestLangOption);
 
     // =========================================================
@@ -205,17 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function openReviewPage(rating = 5) {
         FLYING_LYRICS.storage.set({ hasReviewed: true, reviewRating: rating });
         markAsRated(rating);
-        reviewToast.style.display = 'none';
+        reviewToast.classList.remove('review-toast--visible');
         chrome.tabs.create({ url: getReviewUrl() });
     }
 
     /** Shows the review toast. */
     function showReviewToast() {
-        reviewToast.style.display = 'flex';
+        reviewToast.classList.add('review-toast--visible');
     }
 
     FLYING_LYRICS.storage.get(
-        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0 },
+        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false },
         (data) => {
             const newCount = data.popupOpenCount + 1;
             FLYING_LYRICS.storage.set({ popupOpenCount: newCount });
@@ -237,14 +244,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const isSnoozedThresholdReached =
                 data.snoozeUntilCount > 0 && newCount >= data.snoozeUntilCount;
 
-            // --- Trigger 3: 7-day milestone ---
+            // --- Trigger 3: 7-day milestone (fires only once, guarded by stored flag) ---
             const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
             const installedAt = data.firstInstalledAt || Date.now();
             const is7DayMilestone =
-                newCount > 3 && // At least 3 opens (not a brand-new user)
+                !data.milestone7DayShown &&   // guard: only fire once
+                newCount > 3 &&               // at least 3 opens (not a brand-new user)
                 (Date.now() - installedAt) >= sevenDaysMs;
 
             if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
+                if (is7DayMilestone) {
+                    FLYING_LYRICS.storage.set({ milestone7DayShown: true });
+                }
                 showReviewToast();
             }
 
@@ -253,8 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const withinThreeDays = (Date.now() - installedAt) <= threeDaysMs;
             const tooManyOpens = newCount >= 10;
             const clickedTooMuch = (data.helpClickCount || 0) >= 10;
+            // Help button: show/hide via .hidden class (initial state set by HTML class)
             if (btnOpenHelp) {
-                btnOpenHelp.style.display = (withinThreeDays && tooManyOpens && !clickedTooMuch) ? 'flex' : 'none';
+                btnOpenHelp.classList.toggle('hidden', !(withinThreeDays && tooManyOpens && !clickedTooMuch));
             }
         }
     );
@@ -268,13 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
         FLYING_LYRICS.storage.get({ popupOpenCount: 0 }, ({ popupOpenCount }) => {
             FLYING_LYRICS.storage.set({ snoozeUntilCount: popupOpenCount + 10 });
         });
-        reviewToast.style.display = 'none';
+        reviewToast.classList.remove('review-toast--visible');
     });
 
-    // ✕ permanent dismiss for this session (resurfaces at next count threshold)
     closeToastBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        reviewToast.style.display = 'none';
+        reviewToast.classList.remove('review-toast--visible');
     });
 
     // Footer star strip → record exact rating and open review
@@ -294,9 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
             FLYING_LYRICS.storage.get({ helpClickCount: 0 }, (res) => {
                 const newClickCount = (res.helpClickCount || 0) + 1;
                 FLYING_LYRICS.storage.set({ helpClickCount: newClickCount });
-                // If it reaches 10, hide it immediately
+                // If it reaches 10, hide it immediately via class
                 if (newClickCount >= 10) {
-                    btnOpenHelp.style.display = 'none';
+                    btnOpenHelp.classList.add('hidden');
                 }
             });
             chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/welcome.html') });
@@ -348,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Font: 18 to 36px -> mapped to 1 to 10 step
-        const fontStep = Math.max(1, Math.min(10, Math.round((items.fontSize - 18) / 2) + 1));
+        const fontStep = Math.max(1, Math.min(10, fontPxToStep(items.fontSize)));
         fontSizeSlider.value = fontStep;
         fontSizeValue.textContent = fontStep;
         if (fontSizeWarning) {
@@ -356,8 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Line Spacing: stored actual vmin multiplier (3–12); UI shows step 1–10.
-        // Formula: actual = step + 2  →  step = actual - 2
-        const spacingStep = Math.max(1, Math.min(10, Math.round((items.lineSpacing ?? 3) - 2)));
+        const spacingStep = Math.max(1, Math.min(10, spacingActualToStep(items.lineSpacing ?? 3)));
         lineSpacingSlider.value = spacingStep;
         lineSpacingValue.textContent = spacingStep;
 
@@ -372,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         blurValue.textContent = blurStep;
 
         // Darkness: 0 to 100% -> mapped to 0 to 10 step (x10)
-        const darkStep = Math.max(0, Math.min(10, Math.round(items.bgDarkness / 10)));
+        const darkStep = Math.max(0, Math.min(10, darkPctToStep(items.bgDarkness)));
         darknessSlider.value = darkStep;
         darknessValue.textContent = darkStep;
 
@@ -518,13 +528,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const localItem = document.createElement('div');
             localItem.id = 'local-file-card';
             localItem.className = 'result-item active-lyric';
-            localItem.style.position = 'relative';
             localItem.innerHTML = `
                 <div class="result-left">
-                    <div class="result-title" style="display: flex; align-items: center; gap: 6px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="14" height="14" fill="currentColor">
-                            <path d="M5 1C3.3 1 2 2.3 2 4v17c0 1.7 1.3 3 3 3h20c1.7 0 3-1.3 3-3V7c0-1.7-1.3-3-3-3H13c0-1.7-1.3-3-3-3H5zm0 5h20c.6 0 1 .4 1 1v14c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1z" />
-                        </svg>
+                    <div class="result-title lyrics-action-title">
+                        <span class="icon-mask icon-folder icon-size-14"></span>
                         Local File Loaded
                     </div>
                     <div class="result-artist">Custom .lrc file</div>
@@ -540,7 +547,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const autoItem = document.createElement('div');
         autoItem.id = 'auto-match-card';
         autoItem.className = 'result-item';
-        autoItem.style.position = 'relative';
         autoItem.innerHTML = `
             <div class="result-left">
                 <div class="result-title">↳ Auto (Best Match)</div>
@@ -554,15 +560,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (results.length === 0 && activeSource && !(activeOverride && activeOverride.type === 'local')) {
             const sourceLabel = activeSource.type === 'netease' ? 'NETEASE' : 'LRCLIB';
-            const sourceBadgeColor = activeSource.type === 'netease' ? 'background:#e60026;color:white;' : 'background:#1DB954;color:black;';
+            const badgeClass = activeSource.type === 'netease' ? 'badge-netease' : 'badge-lrclib';
             const syncBadge = activeSource.type !== 'local'
                 ? (activeSource.synced
                     ? `<span class="result-badge">SYNCED</span>`
-                    : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
+                    : `<span class="result-badge badge-unsynced">UNSYNCED</span>`)
                 : '';
             const autoCard = document.createElement('div');
             autoCard.className = 'result-item active-lyric';
-            autoCard.style.position = 'relative';
             autoCard.innerHTML = `
                 <div class="result-left">
                     <div class="result-title">${activeSource.name || 'Unknown'}</div>
@@ -571,7 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="result-right">
                     <div class="dot-container"><div class="active-dot"></div></div>
                     <div class="result-badges">
-                        <span class="result-badge" style="${sourceBadgeColor}">${sourceLabel}</span>
+                        <span class="result-badge ${badgeClass}">${sourceLabel}</span>
                         ${syncBadge}
                     </div>
                 </div>
@@ -589,7 +594,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const div = document.createElement('div');
             div.className = 'result-item';
-            div.style.position = 'relative';
 
             // Store data for Event Delegation
             div.dataset.source = item.source;
@@ -648,7 +652,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         activeSearchQuery = query;
         searchBtn.textContent = '...';
-        resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">Searching...</div>';
+        searchBtn.setAttribute('aria-busy', 'true');
+        searchBtn.setAttribute('aria-label', 'Searching…');
+        resultsContainer.innerHTML = '<div class="status-msg">Searching...</div>';
 
         try {
             // Build scoring hints from the active track's clean metadata
@@ -668,15 +674,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const results = (response?.results || []).map(item => ({
                 ...item,
                 badgeHtml: item.source === 'api'
-                    ? `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
-                      (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
-                    : `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`,
+                    ? `<span class="result-badge badge-lrclib">LRCLIB</span>` +
+                      (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge badge-unsynced">UNSYNCED</span>`)
+                    : `<span class="result-badge badge-netease">NETEASE</span>`,
             }));
 
             const hasTimeout = !!response?.hasTimeout;
 
             if (results.length === 0 && !hasTimeout) {
-                resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
+                resultsContainer.innerHTML = '<div class="status-msg">No results found.</div>';
                 return;
             }
 
@@ -699,13 +705,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const deepSearchCard = document.createElement('div');
                     deepSearchCard.id = 'deep-search-indicator';
                     deepSearchCard.className = 'result-item';
-                    deepSearchCard.style.cursor = 'default';
-                    deepSearchCard.style.justifyContent = 'center';
-                    deepSearchCard.style.backgroundColor = 'rgba(255, 204, 0, 0.05)';
-                    deepSearchCard.style.borderBottom = '1px dashed rgba(255, 204, 0, 0.2)';
-                    deepSearchCard.style.borderTop = 'none';
                     deepSearchCard.innerHTML = `
-                        <div style="display: flex; align-items: center; color: #ffcc00; font-size: 11px; font-weight: 600;">
+                        <div class="deep-search-label-row">
                             <div class="sync-spinner"></div>
                             Deep search running...
                         </div>
@@ -723,9 +724,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const secondResults = (secondResponse?.results || []).map(item => ({
                             ...item,
                             badgeHtml: item.source === 'api'
-                                ? `<span class="result-badge" style="background:#1DB954; color:black;">LRCLIB</span>` +
-                                  (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge" style="background:#555;color:#FFF">UNSYNCED</span>`)
-                                : `<span class="result-badge" style="background:#e60026; color:white;">NETEASE</span>`,
+                                ? `<span class="result-badge badge-lrclib">LRCLIB</span>` +
+                                  (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge badge-unsynced">UNSYNCED</span>`)
+                                : `<span class="result-badge badge-netease">NETEASE</span>`,
                         }));
 
                         const finalResults = [];
@@ -746,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         if (finalResults.length === 0) {
-                            resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No results found.</div>';
+                            resultsContainer.innerHTML = '<div class="status-msg">No results found.</div>';
                             return;
                         }
 
@@ -761,9 +762,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (e) {
-            resultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #ff5555;">Search failed.</div>';
+            resultsContainer.innerHTML = '<div class="status-msg--error">Search failed.</div>';
         } finally {
             searchBtn.textContent = 'Search';
+            searchBtn.removeAttribute('aria-busy');
+            searchBtn.removeAttribute('aria-label');
         }
     });
 
@@ -963,10 +966,10 @@ document.addEventListener('DOMContentLoaded', () => {
             saveAndNotify({ globalSyncOffset: val });
 
             globalOffsetSetBtn.textContent = 'Saved!';
-            globalOffsetSetBtn.style.backgroundColor = '#1ed760';
+            globalOffsetSetBtn.classList.add('saved');
             setTimeout(() => {
                 globalOffsetSetBtn.textContent = 'Set Global';
-                globalOffsetSetBtn.style.backgroundColor = '';
+                globalOffsetSetBtn.classList.remove('saved');
             }, 1000);
         }
     });
@@ -1090,23 +1093,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderFontResults(results, activeFont) {
         fontResultsContainer.innerHTML = '';
         if (results.length === 0) {
-            fontResultsContainer.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">No fonts found</div>';
+            fontResultsContainer.innerHTML = '<div class="status-msg">No fonts found</div>';
             fontResultsContainer.style.display = 'block';
             return;
         }
 
         results.forEach(name => {
             const card = document.createElement('div');
-            card.style.cssText = 'padding: 8px 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; font-size: 13px; transition: background 0.15s;';
-            card.onmouseover = () => card.style.background = '#2a2a2a';
-            card.onmouseout = () => card.style.background = '';
+            card.className = 'google-font-item';
 
             const nameSpan = document.createElement('span');
             nameSpan.textContent = name;
 
             const checkSpan = document.createElement('span');
             checkSpan.textContent = '✓';
-            checkSpan.style.cssText = 'color: #1DB954; font-weight: bold; display: ' + (activeFont === name ? 'inline' : 'none') + ';';
+            checkSpan.className = 'google-font-check' + (activeFont === name ? ' active' : '');
 
             card.appendChild(nameSpan);
             card.appendChild(checkSpan);
@@ -1115,8 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFontByName(name);
                 customFontInput.value = name;
                 // Clear all previous checkmarks, set ours
-                fontResultsContainer.querySelectorAll('span:last-child').forEach(s => s.style.display = 'none');
-                checkSpan.style.display = 'inline';
+                fontResultsContainer.querySelectorAll('.google-font-check').forEach(s => s.classList.remove('active'));
+                checkSpan.classList.add('active');
             };
 
             fontResultsContainer.appendChild(card);
@@ -1161,9 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         shuffled.forEach(name => {
             const chip = document.createElement('button');
             chip.textContent = name;
-            chip.style.cssText = 'background: #2a2a2a; border: 1px solid #444; color: #ddd; border-radius: 50px; padding: 4px 10px; font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap;';
-            chip.onmouseover = () => { chip.style.background = '#1DB954'; chip.style.color = '#000'; };
-            chip.onmouseout = () => { chip.style.background = '#2a2a2a'; chip.style.color = '#ddd'; };
+            chip.className = 'font-chip';
             chip.onclick = () => {
                 customFontInput.value = name;
                 applyFontByName(name);
@@ -1192,15 +1191,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderRecentFontsPanel(recentFonts) {
         recentFontsPanel.innerHTML = '';
         if (!recentFonts || recentFonts.length === 0) {
-            recentFontsPanel.innerHTML = '<div style="padding: 10px; text-align: center; font-size: 12px; color: #666;">No recent fonts yet</div>';
+            recentFontsPanel.innerHTML = '<div class="status-msg--dim">No recent fonts yet</div>';
             return;
         }
         recentFonts.forEach(name => {
             const card = document.createElement('div');
-            card.style.cssText = 'padding: 9px 14px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #2a2a2a; transition: background 0.15s;';
+            card.className = 'recent-font-item';
             card.textContent = name;
-            card.onmouseover = () => card.style.background = '#2a2a2a';
-            card.onmouseout = () => card.style.background = '';
             card.onclick = () => {
                 customFontInput.value = name;
                 applyFontByName(name);
@@ -1234,7 +1231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fontSizeSlider.addEventListener('input', () => {
         const step = parseInt(fontSizeSlider.value, 10);
         fontSizeValue.textContent = step;
-        const realPx = 18 + ((step - 1) * 2); // 1=18px, 5=26px, 10=36px
+        const realPx = fontStepToPx(step);
         glowPreview.style.fontSize = `${realPx}px`;
 
         if (fontSizeWarning) {
@@ -1244,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     fontSizeSlider.addEventListener('change', () => {
         const step = parseInt(fontSizeSlider.value, 10);
-        const realPx = 18 + ((step - 1) * 2);
+        const realPx = fontStepToPx(step);
         saveAndNotify({ fontSize: realPx });
     });
 
@@ -1263,12 +1260,12 @@ document.addEventListener('DOMContentLoaded', () => {
     darknessSlider.addEventListener('input', () => {
         const step = parseInt(darknessSlider.value, 10);
         darknessValue.textContent = step;
-        const realPercent = step * 10;
+        const realPercent = darkStepToPct(step);
         notifyTab({ bgDarkness: realPercent });
     });
     darknessSlider.addEventListener('change', () => {
         const step = parseInt(darknessSlider.value, 10);
-        const realPercent = step * 10; // 0=0%, 5=50%, 10=100%
+        const realPercent = darkStepToPct(step); // 0=0%, 5=50%, 10=100%
         saveAndNotify({ bgDarkness: realPercent });
     });
 
@@ -1276,12 +1273,12 @@ document.addEventListener('DOMContentLoaded', () => {
     lineSpacingSlider.addEventListener('input', () => {
         const step = parseInt(lineSpacingSlider.value, 10);
         lineSpacingValue.textContent = step;
-        const actualSpacing = step + 2;
+        const actualSpacing = spacingStepToActual(step);
         notifyTab({ lineSpacing: actualSpacing });
     });
     lineSpacingSlider.addEventListener('change', () => {
         const step = parseInt(lineSpacingSlider.value, 10);
-        const actualSpacing = step + 2; // step=1 → 3 (default), step=10 → 12
+        const actualSpacing = spacingStepToActual(step); // step=1 → 3 (default), step=10 → 12
         saveAndNotify({ lineSpacing: actualSpacing });
     });
 
@@ -1364,7 +1361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fontSizeSlider.value = 5;
         fontSizeValue.textContent = 5;
-        glowPreview.style.fontSize = `26px`;
+        glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
 
         lineSpacingSlider.value = 2;
         lineSpacingValue.textContent = 2;
@@ -1397,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btnResetSettings.textContent = "Reset!";
         setTimeout(() => {
-            btnResetSettings.innerHTML = '<span style="font-size: 14px;">Reset Defaults</span>';
+            btnResetSettings.textContent = 'Reset Defaults';
         }, 1000);
     });
 

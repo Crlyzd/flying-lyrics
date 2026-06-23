@@ -5,1073 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flying Lyrics Settings</title>
-    <style>
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-
-        body {
-            width: 300px;
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #121212;
-            color: white;
-            user-select: none;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        /* =========================================================
-         *  FIXED HEADER & TAB SYSTEM
-         * ========================================================= */
-        .popup-header-fixed {
-            position: sticky;
-            top: 0;
-            background-color: #121212;
-            z-index: 100;
-            border-bottom: 1px solid #282828;
-            flex-shrink: 0;
-        }
-
-        .logo-row h2 {
-            margin: 0;
-            padding: 12px 15px 8px 15px;
-            font-size: 16px;
-            text-align: center;
-            color: #1DB954;
-            letter-spacing: 0.5px;
-            font-weight: 700;
-        }
-
-        .tab-bar {
-            display: flex;
-            background-color: #161616;
-            border-top: 1px solid #202020;
-        }
-
-        .tab-btn {
-            flex: 1;
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            padding: 8px 0 6px 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            font-size: 10px;
-            font-family: inherit;
-            font-weight: 600;
-            transition: color 0.2s, background-color 0.2s;
-            outline: none;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab-btn svg {
-            transition: transform 0.2s;
-        }
-
-        .tab-btn:hover {
-            color: #ccc;
-            background-color: #1f1f1f;
-        }
-
-        .tab-btn:hover svg {
-            transform: scale(1.08);
-        }
-
-        .tab-btn.active {
-            color: #1DB954;
-            border-bottom-color: #1DB954;
-            background-color: rgba(29, 185, 84, 0.04);
-        }
-
-        /* =========================================================
-         *  SCROLLABLE CONTENT AREA
-         * ========================================================= */
-        .tab-content {
-            padding: 15px;
-            max-height: 480px;
-            overflow-y: auto;
-            background-color: #121212;
-        }
-
-        .tab-pane {
-            display: none;
-        }
-
-        @keyframes tabFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .tab-pane.active {
-            display: block;
-            animation: tabFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-
-        /* =========================================================
-         *  HEADER (Backwards compatibility)
-         * ========================================================= */
-        .popup-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        .popup-header h2 {
-            margin: 0;
-            font-size: 18px;
-            text-align: center;
-            color: #1DB954;
-            flex: 1;
-        }
-
-
-        .icon-btn {
-            background: none;
-            border: none;
-            color: #aaa;
-            cursor: pointer;
-            padding: 4px 6px;
-            border-radius: 6px;
-            font-size: 17px;
-            line-height: 1;
-            transition: background 0.18s, color 0.18s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .icon-btn:hover {
-            background: #282828;
-            color: white;
-        }
-
-        .icon-btn.phantom {
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        /* =========================================================
-         *  CONTROL GROUPS
-         * ========================================================= */
-        .control-group {
-            margin-bottom: 15px;
-            background: #282828;
-            padding: 10px;
-            border-radius: 8px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* =========================================================
-         *  TOGGLE SWITCH
-         * ========================================================= */
-        .switch {
-            position: relative;
-            display: inline-block;
-            margin: 0;
-            width: 40px;
-            height: 20px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #535353;
-            transition: .4s;
-            border-radius: 20px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: #1DB954;
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(20px);
-        }
-
-        /* =========================================================
-         *  DROPDOWN
-         * ========================================================= */
-        select {
-            width: 100%;
-            padding: 8px;
-            border-radius: 4px;
-            border: none;
-            background-color: #3E3E3E;
-            color: white;
-            outline: none;
-            cursor: pointer;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            background-size: 14px;
-            padding-right: 32px;
-        }
-
-        /* =========================================================
-         *  RANGE SLIDERS
-         * ========================================================= */
-        .range-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .range-row:last-of-type {
-            margin-bottom: 0;
-        }
-
-        .range-row input[type=range] {
-            flex: 1;
-            -webkit-appearance: none;
-            appearance: none;
-            height: 4px;
-            border-radius: 4px;
-            background: #3E3E3E;
-            outline: none;
-            cursor: pointer;
-        }
-
-        .range-row input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #1DB954;
-            cursor: pointer;
-            box-shadow: 0 0 4px rgba(29, 185, 84, 0.5);
-            transition: transform 0.15s;
-        }
-
-        .range-row input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
-        }
-
-        .range-value {
-            font-size: 12px;
-            min-width: 38px;
-            text-align: right;
-            color: #1DB954;
-            font-family: monospace;
-            font-weight: bold;
-        }
-
-        /* =========================================================
-         *  CUSTOMIZE BUTTON (above Auto-Launch)
-         * ========================================================= */
-        .button-customize {
-            width: 100%;
-            background: #282828;
-            padding: 10px;
-            border-radius: 8px;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 600;
-            font-family: 'Segoe UI', sans-serif;
-            transition: background 0.2s, transform 0.1s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-bottom: 15px;
-        }
-
-        .button-customize:hover {
-            background: #333;
-        }
-
-        .button-customize:active {
-            transform: scale(0.98);
-        }
-
-        /* =========================================================
-         *  HELP BUTTON (Yellow / Conditional)
-         * ========================================================= */
-        .button-help {
-            width: 100%;
-            background: #ffcc00;
-            color: #121212;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 700;
-            font-family: 'Segoe UI', sans-serif;
-            transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 12px rgba(255, 204, 0, 0.15);
-        }
-
-        .button-help:hover {
-            background: #ffe066;
-            box-shadow: 0 6px 16px rgba(255, 204, 0, 0.35);
-        }
-
-        .button-help:active {
-            transform: scale(0.98);
-        }
-
-        /* =========================================================
-         *  SEARCH UI STYLES
-         * ========================================================= */
-        .search-bar-row {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .search-input {
-            flex-grow: 1;
-            padding: 8px 10px;
-            border-radius: 4px;
-            border: none;
-            background-color: #3E3E3E;
-            color: white;
-            outline: none;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 13px;
-        }
-
-        .search-btn {
-            background-color: #1DB954;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 12px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .search-btn:hover {
-            background-color: #1ed760;
-        }
-
-        #local-lyric-btn:hover {
-            background-color: #535353 !important;
-        }
-
-        .search-results-container {
-            max-height: 180px;
-            overflow-y: auto;
-            background-color: #1A1A1A;
-            border-radius: 4px;
-            border: 1px solid #333;
-        }
-
-        /* Custom Scrollbar for all lists */
-        *::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        *::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        *::-webkit-scrollbar-thumb {
-            background: #535353;
-            border-radius: 3px;
-        }
-
-        *::-webkit-scrollbar-thumb:hover {
-            background: #1DB954;
-        }
-
-        .result-item {
-            padding: 10px;
-            border-bottom: 1px solid #333;
-            cursor: pointer;
-            transition: background 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .result-item:last-child {
-            border-bottom: none;
-        }
-
-        .result-item:hover {
-            background-color: #333;
-        }
-
-        .result-left {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            overflow: hidden;
-            padding-right: 10px;
-        }
-
-        .result-title {
-            font-weight: bold;
-            font-size: 13px;
-            color: white;
-            margin-bottom: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .result-artist {
-            font-size: 11px;
-            color: #AAA;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .result-right {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            min-width: 65px;
-        }
-
-        .dot-container {
-            height: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            margin-bottom: 8px;
-        }
-
-        .result-badges {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 4px;
-        }
-
-        .result-badge {
-            background: #1DB954;
-            color: #000;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 9px;
-            display: inline-block;
-        }
-
-        .result-duration {
-            font-size: 11px;
-            color: #AAA;
-        }
-
-        .active-lyric {
-            border-left: 3px solid #1DB954;
-            background-color: rgba(29, 185, 84, 0.1);
-        }
-
-        /* Active lyric dot */
-        .active-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #1DB954;
-            box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.6);
-            animation: pulse-dot 2s infinite;
-        }
-
-        @keyframes pulse-dot {
-            0% {
-                box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.5);
-            }
-
-            70% {
-                box-shadow: 0 0 0 5px rgba(29, 185, 84, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(29, 185, 84, 0);
-            }
-        }
-
-        /* =========================================================
-         *  SYNC OFFSET
-         * ========================================================= */
-        .btn-small {
-            background: #3E3E3E;
-            border: none;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-
-        .btn-small:hover {
-            background: #535353;
-        }
-
-        #offset-display {
-            font-family: monospace;
-            font-size: 16px;
-            min-width: 60px;
-            text-align: center;
-        }
-
-        /* =========================================================
-         *  FOOTER
-         * ========================================================= */
-        .footer {
-            font-size: 11px;
-            color: #888;
-            padding: 0 15px;
-            line-height: 1.5;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .footer p {
-            margin: 4px 0;
-        }
-
-        .footer a {
-            color: #1DB954;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.15s;
-        }
-
-        .footer a:hover {
-            color: #1ed760;
-            text-decoration: underline;
-        }
-
-        .footer .icon {
-            display: inline-flex;
-            align-items: center;
-            vertical-align: middle;
-        }
-
-        /* =========================================================
-         *  SLIDE 2 – CUSTOMIZATION PANEL
-         * ========================================================= */
-        .cover-mode-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .cover-mode-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 10px;
-            background: #3E3E3E;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: border-color 0.2s, background 0.2s;
-            font-size: 13px;
-        }
-
-        .cover-mode-option:hover {
-            background: #4a4a4a;
-        }
-
-        .cover-mode-option.selected {
-            border-color: #1DB954;
-            background: rgba(29, 185, 84, 0.08);
-        }
-
-        .cover-mode-icon {
-            font-size: 16px;
-            width: 22px;
-            text-align: center;
-        }
-
-        .cover-mode-desc {
-            flex: 1;
-            font-size: 13px;
-        }
-
-        .cover-mode-desc span {
-            display: block;
-            font-size: 11px;
-            color: #888;
-            font-weight: normal;
-        }
-
-        .cover-radio {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            border: 2px solid #535353;
-            background: transparent;
-            flex-shrink: 0;
-            transition: border-color 0.2s, background 0.2s;
-        }
-
-        .cover-mode-option.selected .cover-radio {
-            border-color: #1DB954;
-            background: #1DB954;
-        }
-
-
-
-        /* Animated glow preview text */
-        @keyframes lyric-glow-preview {
-            0% {
-                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
-            }
-
-            50% {
-                text-shadow: 0 0 18px #1ed760, 0 0 30px #1DB954, 0 0 5px #fff;
-            }
-
-            100% {
-                text-shadow: 0 0 6px #1DB954, 0 0 12px #1DB954;
-            }
-        }
-
-        @keyframes rainbow-glow-preview {
-            0% {
-                text-shadow: 0 0 10px #ff0000;
-                color: #ff0000;
-            }
-
-            17% {
-                text-shadow: 0 0 20px #ffff00;
-                color: #ffff00;
-            }
-
-            33% {
-                text-shadow: 0 0 10px #00ff00;
-                color: #00ff00;
-            }
-
-            50% {
-                text-shadow: 0 0 20px #00ffff;
-                color: #00ffff;
-            }
-
-            67% {
-                text-shadow: 0 0 10px #0000ff;
-                color: #0000ff;
-            }
-
-            83% {
-                text-shadow: 0 0 20px #ff00ff;
-                color: #ff00ff;
-            }
-
-            100% {
-                text-shadow: 0 0 10px #ff0000;
-                color: #ff0000;
-            }
-        }
-
-        .glow-preview {
-            font-size: 14px;
-            color: #1DB954;
-            font-weight: bold;
-            text-align: center;
-            padding: 20px 0 15px;
-            letter-spacing: 0.03em;
-            transition: font-size 0.2s, font-family 0.2s;
-        }
-
-        .glow-preview.active {
-            animation: lyric-glow-preview 2s ease-in-out infinite;
-        }
-
-        .glow-preview.active.rainbow {
-            animation: rainbow-glow-preview 3s linear infinite;
-        }
-
-        /* Hide number input spinners */
-        input[type=number]::-webkit-inner-spin-button,
-        input[type=number]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        input[type=number] {
-            -moz-appearance: textfield;
-            appearance: textfield;
-        }
-
-        /* Focus & Hover states moved from inline styles for CSP compliance */
-        #btn-suggest-fonts {
-            opacity: 0.55;
-            transition: opacity 0.15s;
-        }
-
-        #btn-suggest-fonts:hover {
-            opacity: 1;
-        }
-
-        #btn-recent-fonts {
-            background: #2d2d2d;
-            color: #aaa;
-            transition: background 0.15s, color 0.15s;
-        }
-
-        #btn-recent-fonts:hover {
-            background: #3d3d3d;
-            color: white;
-        }
-
-        /* =========================================================
-         *  REVIEW TOAST BANNER
-         * ========================================================= */
-        #review-toast {
-            display: none;
-            flex-direction: row;
-            /* row: text-body left, ✕ right */
-            align-items: center;
-            /* ✕ vertically centred */
-            gap: 10px;
-            background: rgba(29, 185, 84, 0.1);
-            border: 1px solid rgba(29, 185, 84, 0.3);
-            border-radius: 8px;
-            padding: 9px 10px 7px 12px;
-            margin-bottom: 14px;
-            transition: background 0.2s;
-        }
-
-        #review-toast:hover {
-            background: rgba(29, 185, 84, 0.15);
-        }
-
-        /* Left column: the two text lines stacked, left-aligned */
-        #review-toast-body {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 3px;
-        }
-
-        /* Line 1: main message */
-        #review-toast-text {
-            font-size: 11px;
-            color: #1DB954;
-            font-weight: 700;
-            cursor: pointer;
-            line-height: 1.3;
-        }
-
-        /* Line 2: snooze */
-        #snooze-review-toast {
-            font-size: 10px;
-            color: #aaa;
-            cursor: pointer;
-            letter-spacing: 0.02em;
-            transition: color 0.15s;
-        }
-
-        #snooze-review-toast:hover {
-            color: #fff;
-        }
-
-        /* Right side: ✕ vertically centred by parent align-items: center */
-        #close-review-toast {
-            flex-shrink: 0;
-            color: #777;
-            font-size: 13px;
-            cursor: pointer;
-            line-height: 1;
-            padding: 2px;
-            transition: color 0.15s;
-        }
-
-        #close-review-toast:hover {
-            color: #aaa;
-        }
-
-        /* =========================================================
-         *  FOOTER (redesigned)
-         * ========================================================= */
-        .footer {
-            margin-top: 18px;
-            border-top: 1px solid #1e1e1e;
-            padding-top: 14px;
-            font-size: 11px;
-            color: #555;
-            text-align: center;
-            line-height: 1.5;
-        }
-
-        .footer p {
-            margin: 0 0 6px;
-        }
-
-        .footer-tagline {
-            color: #484848;
-            font-size: 10.5px;
-            margin-bottom: 10px;
-        }
-
-        /* Star strip */
-        .star-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
-            margin-bottom: 10px;
-        }
-
-        .star-label {
-            font-size: 11px;
-            color: #555;
-            transform: translateY(1.5px);
-        }
-
-        .stars {
-            display: flex;
-            gap: 2px;
-            cursor: pointer;
-        }
-
-        .stars span {
-            font-size: 17px;
-            color: #303030;
-            transition: color 0.1s, transform 0.1s;
-            line-height: 1;
-            display: inline-block;
-        }
-
-        /* Hover: light up entire strip up to the hovered star */
-        .stars:hover span {
-            color: #ffcc00 !important;
-            transform: scale(1.15);
-        }
-
-        .stars span:hover~span {
-            color: #303030 !important;
-            transform: scale(1);
-        }
-
-        /* Rated state: saved yellow up to the chosen rating */
-        .stars.rated span {
-            color: #ffcc00;
-        }
-
-        .stars.rated[data-rating="1"] span:nth-child(n+2) {
-            color: #303030;
-        }
-
-        .stars.rated[data-rating="2"] span:nth-child(n+3) {
-            color: #303030;
-        }
-
-        .stars.rated[data-rating="3"] span:nth-child(n+4) {
-            color: #303030;
-        }
-
-        .stars.rated[data-rating="4"] span:nth-child(n+5) {
-            color: #303030;
-        }
-
-        /* Row 3a: Credits & links */
-        .footer-credits {
-            color: #505050;
-            font-size: 11px;
-            margin-bottom: 4px;
-        }
-
-        /* Row 3b: Coffee / donation line */
-        .footer-coffee {
-            color: #505050;
-            font-size: 11px;
-            margin-bottom: 0;
-        }
-
-        .footer-credits a,
-        .footer-coffee a {
-            color: #1DB954;
-            text-decoration: none;
-        }
-
-        .footer-credits a:hover,
-        .footer-coffee a:hover {
-            text-decoration: underline;
-        }
-
-        /* Thin separator between footer sections */
-        .footer-sep {
-            border: none;
-            border-top: 1px solid #1e1e1e;
-            margin: 8px 0;
-        }
-
-        /* Bug / feature link — subtle grey, hot on hover */
-        .footer-bug a {
-            color: #484848;
-            text-decoration: none;
-            font-size: 10.5px;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            transition: color 0.15s;
-        }
-
-        .footer-bug a:hover {
-            color: #ff7070;
-        }
-
-        /* Telemetry toggle link — same color as bug link, no color change on hover */
-        .footer-telemetry {
-            margin-top: 6px;
-        }
-
-        .footer-telemetry a {
-            color: #484848;
-            text-decoration: none;
-            font-size: 10.5px;
-            cursor: pointer;
-        }
-
-        .footer-telemetry a:hover {
-            color: #484848;
-            text-decoration: underline;
-        }
-
-        /* Album Cover Mode Toggle Card */
-        .album-cover-toggle-card {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #282828;
-            padding: 10px 12px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid transparent;
-            transition: border-color 0.2s, background 0.2s;
-        }
-
-        .album-cover-toggle-card.active {
-            border-color: rgba(29, 185, 84, 0.4);
-            background: rgba(29, 185, 84, 0.07);
-        }
-
-        .acm-left {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-        }
-
-        .acm-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ccc;
-        }
-
-        .acm-text {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-        }
-
-        .acm-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: white;
-        }
-
-        .acm-sub {
-            font-size: 10px;
-            color: #888;
-        }
-
-        /* Disabled overlay for all visual controls below ACM toggle */
-        #visual-controls-wrapper {
-            transition: opacity 0.2s;
-        }
-
-        #visual-controls-wrapper.controls-disabled {
-            opacity: 0.35;
-            pointer-events: none;
-            user-select: none;
-        }
-
-        /* Deep Search Spinner */
-        .sync-spinner {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255, 204, 0, 0.3);
-            border-radius: 50%;
-            border-top-color: #ffcc00;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
@@ -1088,34 +22,26 @@
             </div>
             <div class="tab-bar">
                 <button class="tab-btn active" data-tab="lyrics" title="Lyrics & Search">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                    </svg>
+                    <span class="icon-mask icon-music icon-size-16"></span>
                     <span>Lyrics</span>
                 </button>
                 <button class="tab-btn" data-tab="visuals" title="Visual Customization">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-                    </svg>
+                    <span class="icon-mask icon-brush icon-size-16"></span>
                     <span>Visuals</span>
                 </button>
                 <button class="tab-btn" data-tab="settings" title="General Settings">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l-.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3-1.07-3-3s1.07-3 3-3 3 1.07 3 3-1.07 3-3 3z"/>
-                    </svg>
+                    <span class="icon-mask icon-settings icon-size-16"></span>
                     <span>Settings</span>
                 </button>
                 <button class="tab-btn" data-tab="system" title="System & Backup">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                        <path d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95A5.469 5.469 0 0 1 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/>
-                    </svg>
+                    <span class="icon-mask icon-system icon-size-16"></span>
                     <span>System</span>
                 </button>
             </div>
         </div>
 
         <!-- REVIEW TOAST — shown by JS after 5th/20th popup open, or 7-day milestone (Placed globally under header) -->
-        <div id="review-toast" style="margin: 12px 15px 0 15px;">
+        <div id="review-toast" class="review-toast-margin">
             <div id="review-toast-body">
                 <span id="review-toast-text">Enjoying Flying Lyrics? Please rate it! ⭐️</span>
                 <span id="snooze-review-toast">Remind me later . . .</span>
@@ -1129,7 +55,7 @@
             <!-- TAB 1: LYRICS SEARCH & TIMING -->
             <div class="tab-pane active" id="tab-lyrics">
                 <!-- HELP BUTTON (Yellow / Conditional) -->
-                <button class="button-help" id="btn-open-help" style="display: none;">
+                <button class="button-help hidden" id="btn-open-help">
                     Help, how to use Flying Lyrics ??
                 </button>
 
@@ -1143,32 +69,23 @@
                     </div>
 
                     <!-- Consolidated Flex Row for local upload & edit buttons to save space -->
-                    <div style="display: flex; gap: 8px; margin-top: 5px; margin-bottom: 10px;">
-                        <div style="flex: 1; position: relative;">
-                            <input type="file" id="local-lyric-upload" accept=".lrc,.txt"
-                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 10;">
-                            <button id="local-lyric-btn" class="btn"
-                                style="width: 100%; background: #3E3E3E; padding: 7px; border-radius: 4px; color: white; border: none; cursor: pointer; font-size: 12px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="14" height="14" fill="currentColor">
-                                    <path d="M5 1C3.3 1 2 2.3 2 4v17c0 1.7 1.3 3 3 3h20c1.7 0 3-1.3 3-3V7c0-1.7-1.3-3-3-3H13c0-1.7-1.3-3-3-3H5zm0 5h20c.6 0 1 .4 1 1v14c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1V7c0-.6.4-1 1-1z" />
-                                </svg>
+                    <div class="lyrics-action-row">
+                        <div class="upload-btn-wrapper">
+                            <input type="file" id="local-lyric-upload" accept=".lrc,.txt" class="file-input-overlay">
+                            <button id="local-lyric-btn" class="btn btn-action-base btn-action-primary">
+                                <span class="icon-mask icon-folder icon-size-14"></span>
                                 Load Local
                             </button>
                         </div>
 
-                        <button id="edit-lyric-btn" class="btn"
-                            style="flex: 1; background: #3E3E3E; padding: 7px; border-radius: 4px; color: white; border: none; cursor: pointer; font-size: 12px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
+                        <button id="edit-lyric-btn" class="btn btn-action-base btn-action-secondary">
+                            <span class="icon-mask icon-edit icon-size-14"></span>
                             <span id="edit-lyric-btn-text">Edit Lyrics</span>
                         </button>
                     </div>
 
                     <div class="search-results-container" id="search-results-container">
-                        <div style="padding: 10px; text-align: center; font-size: 12px; color: #888;">
+                        <div class="search-placeholder">
                             Click Search to find lyric versions.
                         </div>
                     </div>
@@ -1176,10 +93,10 @@
 
                 <!-- SYNC OFFSET CONTROL (Track specific timing) -->
                 <div class="control-group">
-                    <label style="text-align:center; margin-bottom: 12px;">Sync Offset (ms)</label>
+                    <label class="global-offset-label">Sync Offset (ms)</label>
 
                     <!-- Current Track Override buttons -->
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    <div class="sync-control-row">
                         <button class="btn-small" id="offset-minus">-</button>
                         <span id="offset-display">+1000</span>
                         <button class="btn-small" id="offset-plus">+</button>
@@ -1188,36 +105,26 @@
 
                 <!-- CUSTOMIZE VISUALS BUTTON (Tab navigation shortcut) -->
                 <button class="button-customize" id="btn-open-customize">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 30" width="16" height="16" fill="currentColor">
-                        <path d="M13.95 6.805l.654 3.06c.593 2.773 2.759 4.939 5.532 5.532l3.06.654c1.024.219 1.024 1.68 0 1.899l-3.06.654c-2.773.593-4.939 2.759-5.532 5.532l-.654 3.06c-.219 1.024-1.68 1.024-1.899 0l-.654-3.06c-.593-2.773-2.759-4.939-5.532-5.532l-3.06-.654c-1.024-.219-1.024-1.68 0-1.899l3.06-.654c2.773-.593 4.939-2.759 5.532-5.532l.654-3.06C12.269 5.781 13.731 5.781 13.95 6.805zM23.641 2.525l.588 2.119c.152.547.58.975 1.127 1.127l2.119.588c.65.18.65 1.102 0 1.282l-2.119.588c-.547.152-.975.58-1.127 1.127l-.588 2.119c-.18.65-1.102.65-1.282 0l-.588-2.119c-.152-.547-.58-.975-1.127-1.127l-2.119-.588c-.65-.18-.65-1.102 0-1.282l2.119-.588c.547-.152.975-.58 1.127-1.127l.588-2.119C22.539 1.875 23.461 1.875 23.641 2.525z" />
-                    </svg>
-                    <span style="font-size: 13px;">Customize Visuals</span>
+                    <span class="icon-mask icon-customize icon-size-16"></span>
+                    <span>Customize Visuals</span>
                 </button>
             </div>
 
             <!-- TAB 2: VISUAL STYLES -->
             <div class="tab-pane" id="tab-visuals">
                 <!-- Header title + Back link to lyrics tab -->
-                <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                    <button class="icon-btn" id="btn-back" title="Back" style="margin-right: 8px;">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="15 18 9 12 15 6" />
-                        </svg>
+                <div class="panel-header-row">
+                    <button class="icon-btn" id="btn-back" title="Back" aria-label="Back to Lyrics">
+                        <span class="icon-mask icon-back icon-size-15"></span>
                     </button>
-                    <h3 style="margin: 0; font-size: 14px; color: #1DB954;">Customize Styles</h3>
+                    <h3 class="panel-title">Customize Styles</h3>
                 </div>
 
                 <!-- ALBUM COVER MODE TOGGLE -->
                 <div class="album-cover-toggle-card" id="album-cover-toggle-card">
                     <div class="acm-left">
                         <span class="acm-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 19.4V4.6C2 4.26863 2.26863 4 2.6 4H17.4C17.7314 4 18 4.26863 18 4.6V19.4C18 19.7314 17.7314 20 17.4 20H2.6C2.26863 20 2 19.7314 2 19.4Z" stroke="currentColor" stroke-width="1.5" />
-                                <path d="M22 6V18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                                <path d="M11 14.5C11 15.3284 10.3284 16 9.5 16C8.67157 16 8 15.3284 8 14.5C8 13.6716 8.67157 13 9.5 13C10.3284 13 11 13.6716 11 14.5Z" fill="currentColor" />
-                                <path d="M11 14.5C11 15.3284 10.3284 16 9.5 16C8.67157 16 8 15.3284 8 14.5C8 13.6716 8.67157 13 9.5 13C10.3284 13 11 13.6716 11 14.5ZM11 14.5V8.6C11 8.26863 11.2686 8 11.6 8H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                            </svg>
+                            <span class="icon-mask icon-album icon-size-20"></span>
                         </span>
                         <div class="acm-text">
                             <span class="acm-title">Album Cover Mode</span>
@@ -1233,8 +140,8 @@
                 <!-- Typography & Detail configurations -->
                 <div id="visual-controls-wrapper">
                     <div class="control-group">
-                        <label for="font-family-select" style="margin-bottom: 6px;">Font Family</label>
-                        <select id="font-family-select" style="margin-bottom: 5px;">
+                        <label for="font-family-select" class="align-select-label">Font Family</label>
+                        <select id="font-family-select">
                             <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
                             <option value="'Indie Flower', cursive">Indie Flower</option>
                             <option value="'Gaegu', cursive">Gaegu</option>
@@ -1245,53 +152,38 @@
                         </select>
 
                         <!-- Custom Font Search (Hidden by default) -->
-                        <div id="custom-font-container" style="display: none; margin-top: 8px;">
-                            <div style="position: relative; margin-bottom: 6px;">
-                                <input type="text" id="custom-font-input" class="search-input"
-                                    placeholder="Search fonts... (e.g. Pacifico)"
-                                    style="width: 100%; padding-right: 30px; box-sizing: border-box;" autocomplete="off">
-                                <button id="btn-suggest-fonts" title="Get 5 random suggestions" style="position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
-                                       background: none; border: none; cursor: pointer; font-size: 14px;
-                                       padding: 0; line-height: 1;">🎲</button>
+                        <div id="custom-font-container">
+                            <div class="custom-font-input-wrapper">
+                                <input type="text" id="custom-font-input" class="search-input custom-font-input-field"
+                                    placeholder="Search fonts... (e.g. Pacifico)" autocomplete="off">
+                                <button id="btn-suggest-fonts" class="suggest-fonts-trigger" title="Get 5 random suggestions">🎲</button>
                             </div>
-                            <div style="display: flex; gap: 6px; align-items: center;">
-                                <button class="search-btn" id="apply-custom-font" style="flex-grow: 1;">Search</button>
-                                <div style="position: relative; flex-shrink: 0;">
-                                    <button id="btn-recent-fonts" title="Recently used fonts" style="border: 1px solid #444; border-radius: 6px;
-                                           width: 32px; height: 32px; cursor: pointer; display: flex;
-                                           align-items: center; justify-content: center;
-                                           padding: 0;">
-                                        <svg width="15" height="15" viewBox="0 0 26.5 26.5" fill="none"
-                                            xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M9.682,18.75a.75.75,0,0,1,.75-.75,8.25,8.25,0,1,0-6.189-2.795V12.568a.75.75,0,0,1,1.5,0v4.243a.75.75,0,0,1-.751.75H.75a.75.75,0,0,1,0-1.5H3a9.75,9.75,0,1,1,7.433,3.44A.75.75,0,0,1,9.682,18.75Zm2.875-4.814L9.9,11.281a.754.754,0,0,1-.22-.531V5.55a.75.75,0,1,1,1.5,0v4.889l2.436,2.436a.75.75,0,1,1-1.061,1.06Z" transform="translate(1.568 2.25)" fill="currentColor" />
-                                        </svg>
+                            <div class="custom-font-actions-row">
+                                <button class="search-btn" id="apply-custom-font">Search</button>
+                                <div>
+                                    <button id="btn-recent-fonts" class="btn-recent-fonts-trigger" title="Recently used fonts" aria-label="Recently used fonts">
+                                        <span class="icon-mask icon-recent icon-size-15"></span>
                                     </button>
-                                    <div id="recent-fonts-panel" style="display: none; position: absolute; right: 0; top: calc(100% + 4px);
-                                           background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
-                                           min-width: 170px; z-index: 100; max-height: 200px; overflow-y: auto;
-                                           box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-                                    </div>
+                                    <div id="recent-fonts-panel"></div>
                                 </div>
                             </div>
-                            <div id="font-chips-container" style="display: none; margin-top: 8px; flex-wrap: wrap; gap: 5px;"></div>
-                            <div id="font-results-container" style="display: none; max-height: 160px; overflow-y: auto; margin-top: 8px;
-                                   background: #1a1a1a; border: 1px solid #333; border-radius: 6px;">
-                            </div>
-                            <div id="custom-font-link-hint" style="text-align: right; margin-top: 6px; margin-bottom: 5px; font-size: 11px;">
-                                <a href="https://fonts.google.com/" target="_blank" style="color: #1DB954; text-decoration: none;">Browse Google Fonts ↗</a>
+                            <div id="font-chips-container"></div>
+                            <div id="font-results-container"></div>
+                            <div id="custom-font-link-hint">
+                                <a href="https://fonts.google.com/" target="_blank" class="green-link">Browse Google Fonts ↗</a>
                             </div>
                         </div>
 
-                        <label for="align-select" style="margin-top: 10px; margin-bottom: 6px;">Lyric Alignment</label>
-                        <select id="align-select" style="margin-bottom: 15px;">
+                        <label for="align-select" class="align-select-label">Lyric Alignment</label>
+                        <select id="align-select">
                             <option value="left">Left</option>
                             <option value="center">Center (Default)</option>
                             <option value="right">Right</option>
                         </select>
 
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px;">
-                            <label style="margin-bottom: 0;">Font Size</label>
-                            <span id="font-size-warning" style="display: none; color: #ffaa00; font-size: 9px; text-align: right; font-style: italic; line-height: 1.2;">Higher values may cause text to overlap</span>
+                        <div class="font-size-label-row">
+                            <label class="margin-bottom-0">Font Size</label>
+                            <span id="font-size-warning">Higher values may cause text to overlap</span>
                         </div>
                         <div class="range-row">
                             <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
@@ -1317,7 +209,7 @@
                         </div>
 
                         <label>Darkness</label>
-                        <div class="range-row" style="margin-bottom: 0;">
+                        <div class="range-row range-row-last">
                             <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
                             <span class="range-value" id="darkness-value">4</span>
                         </div>
@@ -1325,7 +217,7 @@
 
                     <!-- Cover Background Mode -->
                     <div class="control-group">
-                        <label style="margin-bottom: 10px;">Cover Background Mode</label>
+                        <label class="cover-mode-label">Cover Background Mode</label>
                         <div class="cover-mode-group" id="cover-mode-group">
                             <div class="cover-mode-option" data-mode="centered">
                                 <span class="cover-radio"></span>
@@ -1346,7 +238,7 @@
                     <div class="control-group">
                         <div class="row">
                             <div>
-                                <label style="margin:0">Glowing Lyrics</label>
+                                <label>Glowing Lyrics</label>
                             </div>
                             <label class="switch">
                                 <input type="checkbox" id="toggle-glow">
@@ -1354,9 +246,9 @@
                             </label>
                         </div>
 
-                        <div id="glow-style-container" style="margin-top: 10px; margin-bottom: 5px; display: none; align-items: center; justify-content: space-between;">
-                            <label style="margin: 0; font-size: 13px;">Style</label>
-                            <select id="glow-style-select" style="width: auto; padding: 4px 30px 4px 8px; font-size: 13px;">
+                        <div id="glow-style-container">
+                            <label class="glow-style-label">Style</label>
+                            <select id="glow-style-select">
                                 <option value="theme">Theme Color</option>
                                 <option value="rainbow">Rainbow</option>
                             </select>
@@ -1366,9 +258,8 @@
                 </div>
 
                 <!-- Reset Settings -->
-                <button class="button-customize" id="btn-reset-settings"
-                    style="margin-top: 15px; background: #552222; border: 1px solid #ff4444; color: #ff8888;">
-                    <span style="font-size: 14px;">Reset Defaults</span>
+                <button class="button-customize" id="btn-reset-settings">
+                    <span>Reset Defaults</span>
                 </button>
             </div>
 
@@ -1377,7 +268,7 @@
                 <!-- BORDERLESS PIP TOGGLE -->
                 <div class="control-group">
                     <div class="row">
-                        <label for="toggle-borderless-pip" style="margin:0">Borderless Mode</label>
+                        <label for="toggle-borderless-pip">Borderless Mode</label>
                         <label class="switch">
                             <input type="checkbox" id="toggle-borderless-pip">
                             <span class="slider"></span>
@@ -1388,7 +279,7 @@
                 <!-- AUTO-LAUNCH TOGGLE -->
                 <div class="control-group">
                     <div class="row">
-                        <label for="toggle-autolaunch" style="margin:0">Auto-Launch Lyrics</label>
+                        <label for="toggle-autolaunch">Auto-Launch Lyrics</label>
                         <label class="switch">
                             <input type="checkbox" id="toggle-autolaunch">
                             <span class="slider"></span>
@@ -1399,7 +290,7 @@
                 <!-- SHOW TRANSLATION TOGGLE -->
                 <div class="control-group">
                     <div class="row">
-                        <label for="toggle-translation" style="margin:0">Show Translation</label>
+                        <label for="toggle-translation">Show Translation</label>
                         <label class="switch">
                             <input type="checkbox" id="toggle-translation" checked>
                             <span class="slider"></span>
@@ -1417,12 +308,10 @@
 
                 <!-- GLOBAL TIMING SYNC OFFSET -->
                 <div class="control-group">
-                    <label style="text-align:center; margin-bottom: 15px;">Global Sync Offset (ms)</label>
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 20px;">
-                        <input type="number" id="global-offset-input" value="1000"
-                            style="width: 75px; padding: 7px; border-radius: 4px; border: none; background: #3E3E3E; color: white; text-align: center; font-family: monospace; font-size: 14px; outline: none;" />
-                        <button class="search-btn" id="global-offset-set-btn"
-                            style="padding: 7px 12px; font-size: 13px; width: 100px;">Set Global</button>
+                    <label class="global-offset-label">Global Sync Offset (ms)</label>
+                    <div class="global-offset-row">
+                        <input type="number" id="global-offset-input" value="1000" />
+                        <button class="search-btn" id="global-offset-set-btn">Set Global</button>
                     </div>
                 </div>
             </div>
@@ -1432,7 +321,7 @@
                 <!-- CLOUD SYNC TOGGLE -->
                 <div class="control-group">
                     <div class="row">
-                        <label for="toggle-cloud-sync" style="margin:0">Cloud Settings Sync</label>
+                        <label for="toggle-cloud-sync">Cloud Settings Sync</label>
                         <label class="switch">
                             <input type="checkbox" id="toggle-cloud-sync" checked>
                             <span class="slider"></span>
@@ -1442,18 +331,16 @@
 
                 <!-- BACKUP & RESTORE -->
                 <div class="control-group">
-                    <label style="text-align:center; margin-bottom: 10px;">Data Management</label>
-                    <div style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="search-btn" id="btn-export-settings"
-                            style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Export Backup</button>
-                        <button class="search-btn" id="btn-import-settings"
-                            style="flex: 1; padding: 6px; font-size: 12px; background: #3E3E3E;">Import Backup</button>
-                        <input type="file" id="import-file" accept=".json" style="display: none;">
+                    <label class="data-mgmt-label">Data Management</label>
+                    <div class="data-mgmt-row">
+                        <button class="search-btn btn-backup" id="btn-export-settings">Export Backup</button>
+                        <button class="search-btn btn-backup" id="btn-import-settings">Import Backup</button>
+                        <input type="file" id="import-file" accept=".json">
                     </div>
                 </div>
 
                 <!-- FOOTER INFO & SUPPORT LINKS -->
-                <div class="footer" style="border-top: none; padding-top: 0; margin-top: 10px;">
+                <div class="footer footer-system">
                     <!-- Row 1: version + tagline -->
                     <p class="footer-tagline"><span id="app-version"></span> · Enhance your music experience</p>
 
@@ -1470,7 +357,7 @@
                     <hr class="footer-sep">
 
                     <!-- Row 3a: Credits -->
-                    <p class="footer-credits">Made with <span style="color:#ff5555">❤</span> by Kaleksanan Bagus</p>
+                    <p class="footer-credits">Made with <span class="red-heart">❤</span> by Kaleksanan Bagus</p>
 
                     <!-- Row 3b: Donation links -->
                     <p class="footer-coffee">
@@ -1484,12 +371,7 @@
                     <!-- Row 4: Report Bug -->
                     <p class="footer-bug">
                         <a href="https://forms.gle/qdyBFtmeomtGBroXA" target="_blank">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
+                            <span class="icon-mask icon-bug icon-size-10"></span>
                             Report Bug / Request Feature
                         </a>
                     </p>
