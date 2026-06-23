@@ -979,15 +979,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =========================================================
-    //  SLIDE NAVIGATION
+    //  TAB NAVIGATION
     // =========================================================
-    btnOpenCustomize.addEventListener('click', () => {
-        popupSlides.style.transform = 'translateX(-50%)';
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.toggle('active', pane.id === `tab-${tabId}`);
+        });
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            switchTab(btn.dataset.tab);
+        });
     });
 
-    btnBack.addEventListener('click', () => {
-        popupSlides.style.transform = 'translateX(0)';
-    });
+    if (btnOpenCustomize) {
+        btnOpenCustomize.addEventListener('click', () => {
+            switchTab('visuals');
+        });
+    }
+
+    if (btnBack) {
+        btnBack.addEventListener('click', () => {
+            switchTab('lyrics');
+        });
+    }
 
     // =========================================================
     //  CUSTOMIZATION LISTENERS
