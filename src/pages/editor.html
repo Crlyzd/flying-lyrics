@@ -381,6 +381,33 @@
             50% { opacity: 0.9; }
         }
 
+        /* =========================================================
+         *  CLASSIC MODE OVERRIDES (Galaxy Mode toggled OFF)
+         * ========================================================= */
+        html.theme-classic,
+        html.theme-classic body,
+        html.theme-classic button,
+        html.theme-classic textarea {
+            font-family: 'Segoe UI', -apple-system, sans-serif !important;
+        }
+
+        html.theme-classic .galaxy-bg-container,
+        html.theme-classic .stars-layer {
+            display: none !important;
+        }
+
+        html.theme-classic {
+            --accent-1: #1DB954 !important;
+            --accent-2: #1DB954 !important;
+            --accent-3: #1DB954 !important;
+            --accent: #1DB954 !important;
+            --accent-blue: #1DB954 !important;
+            --accent-green: #1DB954 !important;
+            --accent-bg: rgba(29, 185, 84, 0.08) !important;
+            --accent-glow: rgba(29, 185, 84, 0.45) !important;
+            --bg-galaxy: #121212 !important;
+        }
+
     </style>
 </head>
 

@@ -37,6 +37,7 @@
     fl.popupColor1 = fl.defaults.popupColor1;
     fl.popupColor2 = fl.defaults.popupColor2;
     fl.popupColor3 = fl.defaults.popupColor3;
+    fl.galaxyMode = fl.defaults.galaxyMode;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false };
@@ -185,7 +186,7 @@
     }
 
     // Load initial settings (main + visual customization) ONCE
-    const initialQuery = Object.assign({}, fl.defaults, { userStats: null });
+    const initialQuery = Object.assign({}, fl.defaults, { userStats: null, partyMode: true });
     FLYING_LYRICS.storage.get(initialQuery, (items) => {
         // Load User Stats
         if (items.userStats) {
@@ -219,6 +220,7 @@
         fl.popupColor1 = items.popupColor1;
         fl.popupColor2 = items.popupColor2;
         fl.popupColor3 = items.popupColor3;
+        fl.galaxyMode = items.galaxyMode !== undefined ? items.galaxyMode : (items.partyMode !== undefined ? items.partyMode : false);
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -395,6 +397,11 @@
             }
             if (p.popupColor3 !== undefined) {
                 fl.popupColor3 = p.popupColor3;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.galaxyMode !== undefined || p.partyMode !== undefined) {
+                fl.galaxyMode = p.galaxyMode !== undefined ? p.galaxyMode : p.partyMode;
+                fl.needsLayoutUpdate = true;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
             reportPreferencesDebounced();

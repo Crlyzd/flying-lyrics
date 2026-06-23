@@ -145,7 +145,7 @@
             uiContainer.style.setProperty('--vibrant-color', activeColor);
         }
 
-        const displayFontFamily = "'Fredoka', 'Noto Sans', 'Segoe UI', sans-serif";
+        const displayFontFamily = fl.galaxyMode !== false ? "'Fredoka', 'Noto Sans', 'Segoe UI', sans-serif" : "'Noto Sans', 'Segoe UI', sans-serif";
         const mainSize = vmin * 6.5;
         const lineHeight = mainSize * 1.45; // relaxed line spacing
 
@@ -756,7 +756,7 @@
 
             // Target width for the active line fit
             const fitWidth = maxWidth * 0.75;
-            const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
+            const displayFontFamily = (isSystemMessage || fl.galaxyMode === false) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
             const activeSizeMin = vmin * 6.5 * fontScale;
             const activeSizeMax = vmin * 9.5 * fontScale;
 

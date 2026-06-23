@@ -1,3 +1,19 @@
+@property --raw-accent {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #ff007f;
+}
+@property --raw-accent-blue {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #00b4d8;
+}
+@property --raw-accent-green {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #1DB954;
+}
+
 :root {
     /* 3-Color Galaxy Theme Color Pickers */
     --accent-1: #ff007f;
@@ -81,13 +97,12 @@ textarea {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(0deg);
-    /* Peach-warm blend: each accent blends 60% accent + 40% warm peach #ffaa80.
-       Still fully theme-reactive — changing accent colors shifts the base hue,
-       but the warmth stays consistent across all themes. */
-    background: conic-gradient(color-mix(in srgb, var(--raw-accent-1) 60%, #ffaa80) 0%,
-            color-mix(in srgb, var(--raw-accent-2) 60%, #ffaa80) 33%,
-            color-mix(in srgb, var(--raw-accent-3) 60%, #ffaa80) 66%,
-            color-mix(in srgb, var(--raw-accent-1) 60%, #ffaa80) 100%);
+    /* Pre-blended in JavaScript as --accent-1, --accent-2, --accent-3.
+       Using them directly avoids dynamic per-pixel color-mix calculation during rotation! */
+    background: conic-gradient(var(--accent-1) 0%,
+            var(--accent-2) 33%,
+            var(--accent-3) 66%,
+            var(--accent-1) 100%);
     animation: diskSpin 4s linear infinite;
     z-index: 0;
     pointer-events: none;
@@ -1252,6 +1267,16 @@ input[type=number] {
     mask-image: url('icons/recent.svg');
 }
 
+.icon-sparkles {
+    -webkit-mask-image: url('icons/sparkles.svg');
+    mask-image: url('icons/sparkles.svg');
+}
+
+.icon-galaxy {
+    -webkit-mask-image: url('icons/galaxy.svg');
+    mask-image: url('icons/galaxy.svg');
+}
+
 .icon-bug {
     -webkit-mask-image: url('icons/bug.svg');
     mask-image: url('icons/bug.svg');
@@ -1809,10 +1834,12 @@ select option[value="request_language"] {
 .galaxy-blob {
     position: absolute;
     border-radius: 50%;
-    filter: blur(55px);
+    /* filter: blur(55px);  <-- REMOVED to avoid extremely heavy CPU/GPU blur calculations */
     /* Increased from 0.16 → 0.30 for more visible, dramatic blobs */
     opacity: 0.30;
-    transition: background-color 0.8s ease, transform 0.5s ease;
+    /* Transition CSS custom property values directly instead of background-color (since gradients are background-images) */
+    transition: --raw-accent 0.8s ease, --raw-accent-blue 0.8s ease, --raw-accent-green 0.8s ease, transform 0.5s ease;
+    will-change: transform;
 }
 
 .blob-1 {
@@ -1821,7 +1848,8 @@ select option[value="request_language"] {
     height: 220px;
     left: -50px;
     top: -30px;
-    background-color: var(--raw-accent);
+    /* Soft radial gradient mimics the blur filter perfectly but with zero blur filter cost */
+    background: radial-gradient(circle, var(--raw-accent) 0%, transparent 70%);
     animation: floatBlob1 18s infinite ease-in-out;
 }
 
@@ -1831,7 +1859,7 @@ select option[value="request_language"] {
     height: 240px;
     right: -50px;
     bottom: -35px;
-    background-color: var(--raw-accent-blue);
+    background: radial-gradient(circle, var(--raw-accent-blue) 0%, transparent 70%);
     animation: floatBlob2 22s infinite ease-in-out;
 }
 
@@ -1841,7 +1869,7 @@ select option[value="request_language"] {
     height: 200px;
     left: 50px;
     top: 150px;
-    background-color: var(--raw-accent-green);
+    background: radial-gradient(circle, var(--raw-accent-green) 0%, transparent 70%);
     animation: floatBlob3 16s infinite ease-in-out;
 }
 
@@ -1909,6 +1937,10 @@ select option[value="request_language"] {
     animation-play-state: paused !important;
 }
 
+.popup-window-container.bg-frozen .stars-layer {
+    animation-play-state: paused !important;
+}
+
 /* =========================================================
  *  SLOW BLINKING STARS
  * ========================================================= */
@@ -1917,6 +1949,8 @@ select option[value="request_language"] {
     inset: 0;
     pointer-events: none;
     z-index: 0;
+    will-change: opacity;
+    transform: translate3d(0, 0, 0); /* Promote to its own GPU compositor layer */
 }
 
 .stars-layer-1 {
@@ -2270,4 +2304,62 @@ select option[value="request_language"] {
     background: var(--accent);
     background-clip: padding-box;
     border-right: 3px solid transparent;
+}
+
+/* =========================================================
+ *  CLASSIC MODE OVERRIDES (Galaxy Mode toggled OFF)
+ * ========================================================= */
+.popup-window-container.theme-classic {
+    --accent: #1DB954 !important;
+    --accent-hover: #1ed760 !important;
+    --accent-bg: rgba(29, 185, 84, 0.08) !important;
+    --accent-glow: rgba(29, 185, 84, 0.45) !important;
+    --accent-blue: #1DB954 !important;
+    --accent-green: #1DB954 !important;
+    --raw-accent: #1DB954 !important;
+    --raw-accent-blue: #1DB954 !important;
+    --raw-accent-green: #1DB954 !important;
+    --accent-1: #1DB954 !important;
+    --accent-2: #1DB954 !important;
+    --accent-3: #1DB954 !important;
+    --raw-accent-1: #1DB954 !important;
+    --raw-accent-2: #1DB954 !important;
+    --raw-accent-3: #1DB954 !important;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.popup-window-container.theme-classic .popup-border-disk {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-bg-container {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .stars-layer {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .popup-slides {
+    margin: 0 !important;
+    background-color: #121212 !important;
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+}
+
+/* Revert font-family for body and all dynamic text */
+.popup-window-container.theme-classic,
+.popup-window-container.theme-classic body,
+.popup-window-container.theme-classic button,
+.popup-window-container.theme-classic select,
+.popup-window-container.theme-classic input,
+.popup-window-container.theme-classic textarea,
+.popup-window-container.theme-classic .logo-row h2 {
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+    text-shadow: none !important;
+}
+
+/* Hide galaxy customizer elements in Classic Mode */
+.popup-window-container.theme-classic #galaxy-customization-controls {
+    display: none !important;
 }

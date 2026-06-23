@@ -70,7 +70,8 @@ window.FLYING_LYRICS.defaults = {
     pipMode: 'document',
     
     // Popup Visuals Settings
-    popupBgAnimation: true,
+    popupBgAnimation: false,
+    galaxyMode: false,
     popupColor1: '#ff007f',
     popupColor2: '#00b4d8',
     popupColor3: '#1DB954'

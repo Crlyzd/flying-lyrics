@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // New theme and popup customizations
     const toggleBgAnimation = document.getElementById('toggle-bg-animation');
+    const toggleGalaxyMode = document.getElementById('toggle-galaxy-mode');
     const btnResetPopupSettings = document.getElementById('btn-reset-popup-settings');
     const btnResetPipSettings = document.getElementById('btn-reset-pip-settings');
     const subTabPipBtn = document.getElementById('sub-tab-pip-btn');
@@ -243,10 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Shows the review toast. */
     function showReviewToast() {
         reviewToast.classList.add('review-toast--visible');
+        // Persist a flag so the toast re-appears if the popup is closed without acting on it
+        FLYING_LYRICS.storage.set({ reviewToastPending: true });
     }
 
     FLYING_LYRICS.storage.get(
-        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false },
+        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false, reviewToastPending: false },
         (data) => {
             const newCount = data.popupOpenCount + 1;
             FLYING_LYRICS.storage.set({ popupOpenCount: newCount });
@@ -261,26 +264,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; // Already reviewed — never show toast again
             }
 
-            // --- Trigger 1: Count thresholds (5th and 20th open) ---
-            const isCountThreshold = (newCount === 5 || newCount === 20);
-
-            // --- Trigger 2: Snooze expiry (user clicked "Later" before) ---
-            const isSnoozedThresholdReached =
-                data.snoozeUntilCount > 0 && newCount >= data.snoozeUntilCount;
-
-            // --- Trigger 3: 7-day milestone (fires only once, guarded by stored flag) ---
-            const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-            const installedAt = data.firstInstalledAt || Date.now();
-            const is7DayMilestone =
-                !data.milestone7DayShown &&   // guard: only fire once
-                newCount > 3 &&               // at least 3 opens (not a brand-new user)
-                (Date.now() - installedAt) >= sevenDaysMs;
-
-            if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
-                if (is7DayMilestone) {
-                    FLYING_LYRICS.storage.set({ milestone7DayShown: true });
-                }
+            // --- Pending flag: toast was shown but popup closed before user acted on it ---
+            // Re-surface immediately on next open until explicitly dismissed via X or Remind me later.
+            if (data.reviewToastPending) {
                 showReviewToast();
+            } else {
+                // --- Trigger 1: Count thresholds (5th and 20th open) ---
+                const isCountThreshold = (newCount === 5 || newCount === 20);
+
+                // --- Trigger 2: Snooze expiry (user clicked "Later" before) ---
+                const isSnoozedThresholdReached =
+                    data.snoozeUntilCount > 0 && newCount >= data.snoozeUntilCount;
+
+                // --- Trigger 3: 7-day milestone (fires only once, guarded by stored flag) ---
+                const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+                const installedAt = data.firstInstalledAt || Date.now();
+                const is7DayMilestone =
+                    !data.milestone7DayShown &&   // guard: only fire once
+                    newCount > 3 &&               // at least 3 opens (not a brand-new user)
+                    (Date.now() - installedAt) >= sevenDaysMs;
+
+                if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
+                    if (is7DayMilestone) {
+                        FLYING_LYRICS.storage.set({ milestone7DayShown: true });
+                    }
+                    showReviewToast();
+                }
             }
 
             // --- Help button: show within first 3 days if opened >= 10 times and clicked < 10 times ---
@@ -302,13 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
     snoozeToastBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         FLYING_LYRICS.storage.get({ popupOpenCount: 0 }, ({ popupOpenCount }) => {
-            FLYING_LYRICS.storage.set({ snoozeUntilCount: popupOpenCount + 10 });
+            FLYING_LYRICS.storage.set({ snoozeUntilCount: popupOpenCount + 10, reviewToastPending: false });
         });
         reviewToast.classList.remove('review-toast--visible');
     });
 
     closeToastBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        FLYING_LYRICS.storage.set({ reviewToastPending: false });
         reviewToast.classList.remove('review-toast--visible');
     });
 
@@ -348,7 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pipMode: 'document', cloudSyncEnabled: true,
         
         themeAccent: 'galaxy',
-        popupBgAnimation: true,
+        popupBgAnimation: false,
+        galaxyMode: false,
+        partyMode: false,
         popupColor1: '#ff007f',
         popupColor2: '#00b4d8',
         popupColor3: '#1DB954'
@@ -446,6 +458,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Telemetry toggle initialization
         if (telemetryToggle) {
             updateTelemetryUI(items.telemetryConsent);
+        }
+
+
+        // Restore Galaxy Mode (Galaxy vs Classic theme) state
+        if (toggleGalaxyMode) {
+            const hasGalaxyMode = items.galaxyMode !== undefined ? items.galaxyMode : (items.partyMode !== undefined ? items.partyMode : false);
+            toggleGalaxyMode.checked = hasGalaxyMode;
+            applyGalaxyModeState(hasGalaxyMode);
         }
 
         // Restore visual customizations variables
@@ -1398,6 +1418,13 @@ document.addEventListener('DOMContentLoaded', () => {
         albumCoverToggleCard.classList.toggle('active', enabled);
     }
 
+    // Helper to apply Galaxy Mode classes
+    function applyGalaxyModeState(enabled) {
+        if (popupWindowContainer) {
+            popupWindowContainer.classList.toggle('theme-classic', !enabled);
+        }
+    }
+
     toggleAlbumCoverMode.addEventListener('change', () => {
         const enabled = toggleAlbumCoverMode.checked;
         applyAlbumCoverModeState(enabled);
@@ -1709,6 +1736,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+    // Galaxy Mode checkbox toggle
+    if (toggleGalaxyMode) {
+        toggleGalaxyMode.addEventListener('change', () => {
+            const enabled = toggleGalaxyMode.checked;
+            applyGalaxyModeState(enabled);
+            saveAndNotify({ galaxyMode: enabled, partyMode: enabled });
+        });
+    }
+
     // Background Animation checkbox toggle
     if (toggleBgAnimation) {
         toggleBgAnimation.addEventListener('change', () => {
@@ -1796,7 +1832,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm('Reset settings popup interface visuals to default?')) return;
 
             const popupDefaults = {
-                popupBgAnimation: true,
+                popupBgAnimation: false,
+                galaxyMode: false,
+                partyMode: false,
                 popupColor1: '#ff007f',
                 popupColor2: '#00b4d8',
                 popupColor3: '#1DB954'
@@ -1804,6 +1842,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             toggleBgAnimation.checked = popupDefaults.popupBgAnimation;
             if (popupWindowContainer) popupWindowContainer.classList.remove('bg-frozen');
+
+            if (toggleGalaxyMode) {
+                toggleGalaxyMode.checked = popupDefaults.galaxyMode;
+                applyGalaxyModeState(popupDefaults.galaxyMode);
+            }
 
             slotColors[1] = popupDefaults.popupColor1;
             slotColors[2] = popupDefaults.popupColor2;

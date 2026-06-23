@@ -282,111 +282,131 @@
 
                 <!-- Sub-pane 2: Interface (Settings Popup settings) -->
                 <div class="sub-tab-pane" id="sub-tab-popup">
-                    <!-- Toggle for Background Animation -->
-                    <div class="control-group">
-                        <div class="row">
-                            <label for="toggle-bg-animation" style="margin-bottom:0;">Animate Background</label>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-bg-animation" checked>
-                                <span class="slider"></span>
-                            </label>
+                    <!-- GALAXY MODE CARD TOGGLE -->
+                    <div class="album-cover-toggle-card" id="galaxy-mode-toggle-card" style="margin-bottom:12px;">
+                        <div class="acm-left">
+                            <span class="acm-icon">
+                                <span class="icon-mask icon-galaxy icon-size-20"></span>
+                            </span>
+                            <div class="acm-text">
+                                <span class="acm-title">Galaxy Mode</span>
+                                <span class="galaxy-perf-warning" style="font-style: italic; font-size: 10px; font-weight: 500; display: block; margin-top: 2px; color: #ffaa55;">May impact performance</span>
+                            </div>
                         </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-galaxy-mode">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    
-                    <!-- Custom HSL Color Swatches and Slider Panel -->
-                    <div class="control-group">
-                        <label>Custom Galaxy Colors</label>
-                        <div class="color-swatch-row">
-                            <button class="color-swatch-btn active" id="swatch-btn-1" type="button">
-                                <span class="swatch-color" id="swatch-color-1"></span>
-                                <span>Color 1</span>
-                            </button>
-                            <button class="color-swatch-btn" id="swatch-btn-2" type="button">
-                                <span class="swatch-color" id="swatch-color-2"></span>
-                                <span>Color 2</span>
-                            </button>
-                            <button class="color-swatch-btn" id="swatch-btn-3" type="button">
-                                <span class="swatch-color" id="swatch-color-3"></span>
-                                <span>Color 3</span>
-                            </button>
+
+                    <!-- Wrapper for Galaxy Customization (hidden in Classic Mode) -->
+                    <div id="galaxy-customization-controls">
+                        <!-- Toggle for Background Animation -->
+                        <div class="control-group">
+                            <div class="row">
+                                <label for="toggle-bg-animation" style="margin-bottom:0;">Animate Background</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-bg-animation">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
                         </div>
                         
-                        <div class="hsl-picker-panel" id="hslPickerPanel">
-                            <div class="hsl-slider-item">
-                                <div class="hsl-slider-header">
-                                    <span>Hue</span>
-                                    <span class="hsl-value" id="hue-val-display">0°</span>
-                                </div>
-                                <input type="range" id="hsl-hue" min="0" max="360" value="0">
+                        <!-- Custom HSL Color Swatches and Slider Panel -->
+                        <div class="control-group">
+                            <label>Custom Galaxy Colors</label>
+                            <div class="color-swatch-row">
+                                <button class="color-swatch-btn active" id="swatch-btn-1" type="button">
+                                    <span class="swatch-color" id="swatch-color-1"></span>
+                                    <span>Color 1</span>
+                                </button>
+                                <button class="color-swatch-btn" id="swatch-btn-2" type="button">
+                                    <span class="swatch-color" id="swatch-color-2"></span>
+                                    <span>Color 2</span>
+                                </button>
+                                <button class="color-swatch-btn" id="swatch-btn-3" type="button">
+                                    <span class="swatch-color" id="swatch-color-3"></span>
+                                    <span>Color 3</span>
+                                </button>
                             </div>
-                            <div class="hsl-slider-item">
-                                <div class="hsl-slider-header">
-                                    <span>Saturation</span>
-                                    <span class="hsl-value" id="sat-val-display">100%</span>
+                            
+                            <div class="hsl-picker-panel" id="hslPickerPanel">
+                                <div class="hsl-slider-item">
+                                    <div class="hsl-slider-header">
+                                        <span>Hue</span>
+                                        <span class="hsl-value" id="hue-val-display">0°</span>
+                                    </div>
+                                    <input type="range" id="hsl-hue" min="0" max="360" value="0">
                                 </div>
-                                <input type="range" id="hsl-saturation" min="0" max="100" value="100">
-                            </div>
-                            <div class="hsl-slider-item">
-                                <div class="hsl-slider-header">
-                                    <span>Lightness</span>
-                                    <span class="hsl-value" id="light-val-display">50%</span>
+                                <div class="hsl-slider-item">
+                                    <div class="hsl-slider-header">
+                                        <span>Saturation</span>
+                                        <span class="hsl-value" id="sat-val-display">100%</span>
+                                    </div>
+                                    <input type="range" id="hsl-saturation" min="0" max="100" value="100">
                                 </div>
-                                <input type="range" id="hsl-lightness" min="0" max="100" value="50">
+                                <div class="hsl-slider-item">
+                                    <div class="hsl-slider-header">
+                                        <span>Lightness</span>
+                                        <span class="hsl-value" id="light-val-display">50%</span>
+                                    </div>
+                                    <input type="range" id="hsl-lightness" min="0" max="100" value="50">
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Presets Grid -->
-                    <div class="control-group" style="padding-bottom:5px;">
-                        <label>Galaxy Presets</label>
-                        <div class="presets-grid">
-                            <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#00b4d8" data-c3="#1DB954">
-                                <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#00b4d8;"></span><span style="background:#1DB954;"></span></div>
-                                <span>Orion</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#7209b7" data-c2="#ff007f" data-c3="#4cc9f0">
-                                <div class="preset-colors"><span style="background:#7209b7;"></span><span style="background:#ff007f;"></span><span style="background:#4cc9f0;"></span></div>
-                                <span>Andromeda</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#ff4d00" data-c2="#e0115f" data-c3="#5c00a3">
-                                <div class="preset-colors"><span style="background:#ff4d00;"></span><span style="background:#e0115f;"></span><span style="background:#5c00a3;"></span></div>
-                                <span>Sunset</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#06d6a0" data-c2="#118ab2" data-c3="#70e000">
-                                <div class="preset-colors"><span style="background:#06d6a0;"></span><span style="background:#118ab2;"></span><span style="background:#70e000;"></span></div>
-                                <span>Aurora</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#00f0ff" data-c3="#ffea00">
-                                <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#00f0ff;"></span><span style="background:#ffea00;"></span></div>
-                                <span>Cyberpunk</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#0077b6" data-c2="#00b4d8" data-c3="#90e0ef">
-                                <div class="preset-colors"><span style="background:#0077b6;"></span><span style="background:#00b4d8;"></span><span style="background:#90e0ef;"></span></div>
-                                <span>Ocean</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#d90429" data-c2="#f77f00" data-c3="#fcbf49">
-                                <div class="preset-colors"><span style="background:#d90429;"></span><span style="background:#f77f00;"></span><span style="background:#fcbf49;"></span></div>
-                                <span>Supernova</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#2d6a4f" data-c2="#52b788" data-c3="#d8f3dc">
-                                <div class="preset-colors"><span style="background:#2d6a4f;"></span><span style="background:#52b788;"></span><span style="background:#d8f3dc;"></span></div>
-                                <span>Forest</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#cccccc" data-c2="#666666" data-c3="#333333">
-                                <div class="preset-colors"><span style="background:#cccccc;"></span><span style="background:#666666;"></span><span style="background:#333333;"></span></div>
-                                <span>Void</span>
-                            </button>
-                            <button class="preset-btn" type="button" data-c1="#1DB954" data-c2="#a7ffc3" data-c3="#0f3b1e">
-                                <div class="preset-colors"><span style="background:#1DB954;"></span><span style="background:#a7ffc3;"></span><span style="background:#0f3b1e;"></span></div>
-                                <span>Retro</span>
-                            </button>
+                        <!-- Presets Grid -->
+                        <div class="control-group" style="padding-bottom:5px;">
+                            <label>Galaxy Presets</label>
+                            <div class="presets-grid">
+                                <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#00b4d8" data-c3="#1DB954">
+                                    <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#00b4d8;"></span><span style="background:#1DB954;"></span></div>
+                                    <span>Orion</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#7209b7" data-c2="#ff007f" data-c3="#4cc9f0">
+                                    <div class="preset-colors"><span style="background:#7209b7;"></span><span style="background:#ff007f;"></span><span style="background:#4cc9f0;"></span></div>
+                                    <span>Andromeda</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#ff4d00" data-c2="#e0115f" data-c3="#5c00a3">
+                                    <div class="preset-colors"><span style="background:#ff4d00;"></span><span style="background:#e0115f;"></span><span style="background:#5c00a3;"></span></div>
+                                    <span>Sunset</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#06d6a0" data-c2="#118ab2" data-c3="#70e000">
+                                    <div class="preset-colors"><span style="background:#06d6a0;"></span><span style="background:#118ab2;"></span><span style="background:#70e000;"></span></div>
+                                    <span>Aurora</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#00f0ff" data-c3="#ffea00">
+                                    <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#00f0ff;"></span><span style="background:#ffea00;"></span></div>
+                                    <span>Cyberpunk</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#0077b6" data-c2="#00b4d8" data-c3="#90e0ef">
+                                    <div class="preset-colors"><span style="background:#0077b6;"></span><span style="background:#00b4d8;"></span><span style="background:#90e0ef;"></span></div>
+                                    <span>Ocean</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#d90429" data-c2="#f77f00" data-c3="#fcbf49">
+                                    <div class="preset-colors"><span style="background:#d90429;"></span><span style="background:#f77f00;"></span><span style="background:#fcbf49;"></span></div>
+                                    <span>Supernova</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#2d6a4f" data-c2="#52b788" data-c3="#d8f3dc">
+                                    <div class="preset-colors"><span style="background:#2d6a4f;"></span><span style="background:#52b788;"></span><span style="background:#d8f3dc;"></span></div>
+                                    <span>Forest</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#cccccc" data-c2="#666666" data-c3="#333333">
+                                    <div class="preset-colors"><span style="background:#cccccc;"></span><span style="background:#666666;"></span><span style="background:#333333;"></span></div>
+                                    <span>Void</span>
+                                </button>
+                                <button class="preset-btn" type="button" data-c1="#1DB954" data-c2="#a7ffc3" data-c3="#0f3b1e">
+                                    <div class="preset-colors"><span style="background:#1DB954;"></span><span style="background:#a7ffc3;"></span><span style="background:#0f3b1e;"></span></div>
+                                    <span>Retro</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <!-- Reset Settings Popup Visuals Only -->
-                    <button class="button-customize" id="btn-reset-popup-settings">
-                        <span>Reset Interface Defaults</span>
-                    </button>
+                        <!-- Reset Settings Popup Visuals Only -->
+                        <button class="button-customize" id="btn-reset-popup-settings">
+                            <span>Reset Interface Defaults</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

@@ -461,20 +461,33 @@
         }
 
         targetDoc.documentElement.classList.remove('theme-green');
-        const f1 = applyPeachFilterAndClamp(fl.popupColor1);
-        const f2 = applyPeachFilterAndClamp(fl.popupColor2);
-        const f3 = applyPeachFilterAndClamp(fl.popupColor3);
+        let f1, f2, f3, raw1, raw2, raw3;
+        if (fl.galaxyMode !== false) {
+            f1 = applyPeachFilterAndClamp(fl.popupColor1);
+            f2 = applyPeachFilterAndClamp(fl.popupColor2);
+            f3 = applyPeachFilterAndClamp(fl.popupColor3);
+            raw1 = fl.popupColor1;
+            raw2 = fl.popupColor2;
+            raw3 = fl.popupColor3;
+        } else {
+            f1 = '#1DB954';
+            f2 = '#1DB954';
+            f3 = '#1DB954';
+            raw1 = '#1DB954';
+            raw2 = '#1DB954';
+            raw3 = '#1DB954';
+        }
 
         targetDoc.documentElement.style.setProperty('--accent-1', f1);
         targetDoc.documentElement.style.setProperty('--accent-2', f2);
         targetDoc.documentElement.style.setProperty('--accent-3', f3);
         
-        targetDoc.documentElement.style.setProperty('--raw-accent-1', fl.popupColor1);
-        targetDoc.documentElement.style.setProperty('--raw-accent-2', fl.popupColor2);
-        targetDoc.documentElement.style.setProperty('--raw-accent-3', fl.popupColor3);
-        targetDoc.documentElement.style.setProperty('--raw-accent', fl.popupColor1);
-        targetDoc.documentElement.style.setProperty('--raw-accent-blue', fl.popupColor2);
-        targetDoc.documentElement.style.setProperty('--raw-accent-green', fl.popupColor3);
+        targetDoc.documentElement.style.setProperty('--raw-accent-1', raw1);
+        targetDoc.documentElement.style.setProperty('--raw-accent-2', raw2);
+        targetDoc.documentElement.style.setProperty('--raw-accent-3', raw3);
+        targetDoc.documentElement.style.setProperty('--raw-accent', raw1);
+        targetDoc.documentElement.style.setProperty('--raw-accent-blue', raw2);
+        targetDoc.documentElement.style.setProperty('--raw-accent-green', raw3);
         
         targetDoc.documentElement.style.setProperty('--accent-bg', hexToRgba(f1, 0.08));
         targetDoc.documentElement.style.setProperty('--accent-glow', hexToRgba(f1, 0.45));
