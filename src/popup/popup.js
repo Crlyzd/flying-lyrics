@@ -103,9 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Slide navigation
     const popupSlides = document.getElementById('popup-slides');
-    const btnOpenCustomize = document.getElementById('btn-open-customize');
+    const popupWindowContainer = document.querySelector('.popup-window-container');
     const btnOpenHelp = document.getElementById('btn-open-help');
-    const btnBack = document.getElementById('btn-back');
 
     // Customization controls
     const fontFamilySelect = document.getElementById('font-family-select');
@@ -143,7 +142,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const importFile = document.getElementById('import-file');
     const telemetryToggle = document.getElementById('telemetry-toggle');
 
+    // New theme and popup customizations
+    const toggleBgAnimation = document.getElementById('toggle-bg-animation');
+    const btnResetPopupSettings = document.getElementById('btn-reset-popup-settings');
+    const btnResetPipSettings = document.getElementById('btn-reset-pip-settings');
+    const subTabPipBtn = document.getElementById('sub-tab-pip-btn');
+    const subTabPopupBtn = document.getElementById('sub-tab-popup-btn');
+    const subTabPipPane = document.getElementById('sub-tab-pip');
+    const subTabPopupPane = document.getElementById('sub-tab-popup');
+    
+    // HSL Sliders & Swatches
+    const hslHueSlider = document.getElementById('hsl-hue');
+    const hslSatSlider = document.getElementById('hsl-saturation');
+    const hslLightSlider = document.getElementById('hsl-lightness');
+    const hueValDisplay = document.getElementById('hue-val-display');
+    const satValDisplay = document.getElementById('sat-val-display');
+    const lightValDisplay = document.getElementById('light-val-display');
+
     // State
+    let activeColorSlot = 1;
+    let slotColors = {
+        1: '#ff007f',
+        2: '#00b4d8',
+        3: '#1DB954'
+    };
     let currentResults = [];
     let currentActiveTrack = { artist: "", title: "" };
     let currentEffectiveOffset = 1000;
@@ -323,7 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
-        pipMode: 'document', cloudSyncEnabled: true
+        pipMode: 'document', cloudSyncEnabled: true,
+        
+        themeAccent: 'galaxy',
+        popupBgAnimation: true,
+        popupColor1: '#ff007f',
+        popupColor2: '#00b4d8',
+        popupColor3: '#1DB954'
     };
 
     FLYING_LYRICS.storage.get(fallbackDefaults, (items) => {
@@ -396,6 +424,12 @@ document.addEventListener('DOMContentLoaded', () => {
         glowPreview.classList.toggle('active', items.glowEnabled);
         glowPreview.classList.toggle('rainbow', items.glowStyle === 'rainbow');
 
+        // Load song vibrant color from local storage (written by extractPalette in content script).
+        // Apply it as --glow-color so the preview matches the current song's album art color.
+        chrome.storage.local.get({ currentVibrantColor: '#1DB954' }, (colorData) => {
+            glowPreview.style.setProperty('--glow-color', colorData.currentVibrantColor);
+        });
+
         // Restore cover mode selection
         document.querySelectorAll('.cover-mode-option').forEach(opt => {
             opt.classList.toggle('selected', opt.dataset.mode === items.coverMode);
@@ -413,6 +447,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (telemetryToggle) {
             updateTelemetryUI(items.telemetryConsent);
         }
+
+        // Restore visual customizations variables
+        toggleBgAnimation.checked = items.popupBgAnimation;
+        if (items.popupBgAnimation) {
+            if (popupWindowContainer) popupWindowContainer.classList.remove('bg-frozen');
+        } else {
+            if (popupWindowContainer) popupWindowContainer.classList.add('bg-frozen');
+        }
+
+        slotColors[1] = items.popupColor1;
+        slotColors[2] = items.popupColor2;
+        slotColors[3] = items.popupColor3;
+
+        updateCustomColors();
+        selectColorSlot(1);
     });
 
     // =========================================================
@@ -421,6 +470,12 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if ((namespace === 'local' || namespace === 'sync') && changes.showTranslation) {
             toggleTrans.checked = changes.showTranslation.newValue;
+        }
+        // Live-update the glow preview color when the content script extracts a new palette.
+        // currentVibrantColor is written to chrome.storage.local by extractPalette() on every
+        // album art change, so this fires without any polling.
+        if (namespace === 'local' && changes.currentVibrantColor) {
+            glowPreview.style.setProperty('--glow-color', changes.currentVibrantColor.newValue);
         }
     });
 
@@ -1005,17 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    if (btnOpenCustomize) {
-        btnOpenCustomize.addEventListener('click', () => {
-            switchTab('visuals');
-        });
-    }
-
-    if (btnBack) {
-        btnBack.addEventListener('click', () => {
-            switchTab('lyrics');
-        });
-    }
+    // (Navigation shortcuts btnOpenCustomize & btnBack removed)
 
     // =========================================================
     //  CUSTOMIZATION LISTENERS
@@ -1388,60 +1433,393 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ lyricAlignment: alignSelect.value });
     });
 
-    // Reset Defaults
-    const btnResetSettings = document.getElementById('btn-reset-settings');
-    btnResetSettings.addEventListener('click', () => {
-        if (!confirm('Reset visual settings to default?')) return;
+    // =========================================================
+    //  THEME ACCENT / GALAXY HSL CUSTOMIZATION LOGIC
+    // =========================================================
 
-        const defaults = {
-            customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-            coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
-            lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, pipMode: 'document'
-        };
+    // Helper: convert hex to rgba for glow and backgrounds
+    function hexToRgba(hex, alpha) {
+        let r = parseInt(hex.slice(1, 3), 16);
+        let g = parseInt(hex.slice(3, 5), 16);
+        let b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
 
-        // Reset UI Elements
-        fontFamilySelect.value = defaults.customFont;
-        customFontContainer.style.display = 'none';
-        glowPreview.style.fontFamily = defaults.customFont;
+    // Helper: convert hex to HSL
+    function hexToHsl(hex) {
+        let r = parseInt(hex.slice(1, 3), 16) / 255;
+        let g = parseInt(hex.slice(3, 5), 16) / 255;
+        let b = parseInt(hex.slice(5, 7), 16) / 255;
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) {
+            h = s = 0; // achromatic
+        } else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+    }
 
-        fontSizeSlider.value = 5;
-        fontSizeValue.textContent = 5;
-        glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
+    // Helper: convert HSL to hex
+    function hslToHex(h, s, l) {
+        s /= 100;
+        l /= 100;
+        let c = (1 - Math.abs(2 * l - 1)) * s;
+        let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        let m = l - c / 2;
+        let r = 0, g = 0, b = 0;
+        if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+        else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+        else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+        else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+        else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+        else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+        r = Math.round((r + m) * 255).toString(16).padStart(2, '0');
+        g = Math.round((g + m) * 255).toString(16).padStart(2, '0');
+        b = Math.round((b + m) * 255).toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+    }
 
-        lineSpacingSlider.value = 2;
-        lineSpacingValue.textContent = 2;
+    // Blends a color with Peach (#ffaa80) and clamps the lightness
+    // to prevent it from getting too dark or too white.
+    function applyPeachFilterAndClamp(hex) {
+        if (!hex) return hex;
+        // 1. Parse Hex to RGB
+        let r = parseInt(hex.slice(1, 3), 16);
+        let g = parseInt(hex.slice(3, 5), 16);
+        let b = parseInt(hex.slice(5, 7), 16);
 
-        anchorSlider.value = 4;
-        anchorValue.textContent = 4;
+        // 2. Mix with Peach (#ffaa80: R=255, G=170, B=128)
+        // 60% accent color, 40% peach color
+        let mixedR = Math.round(r * 0.6 + 255 * 0.4);
+        let mixedG = Math.round(g * 0.6 + 170 * 0.4);
+        let mixedB = Math.round(b * 0.6 + 128 * 0.4);
 
-        blurSlider.value = 2;
-        blurValue.textContent = 2;
+        // 3. Convert Mixed RGB to HSL
+        let normR = mixedR / 255;
+        let normG = mixedG / 255;
+        let normB = mixedB / 255;
+        let max = Math.max(normR, normG, normB);
+        let min = Math.min(normR, normG, normB);
+        let h, s, l = (max + min) / 2;
 
-        darknessSlider.value = 4;
-        darknessValue.textContent = 4;
+        if (max === min) {
+            h = s = 0; // achromatic
+        } else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case normR: h = (normG - normB) / d + (normG < normB ? 6 : 0); break;
+                case normG: h = (normB - normR) / d + 2; break;
+                case normB: h = (normR - normG) / d + 4; break;
+            }
+            h /= 6;
+        }
 
-        document.querySelectorAll('.cover-mode-option').forEach(o => {
-            o.classList.toggle('selected', o.dataset.mode === 'default');
+        h = Math.round(h * 360);
+        s = Math.round(s * 100);
+        l = Math.round(l * 100);
+
+        // 4. Clamp Lightness
+        // Prevent too dark (minimum 50% lightness for contrast on dark background)
+        // Prevent too white (maximum 78% lightness to retain hue vibrancy)
+        l = Math.max(50, Math.min(l, 78));
+
+        // 5. Convert HSL back to Hex
+        s /= 100;
+        l /= 100;
+        let c = (1 - Math.abs(2 * l - 1)) * s;
+        let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        let m = l - c / 2;
+        let finalR = 0, finalG = 0, finalB = 0;
+
+        if (0 <= h && h < 60) { finalR = c; finalG = x; finalB = 0; }
+        else if (60 <= h && h < 120) { finalR = x; finalG = c; finalB = 0; }
+        else if (120 <= h && h < 180) { finalR = 0; finalG = c; finalB = x; }
+        else if (180 <= h && h < 240) { finalR = 0; finalG = x; finalB = c; }
+        else if (240 <= h && h < 300) { finalR = x; finalG = 0; finalB = c; }
+        else if (300 <= h && h < 360) { finalR = c; finalG = 0; finalB = x; }
+
+        let outR = Math.round((finalR + m) * 255).toString(16).padStart(2, '0');
+        let outG = Math.round((finalG + m) * 255).toString(16).padStart(2, '0');
+        let outB = Math.round((finalB + m) * 255).toString(16).padStart(2, '0');
+
+        return `#${outR}${outG}${outB}`;
+    }
+
+    // Update custom colors variables globally
+    function updateCustomColors() {
+        const c1 = slotColors[1];
+        const c2 = slotColors[2];
+        const c3 = slotColors[3];
+
+        const f1 = applyPeachFilterAndClamp(c1);
+        const f2 = applyPeachFilterAndClamp(c2);
+        const f3 = applyPeachFilterAndClamp(c3);
+
+        // Update swatches backgrounds
+        if (document.getElementById('swatch-color-1')) {
+            document.getElementById('swatch-color-1').style.backgroundColor = f1;
+            document.getElementById('swatch-color-2').style.backgroundColor = f2;
+            document.getElementById('swatch-color-3').style.backgroundColor = f3;
+        }
+
+        document.documentElement.style.setProperty('--accent-1', f1);
+        document.documentElement.style.setProperty('--accent-2', f2);
+        document.documentElement.style.setProperty('--accent-3', f3);
+        
+        document.documentElement.style.setProperty('--raw-accent-1', c1);
+        document.documentElement.style.setProperty('--raw-accent-2', c2);
+        document.documentElement.style.setProperty('--raw-accent-3', c3);
+        document.documentElement.style.setProperty('--raw-accent', c1);
+        document.documentElement.style.setProperty('--raw-accent-blue', c2);
+        document.documentElement.style.setProperty('--raw-accent-green', c3);
+        
+        // Recalculate accents and glows for color 1
+        document.documentElement.style.setProperty('--accent-bg', hexToRgba(f1, 0.08));
+        document.documentElement.style.setProperty('--accent-glow', hexToRgba(f1, 0.45));
+
+        // Adjust logo neon glow shadow
+        const logo = document.querySelector('.logo-row h2');
+        if (logo) logo.style.textShadow = `0 0 8px ${hexToRgba(f1, 0.45)}`;
+    }
+
+    // Draw dynamic backgrounds on saturation/lightness slider tracks
+    function updateSliderBackgrounds(h, s, l) {
+        if (hslSatSlider && hslLightSlider) {
+            hslSatSlider.style.background = `linear-gradient(to right, ${hslToHex(h, 0, l)}, ${hslToHex(h, 100, l)})`;
+            hslLightSlider.style.background = `linear-gradient(to right, #000000, ${hslToHex(h, s, 50)}, #ffffff)`;
+        }
+    }
+
+    // Select an active slot to configure
+    function selectColorSlot(slotId) {
+        activeColorSlot = slotId;
+        
+        // Update swatch active classes
+        document.querySelectorAll('.color-swatch-btn').forEach((btn, idx) => {
+            btn.classList.toggle('active', idx + 1 === slotId);
+        });
+        
+        // Get slot's hex color and convert to HSL
+        const hex = slotColors[slotId];
+        const [h, s, l] = hexToHsl(hex);
+        
+        // Sync values to slider inputs
+        hslHueSlider.value = h;
+        hslSatSlider.value = s;
+        hslLightSlider.value = l;
+        
+        // Update labels
+        hueValDisplay.textContent = h + '°';
+        satValDisplay.textContent = s + '%';
+        lightValDisplay.textContent = l + '%';
+        
+        updateSliderBackgrounds(h, s, l);
+    }
+
+    // On input sliders adjust color in real-time (real-time CSS updates)
+    function onHslSliderInput() {
+        const h = parseInt(hslHueSlider.value);
+        const s = parseInt(hslSatSlider.value);
+        const l = parseInt(hslLightSlider.value);
+        
+        hueValDisplay.textContent = h + '°';
+        satValDisplay.textContent = s + '%';
+        lightValDisplay.textContent = l + '%';
+        
+        const hex = hslToHex(h, s, l);
+        slotColors[activeColorSlot] = hex;
+        
+        // Live update swatch background
+        const swatch = document.getElementById('swatch-color-' + activeColorSlot);
+        if (swatch) swatch.style.backgroundColor = hex;
+        
+        updateCustomColors();
+        updateSliderBackgrounds(h, s, l);
+
+        // Notify tab dynamically
+        notifyTab({
+            [`popupColor${activeColorSlot}`]: hex
+        });
+    }
+
+    // On change sliders write to storage
+    function onHslSliderChange() {
+        const h = parseInt(hslHueSlider.value);
+        const s = parseInt(hslSatSlider.value);
+        const l = parseInt(hslLightSlider.value);
+        const hex = hslToHex(h, s, l);
+
+        saveAndNotify({
+            [`popupColor${activeColorSlot}`]: hex
+        });
+    }
+
+    // Setup HSL pickers listeners
+    if (hslHueSlider && hslSatSlider && hslLightSlider) {
+        hslHueSlider.addEventListener('input', onHslSliderInput);
+        hslSatSlider.addEventListener('input', onHslSliderInput);
+        hslLightSlider.addEventListener('input', onHslSliderInput);
+
+        hslHueSlider.addEventListener('change', onHslSliderChange);
+        hslSatSlider.addEventListener('change', onHslSliderChange);
+        hslLightSlider.addEventListener('change', onHslSliderChange);
+    }
+
+    // Color swatches click listeners
+    const swatch1 = document.getElementById('swatch-btn-1');
+    const swatch2 = document.getElementById('swatch-btn-2');
+    const swatch3 = document.getElementById('swatch-btn-3');
+    if (swatch1 && swatch2 && swatch3) {
+        swatch1.addEventListener('click', () => selectColorSlot(1));
+        swatch2.addEventListener('click', () => selectColorSlot(2));
+        swatch3.addEventListener('click', () => selectColorSlot(3));
+    }
+
+    // Wire presets buttons
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const c1 = btn.dataset.c1;
+            const c2 = btn.dataset.c2;
+            const c3 = btn.dataset.c3;
+            applyPreset(c1, c2, c3);
+        });
+    });
+
+    function applyPreset(c1, c2, c3) {
+        slotColors[1] = c1;
+        slotColors[2] = c2;
+        slotColors[3] = c3;
+        updateCustomColors();
+        selectColorSlot(activeColorSlot);
+        saveAndNotify({
+            popupColor1: c1,
+            popupColor2: c2,
+            popupColor3: c3
+        });
+    }
+
+
+
+    // Background Animation checkbox toggle
+    if (toggleBgAnimation) {
+        toggleBgAnimation.addEventListener('change', () => {
+            const animated = toggleBgAnimation.checked;
+            if (popupWindowContainer) popupWindowContainer.classList.toggle('bg-frozen', !animated);
+            saveAndNotify({ popupBgAnimation: animated });
+        });
+    }
+
+    // Visual sub-tabs navigation switching
+    if (subTabPipBtn && subTabPopupBtn) {
+        subTabPipBtn.addEventListener('click', () => {
+            subTabPipBtn.classList.add('active');
+            subTabPopupBtn.classList.remove('active');
+            subTabPipPane.classList.add('active');
+            subTabPopupPane.classList.remove('active');
         });
 
-        toggleAlbumCoverMode.checked = false;
-        applyAlbumCoverModeState(false);
-        toggleBorderlessPip.checked = false;
+        subTabPopupBtn.addEventListener('click', () => {
+            subTabPopupBtn.classList.add('active');
+            subTabPipBtn.classList.remove('active');
+            subTabPopupPane.classList.add('active');
+            subTabPipPane.classList.remove('active');
+        });
+    }
 
-        alignSelect.value = 'center';
+    // Split Settings Resets: PiP Window Resets
+    if (btnResetPipSettings) {
+        btnResetPipSettings.addEventListener('click', () => {
+            if (!confirm('Reset Floating Window visual settings to default?')) return;
 
-        toggleGlow.checked = false;
-        glowPreview.classList.remove('active', 'rainbow');
-        glowStyleContainer.style.display = 'none';
-        glowStyleSelect.value = 'theme';
+            const pipDefaults = {
+                customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
+                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
+                lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
+            };
 
-        saveAndNotify(defaults);
+            // Reset UI Elements
+            fontFamilySelect.value = pipDefaults.customFont;
+            customFontContainer.style.display = 'none';
+            glowPreview.style.fontFamily = pipDefaults.customFont;
 
-        btnResetSettings.textContent = "Reset!";
-        setTimeout(() => {
-            btnResetSettings.textContent = 'Reset Defaults';
-        }, 1000);
-    });
+            fontSizeSlider.value = 5;
+            fontSizeValue.textContent = 5;
+            glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
+
+            lineSpacingSlider.value = 2;
+            lineSpacingValue.textContent = 2;
+
+            anchorSlider.value = 4;
+            anchorValue.textContent = 4;
+
+            blurSlider.value = 2;
+            blurValue.textContent = 2;
+
+            darknessSlider.value = 4;
+            darknessValue.textContent = 4;
+
+            document.querySelectorAll('.cover-mode-option').forEach(o => {
+                o.classList.toggle('selected', o.dataset.mode === 'default');
+            });
+
+            toggleAlbumCoverMode.checked = false;
+            applyAlbumCoverModeState(false);
+
+            alignSelect.value = 'center';
+
+            toggleGlow.checked = false;
+            glowPreview.classList.remove('active', 'rainbow');
+            glowStyleContainer.style.display = 'none';
+            glowStyleSelect.value = 'theme';
+
+            saveAndNotify(pipDefaults);
+
+            btnResetPipSettings.querySelector('span').textContent = "Reset!";
+            setTimeout(() => {
+                btnResetPipSettings.querySelector('span').textContent = 'Reset Floating Defaults';
+            }, 1000);
+        });
+    }
+
+    // Split Settings Resets: Settings Popup Resets
+    if (btnResetPopupSettings) {
+        btnResetPopupSettings.addEventListener('click', () => {
+            if (!confirm('Reset settings popup interface visuals to default?')) return;
+
+            const popupDefaults = {
+                popupBgAnimation: true,
+                popupColor1: '#ff007f',
+                popupColor2: '#00b4d8',
+                popupColor3: '#1DB954'
+            };
+
+            toggleBgAnimation.checked = popupDefaults.popupBgAnimation;
+            if (popupWindowContainer) popupWindowContainer.classList.remove('bg-frozen');
+
+            slotColors[1] = popupDefaults.popupColor1;
+            slotColors[2] = popupDefaults.popupColor2;
+            slotColors[3] = popupDefaults.popupColor3;
+
+            updateCustomColors();
+            selectColorSlot(activeColorSlot);
+
+            saveAndNotify(popupDefaults);
+
+            btnResetPopupSettings.querySelector('span').textContent = "Reset!";
+            setTimeout(() => {
+                btnResetPopupSettings.querySelector('span').textContent = 'Reset Interface Defaults';
+            }, 1000);
+        });
+    }
 
     // =========================================================
     //  BACKUP & RESTORE

@@ -5,7 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flying Lyrics - Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            /* 3-Color Galaxy Theme Color Pickers */
+            --accent-1: #ff007f;           /* Color 1 */
+            --accent-2: #00b4d8;           /* Color 2 */
+            --accent-3: #1DB954;           /* Color 3 */
+            
+            --accent: var(--accent-1);
+            --accent-blue: var(--accent-2);
+            --accent-green: var(--accent-3);
+            --accent-bg: rgba(255, 0, 127, 0.08);
+            --accent-glow: rgba(255, 0, 127, 0.45);
+            
+            --raw-accent-1: var(--accent-1);
+            --raw-accent-2: var(--accent-2);
+            --raw-accent-3: var(--accent-3);
+            --raw-accent: var(--raw-accent-1);
+            --raw-accent-blue: var(--raw-accent-2);
+            --raw-accent-green: var(--raw-accent-3);
+            
+            --bg-galaxy: #08080f;
+        }
+
         *,
         *::before,
         *::after {
@@ -19,12 +44,14 @@
         body {
             margin: 0;
             padding: 0;
-            background-color: #121212;
+            background-color: var(--bg-galaxy);
             color: white;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Fredoka', 'Segoe UI', sans-serif;
             display: grid;
             grid-template-rows: auto 1fr;
             overflow: hidden;
+            position: relative;
+            isolation: isolate;
         }
 
         .header {
@@ -32,10 +59,13 @@
             align-items: center;
             justify-content: space-between;
             padding: 15px 20px;
-            background-color: #1a1a1a;
-            border-bottom: 1px solid #333;
+            background-color: rgba(26, 26, 26, 0.45);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             flex-shrink: 0;
             gap: 15px;
+            z-index: 10;
         }
 
         .title-group {
@@ -48,10 +78,11 @@
         h1 {
             margin: 0;
             font-size: 18px;
-            color: #1DB954;
+            color: var(--accent-1);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            transition: color 0.5s ease;
         }
 
         .subtitle {
@@ -77,7 +108,7 @@
         }
 
         .btn {
-            background-color: #1DB954;
+            background-color: var(--accent-1);
             color: #000;
             border: none;
             padding: 8px 16px;
@@ -85,7 +116,7 @@
             font-weight: bold;
             font-size: 14px;
             cursor: pointer;
-            transition: background 0.2s, transform 0.1s, box-shadow 0.3s ease-out, color 0.2s;
+            transition: background-color 0.5s ease, transform 0.1s, box-shadow 0.3s ease-out, color 0.2s, filter 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -99,32 +130,36 @@
         }
 
         .btn:hover {
-            background-color: #1ed760;
+            filter: brightness(1.15);
         }
 
         .btn:active {
             transform: scale(0.98);
+            filter: brightness(0.95);
         }
 
         .btn.saved {
-            background-color: #1ed760;
-            box-shadow: 0 0 15px 3px rgba(30, 215, 96, 0.7);
-            color: white;
+            background-color: var(--accent-1);
+            box-shadow: 0 0 15px 3px var(--accent-glow);
+            color: #000;
         }
 
         .editor-container {
             padding: 20px;
             min-height: 0;
             min-width: 0;
+            z-index: 10;
         }
 
         textarea {
             width: 100%;
             height: 100%;
             display: block;
-            background-color: #1e1e1e;
+            background-color: rgba(30, 30, 30, 0.45);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
             color: #e0e0e0;
-            border: 1px solid #333;
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 8px;
             padding: 15px;
             font-family: monospace;
@@ -132,13 +167,15 @@
             line-height: 1.6;
             resize: none;
             outline: none;
-            transition: border-color 0.2s;
+            transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
             white-space: pre;
             overflow-x: auto;
         }
 
         textarea:focus {
-            border-color: #1DB954;
+            border-color: var(--accent-1);
+            box-shadow: 0 0 8px var(--accent-glow);
+            background-color: rgba(30, 30, 30, 0.60);
         }
         
         /* Custom Scrollbar for textarea */
@@ -161,7 +198,7 @@
         }
 
         textarea::-webkit-scrollbar-thumb:hover {
-            background: #1DB954;
+            background: var(--accent-1);
         }
 
         #status-toast {
@@ -169,14 +206,14 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%) translateY(50px);
-            background: #1DB954;
+            background: var(--accent-1);
             color: #000;
             padding: 10px 20px;
             border-radius: 30px;
             font-weight: bold;
             font-size: 14px;
             opacity: 0;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s, background-color 0.5s ease;
             pointer-events: none;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
             z-index: 100;
@@ -188,10 +225,177 @@
             opacity: 1;
         }
 
+        /* =========================================================
+         *  GALAXY THEME BACKGROUNDS & BLOBS STYLING
+         * ========================================================= */
+        .galaxy-bg-container {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            z-index: -10;
+            background-color: var(--bg-galaxy);
+            pointer-events: none;
+        }
+
+        .galaxy-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.25;
+            transition: background-color 0.8s ease, transform 0.5s ease;
+        }
+
+        .blob-1 {
+            width: 400px;
+            height: 400px;
+            left: -100px;
+            top: -100px;
+            background-color: var(--raw-accent);
+            animation: floatBlob1 25s infinite ease-in-out;
+        }
+
+        .blob-2 {
+            width: 450px;
+            height: 450px;
+            right: -100px;
+            bottom: -120px;
+            background-color: var(--raw-accent-blue);
+            animation: floatBlob2 30s infinite ease-in-out;
+        }
+
+        .blob-3 {
+            width: 350px;
+            height: 350px;
+            left: 20%;
+            top: 40%;
+            background-color: var(--raw-accent-green);
+            animation: floatBlob3 22s infinite ease-in-out;
+        }
+
+        @keyframes floatBlob1 {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+            }
+            33% {
+                transform: translate(50px, 30px) scale(1.1) rotate(120deg);
+                border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
+            }
+            66% {
+                transform: translate(20px, 50px) scale(0.95) rotate(240deg);
+                border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
+            }
+            100% {
+                transform: translate(0, 0) scale(1) rotate(360deg);
+                border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+            }
+        }
+
+        @keyframes floatBlob2 {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+            }
+            50% {
+                transform: translate(-50px, -30px) scale(1.15) rotate(-180deg);
+                border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%;
+            }
+            100% {
+                transform: translate(0, 0) scale(1) rotate(-360deg);
+                border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+            }
+        }
+
+        @keyframes floatBlob3 {
+            0% {
+                transform: translate(0, 0) scale(1) rotate(0deg);
+                border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+            }
+            50% {
+                transform: translate(40px, -40px) scale(1.2) rotate(180deg);
+                border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
+            }
+            100% {
+                transform: translate(0, 0) scale(1) rotate(360deg);
+                border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+            }
+        }
+
+        .bg-frozen .galaxy-blob {
+            animation-play-state: paused !important;
+        }
+
+        /* =========================================================
+         *  SLOW BLINKING STARS
+         * ========================================================= */
+        .stars-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: -5;
+            opacity: 0.3;
+        }
+
+        .stars-layer-1 {
+            background-image: 
+                radial-gradient(circle at 12% 18%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 82% 28%, #ffffff 1.2px, transparent 1.5px),
+                 radial-gradient(circle at 45% 65%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 25% 85%, #ffffff 1.4px, transparent 1.8px),
+                 radial-gradient(circle at 88% 75%, #ffffff 0.9px, transparent 1.2px),
+                 radial-gradient(circle at 35% 35%, #ffffff 0.8px, transparent 1px),
+                 radial-gradient(circle at 60% 10%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 92% 50%, #ffffff 0.8px, transparent 1px);
+            animation: starBlink 6s infinite ease-in-out;
+        }
+
+        .stars-layer-2 {
+            background-image: 
+                radial-gradient(circle at 68% 12%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 22% 48%, #ffffff 1.2px, transparent 1.5px),
+                 radial-gradient(circle at 75% 58%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 55% 90%, #ffffff 1.2px, transparent 1.5px),
+                 radial-gradient(circle at 10% 70%, #ffffff 0.9px, transparent 1.1px),
+                 radial-gradient(circle at 40% 25%, #ffffff 0.8px, transparent 1px),
+                 radial-gradient(circle at 95% 88%, #ffffff 1px, transparent 1.2px);
+            animation: starBlink 8s infinite ease-in-out;
+            animation-delay: 3s;
+        }
+
+        .stars-layer-3 {
+            background-image:
+                radial-gradient(circle at 5% 30%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 50% 50%, #ffffff 0.8px, transparent 1px),
+                 radial-gradient(circle at 78% 40%, #ffffff 1.2px, transparent 1.5px),
+                 radial-gradient(circle at 30% 60%, #ffffff 0.9px, transparent 1.1px),
+                 radial-gradient(circle at 65% 78%, #ffffff 1px, transparent 1.2px),
+                 radial-gradient(circle at 18% 5%, #ffffff 0.8px, transparent 1px),
+                 radial-gradient(circle at 85% 15%, #ffffff 1.1px, transparent 1.3px),
+                 radial-gradient(circle at 48% 38%, #ffffff 0.7px, transparent 0.9px);
+            animation: starBlink 10s infinite ease-in-out;
+            animation-delay: 1.5s;
+        }
+
+        @keyframes starBlink {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.9; }
+        }
+
     </style>
 </head>
 
 <body>
+    <!-- Galaxy Background Animation Layer -->
+    <div class="galaxy-bg-container">
+        <div class="galaxy-blob blob-1"></div>
+        <div class="galaxy-blob blob-2"></div>
+        <div class="galaxy-blob blob-3"></div>
+    </div>
+    <!-- Twinkling stars -->
+    <div class="stars-layer stars-layer-1"></div>
+    <div class="stars-layer stars-layer-2"></div>
+    <div class="stars-layer stars-layer-3"></div>
+
     <div class="header">
         <div class="title-group">
             <h1>Flying Lyrics Editor</h1>
@@ -215,6 +419,7 @@
 
     <div id="status-toast">Saved Successfully!</div>
 
+    <script src="../background/storage.js"></script>
     <script src="editor.js"></script>
 </body>
 

@@ -121,6 +121,12 @@
 
         sizeWarning.append(warningPill, warningSub);
 
+        // Inject Google Font Fredoka stylesheet
+        const fontLink = doc.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&display=swap';
+        doc.head.appendChild(fontLink);
+
         // Inject Styles
         const styleEl = doc.createElement('style');
         styleEl.textContent = `
@@ -388,6 +394,90 @@
     fl.applyVisualSettings = function () {
         if (!fl.pipWin || fl.pipWin.closed) return;
         const targetDoc = fl.activePipType === 'video' ? document : fl.pipWin.document;
+
+        function hexToRgba(hex, alpha) {
+            if (!hex) return 'rgba(0,0,0,0)';
+            hex = hex.replace('#', '');
+            if (hex.length === 3) {
+                hex = hex.split('').map(c => c + c).join('');
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function applyPeachFilterAndClamp(hex) {
+            if (!hex) return hex;
+            let r = parseInt(hex.slice(1, 3), 16);
+            let g = parseInt(hex.slice(3, 5), 16);
+            let b = parseInt(hex.slice(5, 7), 16);
+
+            let mixedR = Math.round(r * 0.6 + 255 * 0.4);
+            let mixedG = Math.round(g * 0.6 + 170 * 0.4);
+            let mixedB = Math.round(b * 0.6 + 128 * 0.4);
+
+            let normR = mixedR / 255, normG = mixedG / 255, normB = mixedB / 255;
+            let max = Math.max(normR, normG, normB), min = Math.min(normR, normG, normB);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case normR: h = (normG - normB) / d + (normG < normB ? 6 : 0); break;
+                    case normG: h = (normB - normR) / d + 2; break;
+                    case normB: h = (normR - normG) / d + 4; break;
+                }
+                h /= 6;
+            }
+
+            h = Math.round(h * 360);
+            s = Math.round(s * 100);
+            l = Math.round(l * 100);
+
+            l = Math.max(50, Math.min(l, 78));
+
+            s /= 100; l /= 100;
+            let c = (1 - Math.abs(2 * l - 1)) * s;
+            let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+            let m = l - c / 2;
+            let finalR = 0, finalG = 0, finalB = 0;
+
+            if (0 <= h && h < 60) { finalR = c; finalG = x; finalB = 0; }
+            else if (60 <= h && h < 120) { finalR = x; finalG = c; finalB = 0; }
+            else if (120 <= h && h < 180) { finalR = 0; finalG = c; finalB = x; }
+            else if (180 <= h && h < 240) { finalR = 0; finalG = x; finalB = c; }
+            else if (240 <= h && h < 300) { finalR = x; finalG = 0; finalB = c; }
+            else if (300 <= h && h < 360) { finalR = c; finalG = 0; finalB = x; }
+
+            let outR = Math.round((finalR + m) * 255).toString(16).padStart(2, '0');
+            let outG = Math.round((finalG + m) * 255).toString(16).padStart(2, '0');
+            let outB = Math.round((finalB + m) * 255).toString(16).padStart(2, '0');
+
+            return `#${outR}${outG}${outB}`;
+        }
+
+        targetDoc.documentElement.classList.remove('theme-green');
+        const f1 = applyPeachFilterAndClamp(fl.popupColor1);
+        const f2 = applyPeachFilterAndClamp(fl.popupColor2);
+        const f3 = applyPeachFilterAndClamp(fl.popupColor3);
+
+        targetDoc.documentElement.style.setProperty('--accent-1', f1);
+        targetDoc.documentElement.style.setProperty('--accent-2', f2);
+        targetDoc.documentElement.style.setProperty('--accent-3', f3);
+        
+        targetDoc.documentElement.style.setProperty('--raw-accent-1', fl.popupColor1);
+        targetDoc.documentElement.style.setProperty('--raw-accent-2', fl.popupColor2);
+        targetDoc.documentElement.style.setProperty('--raw-accent-3', fl.popupColor3);
+        targetDoc.documentElement.style.setProperty('--raw-accent', fl.popupColor1);
+        targetDoc.documentElement.style.setProperty('--raw-accent-blue', fl.popupColor2);
+        targetDoc.documentElement.style.setProperty('--raw-accent-green', fl.popupColor3);
+        
+        targetDoc.documentElement.style.setProperty('--accent-bg', hexToRgba(f1, 0.08));
+        targetDoc.documentElement.style.setProperty('--accent-glow', hexToRgba(f1, 0.45));
 
         if (fl.activePipType !== 'video') {
             const bgCover = targetDoc.getElementById('bg-cover');

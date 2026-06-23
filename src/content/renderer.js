@@ -145,7 +145,7 @@
             uiContainer.style.setProperty('--vibrant-color', activeColor);
         }
 
-        const displayFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
+        const displayFontFamily = "'Fredoka', 'Noto Sans', 'Segoe UI', sans-serif";
         const mainSize = vmin * 6.5;
         const lineHeight = mainSize * 1.45; // relaxed line spacing
 
@@ -489,8 +489,13 @@
                 fl.needsLayoutUpdate = true;
                 fl._els = null;
                 fl.lastKnownValidDuration = 0;
+                // Reset extracted art cache so the next song triggers a fresh palette extraction
+                fl.lastExtractedArt = "";
+                // Reset stored vibrant color to default so popup preview snaps back to neutral
+                chrome.storage.local.set({ currentVibrantColor: "#1DB954" });
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+
             } else {
                 // --- INSTANT FLUSH: Clear old lyrics immediately ---
                 fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];

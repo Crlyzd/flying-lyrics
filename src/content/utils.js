@@ -64,6 +64,10 @@
                     // Apply background immediately — no need for the 250ms setTimeout workaround
                     if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
                 }
+
+                // Persist extracted vibrant color so the popup settings page can read it
+                // without any polling — chrome.storage.onChanged fires in the popup immediately.
+                chrome.storage.local.set({ currentVibrantColor: fl.currentPalette.vibrant });
             }
         } catch (e) {
             // Do NOT reset fl.lastExtractedArt to "" on failure.

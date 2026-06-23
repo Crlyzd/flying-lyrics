@@ -23,7 +23,11 @@
             'verticalAnchor',
             'albumCoverMode',
             'pipMode',
-            'recentFonts'
+            'recentFonts',
+            'popupBgAnimation',
+            'popupColor1',
+            'popupColor2',
+            'popupColor3'
         ]),
 
         get(keys, callback) {

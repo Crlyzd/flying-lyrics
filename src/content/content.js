@@ -33,6 +33,10 @@
     fl.userLineSpacing = fl.defaults.lineSpacing;
     fl.userVerticalAnchor = fl.defaults.verticalAnchor;
     fl.albumCoverMode = fl.defaults.albumCoverMode;
+    fl.popupBgAnimation = fl.defaults.popupBgAnimation;
+    fl.popupColor1 = fl.defaults.popupColor1;
+    fl.popupColor2 = fl.defaults.popupColor2;
+    fl.popupColor3 = fl.defaults.popupColor3;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false };
@@ -47,6 +51,14 @@
         romaji: "#F5AF19"   // Default Romaji Orange
     };
     fl.lastExtractedArt = "";
+
+    // Seed the default vibrant color in storage so the popup settings page
+    // always has a value to read even before any album art is extracted.
+    chrome.storage.local.get('currentVibrantColor', (existing) => {
+        if (!existing.currentVibrantColor) {
+            chrome.storage.local.set({ currentVibrantColor: fl.currentPalette.vibrant });
+        }
+    });
 
     // Stats Tracking State & Helpers
     fl.userStats = {
@@ -203,6 +215,10 @@
         fl.userLineSpacing = items.lineSpacing;
         fl.userVerticalAnchor = items.verticalAnchor;
         fl.albumCoverMode = items.albumCoverMode;
+        fl.popupBgAnimation = items.popupBgAnimation;
+        fl.popupColor1 = items.popupColor1;
+        fl.popupColor2 = items.popupColor2;
+        fl.popupColor3 = items.popupColor3;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -362,6 +378,23 @@
             if (p.albumCoverMode !== undefined) {
                 fl.albumCoverMode = p.albumCoverMode;
                 // Re-apply visuals immediately — forces or releases the cover mode override
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+
+            if (p.popupBgAnimation !== undefined) {
+                fl.popupBgAnimation = p.popupBgAnimation;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.popupColor1 !== undefined) {
+                fl.popupColor1 = p.popupColor1;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.popupColor2 !== undefined) {
+                fl.popupColor2 = p.popupColor2;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.popupColor3 !== undefined) {
+                fl.popupColor3 = p.popupColor3;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
             reportPreferencesDebounced();

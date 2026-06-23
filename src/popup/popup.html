@@ -5,15 +5,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Flying Lyrics Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="popup.css">
 </head>
 
 <body>
 
     <!-- =====================================================================
+     POPUP WINDOW CONTAINER (border glow frame)
+     ===================================================================== -->
+    <div class="popup-window-container">
+
+        <!-- Rotating gradient disk — physically spins to produce the border ring effect -->
+        <div class="popup-border-disk" aria-hidden="true"></div>
+
+    <!-- =====================================================================
      SLIDE WRAPPER
      ===================================================================== -->
     <div class="popup-slides" id="popup-slides">
+        <!-- Galaxy Background Animation Layer -->
+        <div class="galaxy-bg-container">
+            <div class="galaxy-blob blob-1"></div>
+            <div class="galaxy-blob blob-2"></div>
+            <div class="galaxy-blob blob-3"></div>
+        </div>
+        <!-- Sparkle stars inside popup slides -->
+        <div class="stars-layer stars-layer-1"></div>
+        <div class="stars-layer stars-layer-2"></div>
+        <div class="stars-layer stars-layer-3"></div>
 
         <!-- Fixed Header (Branding & Tabs) -->
         <div class="popup-header-fixed">
@@ -103,164 +124,270 @@
                     </div>
                 </div>
 
-                <!-- CUSTOMIZE VISUALS BUTTON (Tab navigation shortcut) -->
-                <button class="button-customize" id="btn-open-customize">
-                    <span class="icon-mask icon-customize icon-size-16"></span>
-                    <span>Customize Visuals</span>
-                </button>
+
             </div>
 
             <!-- TAB 2: VISUAL STYLES -->
             <div class="tab-pane" id="tab-visuals">
-                <!-- Header title + Back link to lyrics tab -->
-                <div class="panel-header-row">
-                    <button class="icon-btn" id="btn-back" title="Back" aria-label="Back to Lyrics">
-                        <span class="icon-mask icon-back icon-size-15"></span>
-                    </button>
-                    <h3 class="panel-title">Customize Styles</h3>
+                <!-- Sub-tab Bar -->
+                <div class="sub-tab-bar">
+                    <button class="sub-tab-btn active" id="sub-tab-pip-btn">Floating</button>
+                    <button class="sub-tab-btn" id="sub-tab-popup-btn">Interface</button>
                 </div>
 
-                <!-- ALBUM COVER MODE TOGGLE -->
-                <div class="album-cover-toggle-card" id="album-cover-toggle-card">
-                    <div class="acm-left">
-                        <span class="acm-icon">
-                            <span class="icon-mask icon-album icon-size-20"></span>
-                        </span>
-                        <div class="acm-text">
-                            <span class="acm-title">Album Cover Mode</span>
-                            <span class="acm-sub">Locks visuals &amp; hides lyrics</span>
-                        </div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-album-cover-mode">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <!-- Typography & Detail configurations -->
-                <div id="visual-controls-wrapper">
-                    <div class="control-group">
-                        <label for="font-family-select" class="align-select-label">Font Family</label>
-                        <select id="font-family-select">
-                            <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
-                            <option value="'Indie Flower', cursive">Indie Flower</option>
-                            <option value="'Gaegu', cursive">Gaegu</option>
-                            <option value="'Patrick Hand', cursive">Patrick Hand</option>
-                            <option value="'Gochi Hand', cursive">Gochi Hand</option>
-                            <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
-                            <option value="custom">★ Custom Google Font . . .</option>
-                        </select>
-
-                        <!-- Custom Font Search (Hidden by default) -->
-                        <div id="custom-font-container">
-                            <div class="custom-font-input-wrapper">
-                                <input type="text" id="custom-font-input" class="search-input custom-font-input-field"
-                                    placeholder="Search fonts... (e.g. Pacifico)" autocomplete="off">
-                                <button id="btn-suggest-fonts" class="suggest-fonts-trigger" title="Get 5 random suggestions">🎲</button>
+                <!-- Sub-pane 1: Floating (PiP Window settings) -->
+                <div class="sub-tab-pane active" id="sub-tab-pip">
+                    <!-- ALBUM COVER MODE TOGGLE -->
+                    <div class="album-cover-toggle-card" id="album-cover-toggle-card">
+                        <div class="acm-left">
+                            <span class="acm-icon">
+                                <span class="icon-mask icon-album icon-size-20"></span>
+                            </span>
+                            <div class="acm-text">
+                                <span class="acm-title">Album Cover Mode</span>
+                                <span class="acm-sub">Locks visuals &amp; hides lyrics</span>
                             </div>
-                            <div class="custom-font-actions-row">
-                                <button class="search-btn" id="apply-custom-font">Search</button>
-                                <div>
-                                    <button id="btn-recent-fonts" class="btn-recent-fonts-trigger" title="Recently used fonts" aria-label="Recently used fonts">
-                                        <span class="icon-mask icon-recent icon-size-15"></span>
-                                    </button>
-                                    <div id="recent-fonts-panel"></div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-album-cover-mode">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Typography & Detail configurations -->
+                    <div id="visual-controls-wrapper">
+                        <div class="control-group">
+                            <label for="font-family-select" class="align-select-label">Font Family</label>
+                            <select id="font-family-select">
+                                <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans (Default)</option>
+                                <option value="'Indie Flower', cursive">Indie Flower</option>
+                                <option value="'Gaegu', cursive">Gaegu</option>
+                                <option value="'Patrick Hand', cursive">Patrick Hand</option>
+                                <option value="'Gochi Hand', cursive">Gochi Hand</option>
+                                <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
+                                <option value="custom">★ Custom Google Font . . .</option>
+                            </select>
+
+                            <!-- Custom Font Search (Hidden by default) -->
+                            <div id="custom-font-container">
+                                <div class="custom-font-input-wrapper">
+                                    <input type="text" id="custom-font-input" class="search-input custom-font-input-field"
+                                        placeholder="Search fonts... (e.g. Pacifico)" autocomplete="off">
+                                    <button id="btn-suggest-fonts" class="suggest-fonts-trigger" title="Get 5 random suggestions">🎲</button>
+                                </div>
+                                <div class="custom-font-actions-row">
+                                    <button class="search-btn" id="apply-custom-font">Search</button>
+                                    <div>
+                                        <button id="btn-recent-fonts" class="btn-recent-fonts-trigger" title="Recently used fonts" aria-label="Recently used fonts">
+                                            <span class="icon-mask icon-recent icon-size-15"></span>
+                                        </button>
+                                        <div id="recent-fonts-panel"></div>
+                                    </div>
+                                </div>
+                                <div id="font-chips-container"></div>
+                                <div id="font-results-container"></div>
+                                <div id="custom-font-link-hint">
+                                    <a href="https://fonts.google.com/" target="_blank" class="green-link">Browse Google Fonts ↗</a>
                                 </div>
                             </div>
-                            <div id="font-chips-container"></div>
-                            <div id="font-results-container"></div>
-                            <div id="custom-font-link-hint">
-                                <a href="https://fonts.google.com/" target="_blank" class="green-link">Browse Google Fonts ↗</a>
+
+                            <label for="align-select" class="align-select-label">Lyric Alignment</label>
+                            <select id="align-select">
+                                <option value="left">Left</option>
+                                <option value="center">Center (Default)</option>
+                                <option value="right">Right</option>
+                            </select>
+
+                            <div class="font-size-label-row">
+                                <label class="margin-bottom-0">Font Size</label>
+                                <span id="font-size-warning">Higher values may cause text to overlap</span>
+                            </div>
+                            <div class="range-row">
+                                <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
+                                <span class="range-value" id="font-size-value">5</span>
+                            </div>
+
+                            <label>Line Spacing</label>
+                            <div class="range-row">
+                                <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="2">
+                                <span class="range-value" id="line-spacing-value">2</span>
+                            </div>
+
+                            <label>Vertical Position</label>
+                            <div class="range-row">
+                                <input type="range" id="anchor-slider" min="1" max="10" step="1" value="4">
+                                <span class="range-value" id="anchor-value">4</span>
+                            </div>
+
+                            <label>Blur</label>
+                            <div class="range-row">
+                                <input type="range" id="blur-slider" min="0" max="10" step="1" value="2">
+                                <span class="range-value" id="blur-value">2</span>
+                            </div>
+
+                            <label>Darkness</label>
+                            <div class="range-row range-row-last">
+                                <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
+                                <span class="range-value" id="darkness-value">4</span>
                             </div>
                         </div>
 
-                        <label for="align-select" class="align-select-label">Lyric Alignment</label>
-                        <select id="align-select">
-                            <option value="left">Left</option>
-                            <option value="center">Center (Default)</option>
-                            <option value="right">Right</option>
-                        </select>
-
-                        <div class="font-size-label-row">
-                            <label class="margin-bottom-0">Font Size</label>
-                            <span id="font-size-warning">Higher values may cause text to overlap</span>
-                        </div>
-                        <div class="range-row">
-                            <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
-                            <span class="range-value" id="font-size-value">5</span>
-                        </div>
-
-                        <label>Line Spacing</label>
-                        <div class="range-row">
-                            <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="2">
-                            <span class="range-value" id="line-spacing-value">2</span>
+                        <!-- Cover Background Mode -->
+                        <div class="control-group">
+                            <label class="cover-mode-label">Cover Background Mode</label>
+                            <div class="cover-mode-group" id="cover-mode-group">
+                                <div class="cover-mode-option" data-mode="centered">
+                                    <span class="cover-radio"></span>
+                                    <div class="cover-mode-desc">Center</div>
+                                </div>
+                                <div class="cover-mode-option" data-mode="repeated">
+                                    <span class="cover-radio"></span>
+                                    <div class="cover-mode-desc">Repeat</div>
+                                </div>
+                                <div class="cover-mode-option selected" data-mode="default">
+                                    <span class="cover-radio"></span>
+                                    <div class="cover-mode-desc">Fill</div>
+                                </div>
+                            </div>
                         </div>
 
-                        <label>Vertical Position</label>
-                        <div class="range-row">
-                            <input type="range" id="anchor-slider" min="1" max="10" step="1" value="4">
-                            <span class="range-value" id="anchor-value">4</span>
-                        </div>
+                        <!-- Glowing Lyrics Toggle -->
+                        <div class="control-group">
+                            <div class="row">
+                                <div>
+                                    <label>Glowing Lyrics</label>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-glow">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
 
-                        <label>Blur</label>
-                        <div class="range-row">
-                            <input type="range" id="blur-slider" min="0" max="10" step="1" value="2">
-                            <span class="range-value" id="blur-value">2</span>
-                        </div>
-
-                        <label>Darkness</label>
-                        <div class="range-row range-row-last">
-                            <input type="range" id="darkness-slider" min="0" max="10" step="1" value="4">
-                            <span class="range-value" id="darkness-value">4</span>
+                            <div id="glow-style-container">
+                                <label class="glow-style-label">Style</label>
+                                <select id="glow-style-select">
+                                    <option value="theme">Theme Color</option>
+                                    <option value="rainbow">Rainbow</option>
+                                </select>
+                            </div>
+                            <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
                         </div>
                     </div>
 
-                    <!-- Cover Background Mode -->
-                    <div class="control-group">
-                        <label class="cover-mode-label">Cover Background Mode</label>
-                        <div class="cover-mode-group" id="cover-mode-group">
-                            <div class="cover-mode-option" data-mode="centered">
-                                <span class="cover-radio"></span>
-                                <div class="cover-mode-desc">Center</div>
-                            </div>
-                            <div class="cover-mode-option" data-mode="repeated">
-                                <span class="cover-radio"></span>
-                                <div class="cover-mode-desc">Repeat</div>
-                            </div>
-                            <div class="cover-mode-option selected" data-mode="default">
-                                <span class="cover-radio"></span>
-                                <div class="cover-mode-desc">Fill</div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Reset Settings -->
+                    <button class="button-customize" id="btn-reset-pip-settings">
+                        <span>Reset Floating Defaults</span>
+                    </button>
+                </div>
 
-                    <!-- Glowing Lyrics Toggle -->
+                <!-- Sub-pane 2: Interface (Settings Popup settings) -->
+                <div class="sub-tab-pane" id="sub-tab-popup">
+                    <!-- Toggle for Background Animation -->
                     <div class="control-group">
                         <div class="row">
-                            <div>
-                                <label>Glowing Lyrics</label>
-                            </div>
+                            <label for="toggle-bg-animation" style="margin-bottom:0;">Animate Background</label>
                             <label class="switch">
-                                <input type="checkbox" id="toggle-glow">
+                                <input type="checkbox" id="toggle-bg-animation" checked>
                                 <span class="slider"></span>
                             </label>
                         </div>
-
-                        <div id="glow-style-container">
-                            <label class="glow-style-label">Style</label>
-                            <select id="glow-style-select">
-                                <option value="theme">Theme Color</option>
-                                <option value="rainbow">Rainbow</option>
-                            </select>
-                        </div>
-                        <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
                     </div>
-                </div>
+                    
+                    <!-- Custom HSL Color Swatches and Slider Panel -->
+                    <div class="control-group">
+                        <label>Custom Galaxy Colors</label>
+                        <div class="color-swatch-row">
+                            <button class="color-swatch-btn active" id="swatch-btn-1" type="button">
+                                <span class="swatch-color" id="swatch-color-1"></span>
+                                <span>Color 1</span>
+                            </button>
+                            <button class="color-swatch-btn" id="swatch-btn-2" type="button">
+                                <span class="swatch-color" id="swatch-color-2"></span>
+                                <span>Color 2</span>
+                            </button>
+                            <button class="color-swatch-btn" id="swatch-btn-3" type="button">
+                                <span class="swatch-color" id="swatch-color-3"></span>
+                                <span>Color 3</span>
+                            </button>
+                        </div>
+                        
+                        <div class="hsl-picker-panel" id="hslPickerPanel">
+                            <div class="hsl-slider-item">
+                                <div class="hsl-slider-header">
+                                    <span>Hue</span>
+                                    <span class="hsl-value" id="hue-val-display">0°</span>
+                                </div>
+                                <input type="range" id="hsl-hue" min="0" max="360" value="0">
+                            </div>
+                            <div class="hsl-slider-item">
+                                <div class="hsl-slider-header">
+                                    <span>Saturation</span>
+                                    <span class="hsl-value" id="sat-val-display">100%</span>
+                                </div>
+                                <input type="range" id="hsl-saturation" min="0" max="100" value="100">
+                            </div>
+                            <div class="hsl-slider-item">
+                                <div class="hsl-slider-header">
+                                    <span>Lightness</span>
+                                    <span class="hsl-value" id="light-val-display">50%</span>
+                                </div>
+                                <input type="range" id="hsl-lightness" min="0" max="100" value="50">
+                            </div>
+                        </div>
+                    </div>
 
-                <!-- Reset Settings -->
-                <button class="button-customize" id="btn-reset-settings">
-                    <span>Reset Defaults</span>
-                </button>
+                    <!-- Presets Grid -->
+                    <div class="control-group" style="padding-bottom:5px;">
+                        <label>Galaxy Presets</label>
+                        <div class="presets-grid">
+                            <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#00b4d8" data-c3="#1DB954">
+                                <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#00b4d8;"></span><span style="background:#1DB954;"></span></div>
+                                <span>Orion</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#7209b7" data-c2="#ff007f" data-c3="#4cc9f0">
+                                <div class="preset-colors"><span style="background:#7209b7;"></span><span style="background:#ff007f;"></span><span style="background:#4cc9f0;"></span></div>
+                                <span>Andromeda</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#ff4d00" data-c2="#e0115f" data-c3="#5c00a3">
+                                <div class="preset-colors"><span style="background:#ff4d00;"></span><span style="background:#e0115f;"></span><span style="background:#5c00a3;"></span></div>
+                                <span>Sunset</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#06d6a0" data-c2="#118ab2" data-c3="#70e000">
+                                <div class="preset-colors"><span style="background:#06d6a0;"></span><span style="background:#118ab2;"></span><span style="background:#70e000;"></span></div>
+                                <span>Aurora</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#00f0ff" data-c3="#ffea00">
+                                <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#00f0ff;"></span><span style="background:#ffea00;"></span></div>
+                                <span>Cyberpunk</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#0077b6" data-c2="#00b4d8" data-c3="#90e0ef">
+                                <div class="preset-colors"><span style="background:#0077b6;"></span><span style="background:#00b4d8;"></span><span style="background:#90e0ef;"></span></div>
+                                <span>Ocean</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#d90429" data-c2="#f77f00" data-c3="#fcbf49">
+                                <div class="preset-colors"><span style="background:#d90429;"></span><span style="background:#f77f00;"></span><span style="background:#fcbf49;"></span></div>
+                                <span>Supernova</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#2d6a4f" data-c2="#52b788" data-c3="#d8f3dc">
+                                <div class="preset-colors"><span style="background:#2d6a4f;"></span><span style="background:#52b788;"></span><span style="background:#d8f3dc;"></span></div>
+                                <span>Forest</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#cccccc" data-c2="#666666" data-c3="#333333">
+                                <div class="preset-colors"><span style="background:#cccccc;"></span><span style="background:#666666;"></span><span style="background:#333333;"></span></div>
+                                <span>Void</span>
+                            </button>
+                            <button class="preset-btn" type="button" data-c1="#1DB954" data-c2="#a7ffc3" data-c3="#0f3b1e">
+                                <div class="preset-colors"><span style="background:#1DB954;"></span><span style="background:#a7ffc3;"></span><span style="background:#0f3b1e;"></span></div>
+                                <span>Retro</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Reset Settings Popup Visuals Only -->
+                    <button class="button-customize" id="btn-reset-popup-settings">
+                        <span>Reset Interface Defaults</span>
+                    </button>
+                </div>
             </div>
 
             <!-- TAB 3: GENERAL SETTINGS -->
@@ -361,9 +488,8 @@
 
                     <!-- Row 3b: Donation links -->
                     <p class="footer-coffee">
-                        Buy me a coffee:
-                        <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> /
-                        <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a>
+                        <span class="icon-mask icon-coffee icon-size-14"></span>
+                        <span>Buy me a coffee: <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> / <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a></span>
                     </p>
 
                     <hr class="footer-sep">
@@ -383,6 +509,7 @@
 
         </div><!-- /tab-content -->
     </div><!-- /popup-slides -->
+    </div><!-- /popup-window-container -->
 
     <script src="../background/storage.js"></script>
     <script src="fonts.js"></script>

@@ -237,27 +237,58 @@ body:hover #ui-container,
 }
 
 .warning-pill {
-    background: linear-gradient(90deg, #fce1ed, #ecd0f6, #c4d4fa, #ecd0f6, #fce1ed);
-    background-size: 300% 300%;
-    animation: pill-glow 4s ease infinite;
-    border-radius: 50px;
-    padding: 7px 15px;
-    box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    position: relative;
+    overflow: hidden;
+    border: none;
+    background: transparent !important;
+    color: #121212 !important;
     display: flex;
     justify-content: center;
     align-items: center;
-    position: relative;
-    /* Stack above ::before gradient */
-    z-index: 2;
+    z-index: 1;
+    border-radius: 50px;
+    padding: 7px 15px;
+    box-shadow: 0 0 20px var(--accent-glow), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+    cursor: default;
+    isolation: isolate;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+}
+
+.warning-pill::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 380px;
+    height: 380px;
+    z-index: 1;
+    background: 
+        radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent-1) 42%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 65% 35%, color-mix(in srgb, var(--accent-2) 36%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--accent-3) 38%, #ffffff) 0%, transparent 65%),
+        #ffffff;
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation: circle-rotate 9s linear infinite;
+    pointer-events: none;
 }
 
 .warning-pill span {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
     color: #121212;
     font-size: 22px;
-    font-family: 'Noto Sans ExtraCondensed', 'Segoe UI', sans-serif;
-    font-weight: 1000;
+    font-family: 'Fredoka', 'Segoe UI', sans-serif;
+    font-weight: 700;
     line-height: 1.1;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+
+
+@keyframes circle-rotate {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 .warning-subtext {
