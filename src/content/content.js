@@ -186,7 +186,7 @@
     }
 
     // Load initial settings (main + visual customization) ONCE
-    const initialQuery = Object.assign({}, fl.defaults, { userStats: null, partyMode: true });
+    const initialQuery = Object.assign({}, fl.defaults, { userStats: null });
     FLYING_LYRICS.storage.get(initialQuery, (items) => {
         // Load User Stats
         if (items.userStats) {
@@ -220,7 +220,7 @@
         fl.popupColor1 = items.popupColor1;
         fl.popupColor2 = items.popupColor2;
         fl.popupColor3 = items.popupColor3;
-        fl.galaxyMode = items.galaxyMode !== undefined ? items.galaxyMode : (items.partyMode !== undefined ? items.partyMode : false);
+        fl.galaxyMode = items.galaxyMode ?? false;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -399,8 +399,8 @@
                 fl.popupColor3 = p.popupColor3;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
-            if (p.galaxyMode !== undefined || p.partyMode !== undefined) {
-                fl.galaxyMode = p.galaxyMode !== undefined ? p.galaxyMode : p.partyMode;
+            if (p.galaxyMode !== undefined) {
+                fl.galaxyMode = p.galaxyMode;
                 fl.needsLayoutUpdate = true;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }

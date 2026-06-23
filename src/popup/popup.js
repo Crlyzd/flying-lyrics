@@ -362,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
         themeAccent: 'galaxy',
         popupBgAnimation: false,
         galaxyMode: false,
-        partyMode: false,
         popupColor1: '#ff007f',
         popupColor2: '#00b4d8',
         popupColor3: '#1DB954'
@@ -465,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Restore Galaxy Mode (Galaxy vs Classic theme) state
         if (toggleGalaxyMode) {
-            const hasGalaxyMode = items.galaxyMode !== undefined ? items.galaxyMode : (items.partyMode !== undefined ? items.partyMode : false);
+            const hasGalaxyMode = items.galaxyMode ?? false;
             toggleGalaxyMode.checked = hasGalaxyMode;
             applyGalaxyModeState(hasGalaxyMode);
         }
@@ -1743,7 +1742,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleGalaxyMode.addEventListener('change', () => {
             const enabled = toggleGalaxyMode.checked;
             applyGalaxyModeState(enabled);
-            saveAndNotify({ galaxyMode: enabled, partyMode: enabled });
+            saveAndNotify({ galaxyMode: enabled });
         });
     }
 
@@ -1836,7 +1835,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const popupDefaults = {
                 popupBgAnimation: false,
                 galaxyMode: false,
-                partyMode: false,
                 popupColor1: '#ff007f',
                 popupColor2: '#00b4d8',
                 popupColor3: '#1DB954'

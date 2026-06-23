@@ -15,8 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         popupColor1: '#ff007f',
         popupColor2: '#00b4d8',
         popupColor3: '#1DB954',
-        galaxyMode: false,
-        partyMode: false
+        galaxyMode: false
     };
 
     function hexToRgba(hex, alpha) {
@@ -85,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const c2 = theme.popupColor2 || themeDefaults.popupColor2;
         const c3 = theme.popupColor3 || themeDefaults.popupColor3;
         const bgAnim = theme.popupBgAnimation !== undefined ? theme.popupBgAnimation : themeDefaults.popupBgAnimation;
-        const galaxyMode = theme.galaxyMode !== undefined ? theme.galaxyMode : (theme.partyMode !== undefined ? theme.partyMode : false);
+        const galaxyMode = theme.galaxyMode ?? false;
 
         const f1 = applyPeachFilterAndClamp(c1);
         const f2 = applyPeachFilterAndClamp(c2);
@@ -125,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen to changes in chrome.storage
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        const hasThemeKeys = ['popupColor1', 'popupColor2', 'popupColor3', 'popupBgAnimation', 'galaxyMode', 'partyMode'].some(key => key in changes);
+        const hasThemeKeys = ['popupColor1', 'popupColor2', 'popupColor3', 'popupBgAnimation', 'galaxyMode'].some(key => key in changes);
         if (hasThemeKeys) {
             if (window.FLYING_LYRICS && window.FLYING_LYRICS.storage) {
                 window.FLYING_LYRICS.storage.get(themeDefaults, (theme) => {

@@ -27,7 +27,8 @@
             'popupBgAnimation',
             'popupColor1',
             'popupColor2',
-            'popupColor3'
+            'popupColor3',
+            'galaxyMode'
         ]),
 
         get(keys, callback) {
