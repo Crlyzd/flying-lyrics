@@ -186,7 +186,7 @@
 
             if (!raw && fl.lyricsOverrides && fl.lyricsOverrides[key]) {
                 delete fl.lyricsOverrides[key];
-                chrome.storage.local.set({ lyricsOverrides: fl.lyricsOverrides });
+                FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
             }
 
             // ─────────────────────────────────────────────────────────
@@ -415,7 +415,7 @@
      */
     fl.loadFromPersistentCache = async function (key) {
         return new Promise(resolve => {
-            chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+            FLYING_LYRICS.storage.get('lyricsCache', ({ lyricsCache }) => {
                 const entry = lyricsCache?.entries?.[key];
                 if (!entry || !Array.isArray(entry.lines) || entry.lines.length === 0) {
                     return resolve(false);
@@ -465,7 +465,7 @@
     fl.saveToPersistentCache = function (key) {
         const MAX_ENTRIES = 200;
 
-        chrome.storage.local.get('lyricsCache', ({ lyricsCache }) => {
+        FLYING_LYRICS.storage.get('lyricsCache', ({ lyricsCache }) => {
             const cache = lyricsCache ?? { order: [], entries: {} };
 
             // Move key to front (most recently used)
@@ -485,7 +485,7 @@
                 savedAt: Date.now()
             };
 
-            chrome.storage.local.set({ lyricsCache: cache });
+            FLYING_LYRICS.storage.set({ lyricsCache: cache });
         });
     };
 

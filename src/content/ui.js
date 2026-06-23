@@ -264,7 +264,7 @@
 
         ccBtn.addEventListener('click', () => {
             fl.showTranslation = !fl.showTranslation;
-            chrome.storage.local.set({ showTranslation: fl.showTranslation });
+            FLYING_LYRICS.storage.set({ showTranslation: fl.showTranslation });
             fl.updateCCButtonState();
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
             if (fl.showTranslation && typeof fl.translateExistingLyrics === 'function') {

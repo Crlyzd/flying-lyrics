@@ -24,7 +24,7 @@ function getSessionId() {
 async function getClientId() {
     if (cachedClientId) return cachedClientId;
     return new Promise((resolve) => {
-        chrome.storage.local.get(['anonymousClientId'], (result) => {
+        FLYING_LYRICS.storage.get(['anonymousClientId'], (result) => {
             if (result.anonymousClientId) {
                 cachedClientId = result.anonymousClientId;
                 resolve(cachedClientId);
@@ -34,7 +34,7 @@ async function getClientId() {
                     const v = c === 'x' ? r : (r & 0x3 | 0x8);
                     return v.toString(16);
                 });
-                chrome.storage.local.set({ anonymousClientId: newId }, () => {
+                FLYING_LYRICS.storage.set({ anonymousClientId: newId }, () => {
                     cachedClientId = newId;
                     resolve(newId);
                 });
@@ -50,7 +50,7 @@ async function getClientId() {
  */
 async function trackEvent(eventName, params = {}) {
     return new Promise((resolve) => {
-        chrome.storage.local.get({ telemetryConsent: true }, async (result) => {
+        FLYING_LYRICS.storage.get({ telemetryConsent: true }, async (result) => {
             if (!result.telemetryConsent) {
                 // Telemetry consent is disabled, discard the event.
                 resolve(false);

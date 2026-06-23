@@ -74,7 +74,7 @@
         
         if (diffDays > 1) {
             stats.dailyStreak = 0; // Streak broken
-            chrome.storage.local.set({ userStats: stats });
+            FLYING_LYRICS.storage.set({ userStats: stats });
         }
     };
 
@@ -118,7 +118,7 @@
             stats.lastSyncedDate = todayStr;
         }
 
-        chrome.storage.local.set({ userStats: stats });
+        FLYING_LYRICS.storage.set({ userStats: stats });
     };
 
     fl.listeningTimeBufferMs = 0;
@@ -129,7 +129,7 @@
             const hoursAdded = fl.listeningTimeBufferMs / (1000 * 60 * 60);
             stats.hoursListening = (stats.hoursListening || 0) + hoursAdded;
             fl.listeningTimeBufferMs = 0;
-            chrome.storage.local.set({ userStats: stats });
+            FLYING_LYRICS.storage.set({ userStats: stats });
         }
     };
 
@@ -174,7 +174,7 @@
 
     // Load initial settings (main + visual customization) ONCE
     const initialQuery = Object.assign({}, fl.defaults, { userStats: null });
-    chrome.storage.local.get(initialQuery, (items) => {
+    FLYING_LYRICS.storage.get(initialQuery, (items) => {
         // Load User Stats
         if (items.userStats) {
             fl.userStats = Object.assign(fl.userStats, items.userStats);
@@ -271,11 +271,11 @@
                 const meta = navigator.mediaSession.metadata;
                 if (meta && meta.title && meta.artist) {
                     const key = `${meta.artist} - ${meta.title}`;
-                    chrome.storage.local.get({ songOffsets: {} }, (items) => {
+                    FLYING_LYRICS.storage.get({ songOffsets: {} }, (items) => {
                         const latestOffsets = items.songOffsets || {};
                         latestOffsets[key] = fl.syncOffset;
                         fl.songOffsets = latestOffsets;
-                        chrome.storage.local.set({ songOffsets: latestOffsets });
+                        FLYING_LYRICS.storage.set({ songOffsets: latestOffsets });
                     });
                 }
             }
@@ -285,7 +285,7 @@
                     const key = `${meta.artist} - ${meta.title}`;
 
                     // Retrieve BOTH overrides and the persistence cache
-                    chrome.storage.local.get(['lyricsOverrides', 'lyricsCache'], (items) => {
+                    FLYING_LYRICS.storage.get(['lyricsOverrides', 'lyricsCache'], (items) => {
                         const latestOverrides = items.lyricsOverrides || {};
                         latestOverrides[key] = p.lyricOverride;
                         fl.lyricsOverrides = latestOverrides;
@@ -305,7 +305,7 @@
                             }
                         }
 
-                        chrome.storage.local.set(updates, () => {
+                        FLYING_LYRICS.storage.set(updates, () => {
                             // Clear Tier 1 active memory
                             fl.cachedLyrics.key = "";
                             // Trigger full fetch (Tier 3 Network check)

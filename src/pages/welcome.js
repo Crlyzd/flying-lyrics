@@ -8,19 +8,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Store the welcome page's own tab ID in local storage
     chrome.tabs.getCurrent((tab) => {
         if (tab && tab.id) {
-            chrome.storage.local.set({ welcomeTabId: tab.id });
+            FLYING_LYRICS.storage.set({ welcomeTabId: tab.id });
         }
     });
 
     // 1. Initialise the checkbox status from chrome.storage.local
-    chrome.storage.local.get({ telemetryConsent: true }, (items) => {
+    FLYING_LYRICS.storage.get({ telemetryConsent: true }, (items) => {
         consentCheckbox.checked = !!items.telemetryConsent;
     });
 
     // 2. Persist consent selection immediately on click
     consentCheckbox.addEventListener('change', () => {
         const consentGranted = consentCheckbox.checked;
-        chrome.storage.local.set({ telemetryConsent: consentGranted });
+        FLYING_LYRICS.storage.set({ telemetryConsent: consentGranted });
     });
 
     // Click container card toggles checkbox

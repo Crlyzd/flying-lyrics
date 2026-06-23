@@ -1,17 +1,17 @@
 // Import telemetry module, unified search engine, and romanizer helper
-importScripts('analytics.js', 'romanizer.js', 'searchEngine.js');
+importScripts('storage.js', 'analytics.js', 'romanizer.js', 'searchEngine.js');
 
 chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
 
     if (details.reason === 'install') {
         // Initialize consent status to true (opt-out default)
-        chrome.storage.local.set({ telemetryConsent: true }, () => {
+        FLYING_LYRICS.storage.set({ telemetryConsent: true }, () => {
             chrome.tabs.create({
                 url: chrome.runtime.getURL('src/pages/welcome.html')
             }, (tab) => {
                 if (tab && tab.id) {
-                    chrome.storage.local.set({ welcomeTabId: tab.id });
+                    FLYING_LYRICS.storage.set({ welcomeTabId: tab.id });
                 }
             });
         });
@@ -88,7 +88,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Listen for tab removals to reload music tabs when the welcome page is closed
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-    chrome.storage.local.get(['welcomeTabId'], (result) => {
+    FLYING_LYRICS.storage.get(['welcomeTabId'], (result) => {
         if (result.welcomeTabId === tabId) {
             // Reload any open Spotify or YouTube Music tabs so they load the content scripts
             chrome.tabs.query({}, (tabs) => {
@@ -98,7 +98,7 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
                     }
                 });
             });
-            chrome.storage.local.remove('welcomeTabId');
+            FLYING_LYRICS.storage.remove('welcomeTabId');
         }
     });
 });

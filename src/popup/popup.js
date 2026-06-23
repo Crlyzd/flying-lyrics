@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleTrans = document.getElementById('toggle-translation');
     const toggleAutolaunch = document.getElementById('toggle-autolaunch');
     const toggleBorderlessPip = document.getElementById('toggle-borderless-pip');
+    const toggleCloudSync = document.getElementById('toggle-cloud-sync');
     const langSelect = document.getElementById('lang-select');
     const offsetMinus = document.getElementById('offset-minus');
     const offsetPlus = document.getElementById('offset-plus');
@@ -202,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Opens the correct Web Store review page and marks the user as having reviewed. */
     function openReviewPage(rating = 5) {
-        chrome.storage.local.set({ hasReviewed: true, reviewRating: rating });
+        FLYING_LYRICS.storage.set({ hasReviewed: true, reviewRating: rating });
         markAsRated(rating);
         reviewToast.style.display = 'none';
         chrome.tabs.create({ url: getReviewUrl() });
@@ -213,15 +214,15 @@ document.addEventListener('DOMContentLoaded', () => {
         reviewToast.style.display = 'flex';
     }
 
-    chrome.storage.local.get(
+    FLYING_LYRICS.storage.get(
         { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0, firstInstalledAt: 0, helpClickCount: 0 },
         (data) => {
             const newCount = data.popupOpenCount + 1;
-            chrome.storage.local.set({ popupOpenCount: newCount });
+            FLYING_LYRICS.storage.set({ popupOpenCount: newCount });
 
             // Record first install timestamp on the very first popup open
             if (!data.firstInstalledAt) {
-                chrome.storage.local.set({ firstInstalledAt: Date.now() });
+                FLYING_LYRICS.storage.set({ firstInstalledAt: Date.now() });
             }
 
             if (data.hasReviewed) {
@@ -264,8 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // "Later" snooze → resurface after 10 more popup opens
     snoozeToastBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        chrome.storage.local.get({ popupOpenCount: 0 }, ({ popupOpenCount }) => {
-            chrome.storage.local.set({ snoozeUntilCount: popupOpenCount + 10 });
+        FLYING_LYRICS.storage.get({ popupOpenCount: 0 }, ({ popupOpenCount }) => {
+            FLYING_LYRICS.storage.set({ snoozeUntilCount: popupOpenCount + 10 });
         });
         reviewToast.style.display = 'none';
     });
@@ -290,9 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Help button → open welcome/tutorial page in a new tab
     if (btnOpenHelp) {
         btnOpenHelp.addEventListener('click', () => {
-            chrome.storage.local.get({ helpClickCount: 0 }, (res) => {
+            FLYING_LYRICS.storage.get({ helpClickCount: 0 }, (res) => {
                 const newClickCount = (res.helpClickCount || 0) + 1;
-                chrome.storage.local.set({ helpClickCount: newClickCount });
+                FLYING_LYRICS.storage.set({ helpClickCount: newClickCount });
                 // If it reaches 10, hide it immediately
                 if (newClickCount >= 10) {
                     btnOpenHelp.style.display = 'none';
@@ -309,10 +310,10 @@ document.addEventListener('DOMContentLoaded', () => {
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
-        pipMode: 'document'
+        pipMode: 'document', cloudSyncEnabled: true
     };
 
-    chrome.storage.local.get(fallbackDefaults, (items) => {
+    FLYING_LYRICS.storage.get(fallbackDefaults, (items) => {
         // Main settings
         toggleTrans.checked = items.showTranslation;
         langSelect.value = items.translationLang;
@@ -320,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
         globalOffsetInput.value = currentGlobalOffset;
         toggleAutolaunch.checked = items.autoLaunch;
         toggleBorderlessPip.checked = items.pipMode === 'video';
+        toggleCloudSync.checked = items.cloudSyncEnabled;
 
         // Customization settings — populate controls
         // Map stored raw values back to 1-10 UI scale
@@ -404,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  STORAGE CHANGE LISTENER (e.g. from content script)
     // =========================================================
     chrome.storage.onChanged.addListener((changes, namespace) => {
-        if (namespace === 'local' && changes.showTranslation) {
+        if ((namespace === 'local' || namespace === 'sync') && changes.showTranslation) {
             toggleTrans.checked = changes.showTranslation.newValue;
         }
     });
@@ -448,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const displayTitle  = response.cleanTitle    || response.title;
                     const cleanQuery    = `${displayArtist} - ${displayTitle}`;
 
-                    chrome.storage.local.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
+                    FLYING_LYRICS.storage.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
                         const override = (items.lyricsOverrides || {})[trackKey] || null;
 
                         if (items.lastSearch && items.lastSearch.key === trackKey && items.lastSearch.results?.length) {
@@ -681,12 +683,12 @@ document.addEventListener('DOMContentLoaded', () => {
             currentResults = results;
             const trackKey = `${currentActiveTrack.artist} - ${currentActiveTrack.title}`;
             if (results.length > 0) {
-                chrome.storage.local.set({
+                FLYING_LYRICS.storage.set({
                     lastSearch: { key: trackKey, query: query, results: results }
                 });
             }
 
-            chrome.storage.local.get({ lyricsOverrides: {} }, (items) => {
+            FLYING_LYRICS.storage.get({ lyricsOverrides: {} }, (items) => {
                 if (activeSearchQuery !== query) return;
 
                 const override = (items.lyricsOverrides || {})[trackKey] || null;
@@ -749,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         currentResults = finalResults;
-                        chrome.storage.local.set({
+                        FLYING_LYRICS.storage.set({
                             lastSearch: { key: trackKey, query: query, results: finalResults }
                         });
 
@@ -860,12 +862,35 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ showTranslation: toggleTrans.checked });
     });
 
+    toggleCloudSync.addEventListener('change', () => {
+        const enabled = toggleCloudSync.checked;
+        const syncKeysList = Array.from(FLYING_LYRICS.storage.syncKeys);
+
+        if (enabled) {
+            // Migrating Local -> Sync
+            chrome.storage.local.get(syncKeysList, (localData) => {
+                chrome.storage.sync.set(localData, () => {
+                    chrome.storage.local.set({ cloudSyncEnabled: true }, () => {
+                        notifyTab(localData);
+                    });
+                });
+            });
+        } else {
+            // Migrating Sync -> Local
+            chrome.storage.sync.get(syncKeysList, (syncData) => {
+                chrome.storage.local.set({ ...syncData, cloudSyncEnabled: false }, () => {
+                    notifyTab(syncData);
+                });
+            });
+        }
+    });
+
     if (telemetryToggle) {
         telemetryToggle.addEventListener('click', (e) => {
             e.preventDefault();
-            chrome.storage.local.get({ telemetryConsent: true }, (items) => {
+            FLYING_LYRICS.storage.get({ telemetryConsent: true }, (items) => {
                 const newConsent = !items.telemetryConsent;
-                chrome.storage.local.set({ telemetryConsent: newConsent }, () => {
+                FLYING_LYRICS.storage.set({ telemetryConsent: newConsent }, () => {
                     updateTelemetryUI(newConsent);
                 });
             });
@@ -887,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Open the Google Form and reset to the previously selected language
             chrome.tabs.create({ url: 'https://forms.gle/qdyBFtmeomtGBroXA' });
             // Revert to the first real language option so the select doesn't stay on the meta-option
-            chrome.storage.local.get({ translationLang: getBrowserDefaultLanguage() }, (items) => {
+            FLYING_LYRICS.storage.get({ translationLang: getBrowserDefaultLanguage() }, (items) => {
                 langSelect.value = items.translationLang;
             });
             return;
@@ -1034,9 +1059,9 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ customFont: familyValue });
 
         // Track in recent fonts (max 10, no duplicates)
-        chrome.storage.local.get({ recentFonts: [] }, ({ recentFonts }) => {
+        FLYING_LYRICS.storage.get({ recentFonts: [] }, ({ recentFonts }) => {
             const updated = [fontName, ...recentFonts.filter(f => f !== fontName)].slice(0, 10);
-            chrome.storage.local.set({ recentFonts: updated });
+            FLYING_LYRICS.storage.set({ recentFonts: updated });
         });
 
         return familyValue;
@@ -1174,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isVisible) {
             recentFontsPanel.style.display = 'none';
         } else {
-            chrome.storage.local.get({ recentFonts: [] }, ({ recentFonts }) => {
+            FLYING_LYRICS.storage.get({ recentFonts: [] }, ({ recentFonts }) => {
                 renderRecentFontsPanel(recentFonts);
                 recentFontsPanel.style.display = 'block';
             });
@@ -1196,6 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fontSizeWarning) {
             fontSizeWarning.style.display = step >= 7 ? 'inline-block' : 'none';
         }
+        notifyTab({ fontSize: realPx });
     });
     fontSizeSlider.addEventListener('change', () => {
         const step = parseInt(fontSizeSlider.value, 10);
@@ -1207,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     blurSlider.addEventListener('input', () => {
         const step = parseInt(blurSlider.value, 10);
         blurValue.textContent = step;
+        notifyTab({ bgBlur: step });
     });
     blurSlider.addEventListener('change', () => {
         const step = parseInt(blurSlider.value, 10);
@@ -1217,6 +1244,8 @@ document.addEventListener('DOMContentLoaded', () => {
     darknessSlider.addEventListener('input', () => {
         const step = parseInt(darknessSlider.value, 10);
         darknessValue.textContent = step;
+        const realPercent = step * 10;
+        notifyTab({ bgDarkness: realPercent });
     });
     darknessSlider.addEventListener('change', () => {
         const step = parseInt(darknessSlider.value, 10);
@@ -1228,6 +1257,8 @@ document.addEventListener('DOMContentLoaded', () => {
     lineSpacingSlider.addEventListener('input', () => {
         const step = parseInt(lineSpacingSlider.value, 10);
         lineSpacingValue.textContent = step;
+        const actualSpacing = step + 2;
+        notifyTab({ lineSpacing: actualSpacing });
     });
     lineSpacingSlider.addEventListener('change', () => {
         const step = parseInt(lineSpacingSlider.value, 10);
@@ -1239,6 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     anchorSlider.addEventListener('input', () => {
         const step = parseInt(anchorSlider.value, 10);
         anchorValue.textContent = step;
+        notifyTab({ verticalAnchor: step });
     });
     anchorSlider.addEventListener('change', () => {
         const step = parseInt(anchorSlider.value, 10);
@@ -1354,7 +1386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  BACKUP & RESTORE
     // =========================================================
     btnExportSettings.addEventListener('click', () => {
-        chrome.storage.local.get(null, (items) => {
+        FLYING_LYRICS.storage.get(null, (items) => {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
             const dlAnchorElem = document.createElement('a');
             dlAnchorElem.setAttribute("href", dataStr);
@@ -1384,7 +1416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                chrome.storage.local.set(importedData, () => {
+                FLYING_LYRICS.storage.set(importedData, () => {
                     // Send global refresh ping
                     chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
                         tabs.forEach(tab => {
@@ -1419,20 +1451,24 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetDisplay.textContent = (val > 0 ? '+' : '') + val;
     }
 
-    function saveAndNotify(changes) {
-        chrome.storage.local.set(changes, () => {
-            chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
-                tabs.forEach(tab => {
-                    if (tab.id) {
-                        chrome.tabs.sendMessage(tab.id, {
-                            type: 'SETTINGS_UPDATE',
-                            payload: changes
-                        }, () => {
-                            if (chrome.runtime.lastError) return;
-                        });
-                    }
-                });
+    function notifyTab(changes) {
+        chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+            tabs.forEach(tab => {
+                if (tab.id) {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: 'SETTINGS_UPDATE',
+                        payload: changes
+                    }, () => {
+                        if (chrome.runtime.lastError) return;
+                    });
+                }
             });
+        });
+    }
+
+    function saveAndNotify(changes) {
+        FLYING_LYRICS.storage.set(changes, () => {
+            notifyTab(changes);
         });
     }
 });

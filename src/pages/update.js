@@ -34,7 +34,7 @@
         btnReview.addEventListener('click', () => {
             // Mark as reviewed so the popup toast stops appearing
             try {
-                chrome.storage.local.set({ hasReviewed: true });
+                FLYING_LYRICS.storage.set({ hasReviewed: true });
             } catch { /* not in extension context */ }
 
             window.open(getReviewUrl(), '_blank');
