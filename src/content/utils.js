@@ -14,68 +14,196 @@
             img.crossOrigin = "Anonymous";
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
-                img.onerror = () => reject(new Error(`Image failed to load: ${imgUrl}`));
+                img.onerror = () => reject(new Error(`Failed to load image: ${imgUrl}`));
                 img.src = imgUrl;
             });
 
             if (mySessionId !== fl.pipSessionId) return;
 
-            const v = new Vibrant(img, {
-                colorCount: 32, // Increase for better accuracy on sparse accents
-                quality: 3,
-                useAlphas: false
+            // 1. Downsample to 128x128 canvas
+            const targetSize = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = targetSize;
+            canvas.height = targetSize;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, targetSize, targetSize);
+
+            // 2. Compute 10% border metrics (12px border, 104px center box)
+            const borderSize = Math.floor(targetSize * 0.10); // 12px
+            const centerSize = targetSize - (borderSize * 2);  // 104px
+
+            // A. Helper to retrieve raw pixels (minimizing getImageData calls)
+            const getRawPixels = (clearCenter) => {
+                if (clearCenter) {
+                    ctx.clearRect(borderSize, borderSize, centerSize, centerSize);
+                } else {
+                    ctx.drawImage(img, 0, 0, targetSize, targetSize); // Restore center
+                }
+                const imgData = ctx.getImageData(0, 0, targetSize, targetSize).data;
+                const pix = [];
+                for (let i = 0; i < imgData.length; i += 4) {
+                    const r = imgData[i];
+                    const g = imgData[i + 1];
+                    const b = imgData[i + 2];
+                    const a = imgData[i + 3];
+                    if (a >= 125) {
+                        pix.push({ r, g, b });
+                    }
+                }
+                return pix;
+            };
+
+            // B. Helper to run K-Means
+            const runKMeans = (pixels) => {
+                if (pixels.length === 0) return [];
+                const k = 8;
+                let centroids = [];
+                for (let i = 0; i < k; i++) {
+                    const idx = Math.floor(pixels.length * (i / k));
+                    centroids.push({ ...pixels[idx] });
+                }
+
+                for (let iter = 0; iter < 10; iter++) {
+                    const buckets = Array.from({ length: k }, () => []);
+                    for (const p of pixels) {
+                        let minD = Infinity;
+                        let bestIdx = 0;
+                        for (let c = 0; c < k; c++) {
+                            const ctr = centroids[c];
+                            const dist = (p.r - ctr.r)**2 + (p.g - ctr.g)**2 + (p.b - ctr.b)**2;
+                            if (dist < minD) {
+                                minD = dist;
+                                bestIdx = c;
+                            }
+                        }
+                        buckets[bestIdx].push(p);
+                    }
+
+                    for (let c = 0; c < k; c++) {
+                        const b = buckets[c];
+                        if (b.length > 0) {
+                            let sumR = 0, sumG = 0, sumB = 0;
+                            for (const p of b) {
+                                sumR += p.r;
+                                sumG += p.g;
+                                sumB += p.b;
+                            }
+                            centroids[c] = {
+                                r: Math.round(sumR / b.length),
+                                g: Math.round(sumG / b.length),
+                                b: Math.round(sumB / b.length),
+                                count: b.length
+                            };
+                        } else {
+                            centroids[c] = { ...pixels[Math.floor(Math.random() * pixels.length)], count: 0 };
+                        }
+                    }
+                }
+                return centroids;
+            };
+
+            // C. Helper to score centroids
+            const scoreCentroids = (centroids) => {
+                let bestCentroid = null;
+                let highestScore = -1;
+
+                for (const c of centroids) {
+                    if (c.count === 0) continue;
+                    const hsl = fl.rgbToHsl(c.r, c.g, c.b);
+                    if (hsl.l < 0.12 || hsl.l > 0.88 || hsl.s < 0.12) continue;
+
+                    const popWeight = Math.log(1 + c.count);
+                    const satWeight = hsl.s * hsl.s;
+                    const lumaWeight = 1 - Math.abs(hsl.l - 0.55) * 2;
+                    const score = popWeight * satWeight * lumaWeight;
+
+                    if (score > highestScore) {
+                        highestScore = score;
+                        bestCentroid = c;
+                    }
+                }
+                return bestCentroid;
+            };
+
+            let bestCentroid = null;
+            let fromPass3 = false;
+
+            // --- PASS 1 & 2: BORDER ---
+            const borderPixels = getRawPixels(true); // getImageData Call 1
+            
+            // Pass 1: Border vibrant pixels only
+            const vibrantBorderPixels = borderPixels.filter(p => {
+                const hsl = fl.rgbToHsl(p.r, p.g, p.b);
+                return hsl.s >= 0.15 && hsl.l >= 0.12 && hsl.l <= 0.88;
             });
-            const palette = await v.getPalette();
 
-            if (mySessionId !== fl.pipSessionId) return;
+            if (vibrantBorderPixels.length >= 55) {
+                const centroids = runKMeans(vibrantBorderPixels);
+                bestCentroid = scoreCentroids(centroids);
+            }
 
-            let best = null;
+            // Pass 2: Border all pixels fallback
+            if (!bestCentroid && borderPixels.length > 0) {
+                const centroids = runKMeans(borderPixels);
+                bestCentroid = scoreCentroids(centroids);
+            }
 
-            // 1. First pass: try to find a swatch with decent saturation (color) in order of preference
-            for (const swatchName of ['Vibrant', 'DarkVibrant', 'LightVibrant', 'Muted', 'DarkMuted', 'LightMuted']) {
-                const s = palette[swatchName];
-                if (s) {
-                    const rgb = s.getRgb();
-                    const hsl = fl.rgbToHsl(rgb[0], rgb[1], rgb[2]);
-                    if (hsl.s >= 0.15 && s.population > 5) {
-                        best = s;
-                        break;
+            // --- PASS 3 & 4: FULL IMAGE ---
+            if (!bestCentroid) {
+                const fullPixels = getRawPixels(false); // getImageData Call 2
+
+                // Pass 3: Full image vibrant pixels only
+                const vibrantFullPixels = fullPixels.filter(p => {
+                    const hsl = fl.rgbToHsl(p.r, p.g, p.b);
+                    return hsl.s >= 0.15 && hsl.l >= 0.12 && hsl.l <= 0.88;
+                });
+
+                if (vibrantFullPixels.length >= 160) {
+                    const centroids = runKMeans(vibrantFullPixels);
+                    bestCentroid = scoreCentroids(centroids);
+                    if (bestCentroid) {
+                        fromPass3 = true;
+                    }
+                }
+
+                // Pass 4: Full image all pixels fallback
+                if (!bestCentroid && fullPixels.length > 0) {
+                    const centroids = runKMeans(fullPixels);
+                    bestCentroid = scoreCentroids(centroids);
+
+                    // Absolute fallback to largest cluster
+                    if (!bestCentroid) {
+                        let maxCount = -1;
+                        for (const c of centroids) {
+                            if (c.count > maxCount) {
+                                maxCount = c.count;
+                                bestCentroid = c;
+                            }
+                        }
                     }
                 }
             }
 
-            // 2. Second pass: absolute fallback if no colorful swatch is found (e.g. true B&W cover)
-            if (!best) {
-                best = palette.Vibrant || palette.DarkVibrant || palette.LightVibrant || palette.Muted || palette.DarkMuted || palette.LightMuted;
-            }
+            // 5. Hydrate the Palette
+            if (bestCentroid) {
+                const hsl = fl.rgbToHsl(bestCentroid.r, bestCentroid.g, bestCentroid.b);
+                const satMultiplier = fromPass3 ? 1.5 : 1.0;
+                const finalSat = Math.min(1.0, hsl.s * satMultiplier);
 
-            if (best) {
-                const [r, g, b] = best.getRgb();
-                const hsl = fl.rgbToHsl(r, g, b);
-
-                // Lowering minimum saturation floor to 0.2 to allow realistic grey/B&W covers
-                fl.currentPalette.vibrant = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.6));
-                fl.currentPalette.trans = fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), Math.max(hsl.l, 0.8));
-                fl.currentPalette.romaji = fl.hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(hsl.s, 0.2), Math.max(hsl.l, 0.8));
-                fl.currentPalette.raw = fl.hslToRgb(hsl.h, hsl.s, hsl.l);
+                fl.currentPalette.vibrant = fl.hslToRgb(hsl.h, Math.max(finalSat, 0.2), Math.max(hsl.l, 0.6));
+                fl.currentPalette.trans = fl.hslToRgb(hsl.h, Math.max(finalSat, 0.15), Math.max(hsl.l, 0.8));
+                fl.currentPalette.romaji = fl.hslToRgb((hsl.h + (30 / 360)) % 1, Math.max(finalSat, 0.2), Math.max(hsl.l, 0.8));
+                fl.currentPalette.raw = fl.hslToRgb(hsl.h, finalSat, hsl.l);
 
                 if (fl.pipWin && fl.pipWin.document) {
                     fl.pipWin.document.body.style.setProperty('--vibrant-color', fl.currentPalette.vibrant);
-                    // Apply background immediately — no need for the 250ms setTimeout workaround
                     if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
                 }
 
-                // Persist extracted vibrant color so the popup settings page can read it
-                // without any polling — chrome.storage.onChanged fires in the popup immediately.
                 chrome.storage.local.set({ currentVibrantColor: fl.currentPalette.vibrant });
             }
         } catch (e) {
-            // Do NOT reset fl.lastExtractedArt to "" on failure.
-            // Leaving it set to imgUrl prevents the render loop from retrying at 60fps.
-            // Silently swallow extraction failures so they don't pollute the 
-            // Chrome Extension Errors dashboard. The UI gracefully falls back 
-            // to the default dark theme anyway.
-            console.debug("Color extraction skipped/failed.", e);
+            console.debug("K-Means color extraction skipped/failed.", e);
         }
     }
 

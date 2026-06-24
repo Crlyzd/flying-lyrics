@@ -44,7 +44,6 @@
       ],
       "js": [
         "src/background/storage.js",
-        "src/lib/vibrant.min.js",
         "src/content/config.js",
         "src/content/content.js",
         "src/content/selectors.js",
