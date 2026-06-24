@@ -30,6 +30,7 @@
     fl.userCoverMode = fl.defaults.coverMode;
     fl.userGlowEnabled = fl.defaults.glowEnabled;
     fl.userGlowStyle = fl.defaults.glowStyle;
+    fl.userSpotlightEnabled = fl.defaults.spotlightEnabled;
     fl.userLyricAlignment = fl.defaults.lyricAlignment;
     fl.userLineSpacing = fl.defaults.lineSpacing;
     fl.userVerticalAnchor = fl.defaults.verticalAnchor;
@@ -176,6 +177,7 @@
                         coverMode: fl.userCoverMode,
                         glowEnabled: fl.userGlowEnabled,
                         glowStyle: fl.userGlowStyle,
+                        spotlightEnabled: fl.userSpotlightEnabled,
                         lyricAlignment: fl.userLyricAlignment,
                         lineSpacing: fl.userLineSpacing,
                         verticalAnchor: fl.userVerticalAnchor,
@@ -214,6 +216,7 @@
         fl.userCoverMode = items.coverMode;
         fl.userGlowEnabled = items.glowEnabled;
         fl.userGlowStyle = items.glowStyle;
+        fl.userSpotlightEnabled = items.spotlightEnabled;
         fl.userLyricAlignment = items.lyricAlignment;
         fl.userLineSpacing = items.lineSpacing;
         fl.userVerticalAnchor = items.verticalAnchor;
@@ -363,6 +366,10 @@
             }
             if (p.glowStyle !== undefined) {
                 fl.userGlowStyle = p.glowStyle;
+                if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.spotlightEnabled !== undefined) {
+                fl.userSpotlightEnabled = p.spotlightEnabled;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }
 

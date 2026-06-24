@@ -18,6 +18,7 @@
             'coverMode',
             'glowEnabled',
             'glowStyle',
+            'spotlightEnabled',
             'lyricAlignment',
             'lineSpacing',
             'verticalAnchor',

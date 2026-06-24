@@ -64,6 +64,7 @@ window.FLYING_LYRICS.defaults = {
     coverMode: 'default',
     glowEnabled: false,
     glowStyle: 'theme',
+    spotlightEnabled: false,
     lyricAlignment: 'center',
     lineSpacing: 4,  // vmin multiplier; UI step = actual - 2, so stored 4 = display step 2
     verticalAnchor: 4, // Default scale 1-10, mapped to offset

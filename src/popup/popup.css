@@ -332,8 +332,8 @@ label {
     content: "";
     height: 16px;
     width: 16px;
-    left: 2px;
-    bottom: 2px;
+    left: 1px;
+    top: 1px;
     background-color: white;
     transition: .4s;
     border-radius: 50%;
@@ -696,7 +696,7 @@ select:hover {
     height: 30px;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 18px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -868,16 +868,18 @@ select:hover {
     transition: color 0.4s, font-size 0.2s, font-family 0.2s;
 }
 
-.glow-preview.active {
-    /* Glow ON: white text core + vibrant pulsing shadow — mirrors the PiP renderer
-       which sets fillStyle="#FFFFFF" and shadowColor=currentPalette.vibrant for the active line. */
+.glow-preview.highlighted {
+    /* Spotlight ON: active line is highlighted white */
     color: #FFFFFF;
+}
+
+.glow-preview.active {
+    /* Aura (Glow Shadow) ON: vibrant pulsing shadow */
     animation: lyric-glow-preview 2s ease-in-out infinite;
 }
 
 .glow-preview.active.rainbow {
-    /* Rainbow override: text remains white, shadow is cycled by keyframes */
-    color: #FFFFFF;
+    /* Rainbow override: shadow is cycled by keyframes */
     animation: rainbow-glow-preview 3s linear infinite;
 }
 
@@ -1615,10 +1617,10 @@ input[type=number] {
 
 #global-offset-input {
     width: 75px;
-    padding: 7px;
+    padding: 6px;
     border-radius: 4px;
-    border: none;
-    background: #3E3E3E;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.15);
     color: white;
     text-align: center;
     font-family: monospace;

@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const darknessValue = document.getElementById('darkness-value');
     const coverModeGroup = document.getElementById('cover-mode-group');
     const toggleGlow = document.getElementById('toggle-glow');
+    const toggleSpotlight = document.getElementById('toggle-spotlight');
     const glowStyleContainer = document.getElementById('glow-style-container');
     const glowStyleSelect = document.getElementById('glow-style-select');
     const alignSelect = document.getElementById('align-select');
@@ -361,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fallbackDefaults = {
         showTranslation: true, translationLang: getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
+        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
         
@@ -443,6 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
         glowStyleContainer.style.display = items.glowEnabled ? 'flex' : 'none';
         glowPreview.classList.toggle('active', items.glowEnabled);
         glowPreview.classList.toggle('rainbow', items.glowStyle === 'rainbow');
+
+        toggleSpotlight.checked = items.spotlightEnabled;
+        glowPreview.classList.toggle('highlighted', items.spotlightEnabled);
 
         // Load song vibrant color from local storage (written by extractPalette in content script).
         // Apply it as --glow-color so the preview matches the current song's album art color.
@@ -1462,6 +1466,12 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ glowEnabled: toggleGlow.checked });
     });
 
+    // Spotlight Toggle
+    toggleSpotlight.addEventListener('change', () => {
+        glowPreview.classList.toggle('highlighted', toggleSpotlight.checked);
+        saveAndNotify({ spotlightEnabled: toggleSpotlight.checked });
+    });
+
     // Glow Style
     glowStyleSelect.addEventListener('change', () => {
         const val = glowStyleSelect.value;
@@ -1793,7 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pipDefaults = {
                 customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
+                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
                 lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
             };
 
@@ -1828,7 +1838,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alignSelect.value = 'center';
 
             toggleGlow.checked = false;
-            glowPreview.classList.remove('active', 'rainbow');
+            toggleSpotlight.checked = false;
+            glowPreview.classList.remove('active', 'rainbow', 'highlighted');
             glowStyleContainer.style.display = 'none';
             glowStyleSelect.value = 'theme';
 

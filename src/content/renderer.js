@@ -1029,8 +1029,8 @@
 
                     // 2. Original Text (Middle)
                     fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                    // Inactive main text stays white, active main text glows (white core if neon)
-                    fl.ctx.fillStyle = (isCurrent && !fl.userGlowEnabled) ? fl.currentPalette.vibrant : "#FFFFFF";
+                    // Inactive main text stays white, active main text is highlighted white (if Spotlight is on) or theme-colored
+                    fl.ctx.fillStyle = isCurrent ? (fl.userSpotlightEnabled ? "#FFFFFF" : fl.currentPalette.vibrant) : "#FFFFFF";
 
                     // Draw main text
                     fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
