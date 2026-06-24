@@ -1933,19 +1933,47 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetDisplay.textContent = (val > 0 ? '+' : '') + val;
     }
 
+    let pendingChanges = null;
+    let throttleTimer = null;
+    let lastNotifyTime = 0;
+
     function notifyTab(changes) {
-        chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
-            tabs.forEach(tab => {
-                if (tab.id) {
-                    chrome.tabs.sendMessage(tab.id, {
-                        type: 'SETTINGS_UPDATE',
-                        payload: changes
-                    }, () => {
-                        if (chrome.runtime.lastError) return;
-                    });
-                }
+        if (!pendingChanges) {
+            pendingChanges = {};
+        }
+        Object.assign(pendingChanges, changes);
+
+        const now = performance.now();
+        const execute = () => {
+            const changesToSend = pendingChanges;
+            pendingChanges = null;
+            throttleTimer = null;
+            lastNotifyTime = performance.now();
+
+            chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+                tabs.forEach(tab => {
+                    if (tab.id) {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'SETTINGS_UPDATE',
+                            payload: changesToSend
+                        }, () => {
+                            if (chrome.runtime.lastError) return;
+                        });
+                    }
+                });
             });
-        });
+        };
+
+        const remaining = 50 - (now - lastNotifyTime);
+        if (remaining <= 0) {
+            if (throttleTimer) {
+                clearTimeout(throttleTimer);
+                throttleTimer = null;
+            }
+            execute();
+        } else if (!throttleTimer) {
+            throttleTimer = setTimeout(execute, remaining);
+        }
     }
 
     function saveAndNotify(changes) {
