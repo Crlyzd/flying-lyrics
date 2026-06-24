@@ -493,6 +493,10 @@
         targetDoc.documentElement.style.setProperty('--accent-glow', hexToRgba(f1, 0.45));
 
         if (fl.activePipType !== 'video') {
+            const bodyEl = targetDoc.body;
+            if (bodyEl && fl.currentPalette && fl.currentPalette.vibrant) {
+                bodyEl.style.setProperty('--vibrant-color', fl.currentPalette.vibrant);
+            }
             const bgCover = targetDoc.getElementById('bg-cover');
             const centerArt = targetDoc.getElementById('center-art');
 

@@ -81,6 +81,17 @@
             fl._mediaEl = null;
             fl.scrollPos = 0;
             fl.targetScroll = 0;
+            fl.canvasBgImage = null;       // clear stale art from previous session
+            fl.canvasBgImageUrl = "";
+            fl.lastHostMutedState = undefined;
+
+            // Pre-warm palette extraction immediately so colors are ready by the time
+            // the first frame renders. Without this, fl.currentPalette.raw is undefined
+            // for the first 1-3s, causing a dark background and wrong lyric text color.
+            const preWarmArt = fl.getCoverArt();
+            if (preWarmArt) {
+                fl.extractPalette(preWarmArt);
+            }
 
             fl.pipWin.addEventListener('resize', () => {
                 if (performance.now() - fl.pipLaunchTime < 1000) return;

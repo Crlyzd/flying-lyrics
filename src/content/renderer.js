@@ -705,6 +705,11 @@
         }
 
         if (fl.activePipType !== 'video') {
+            const uiContainer = seekerContainer?.parentElement;
+            if (uiContainer && !isWaitingState && uiContainer.style.getPropertyValue('--vibrant-color')) {
+                uiContainer.style.removeProperty('--vibrant-color');
+            }
+
             if (seekerContainer) {
                 seekerContainer.style.display = hasTrack ? 'block' : 'none';
             }
