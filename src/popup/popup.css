@@ -83,7 +83,14 @@ textarea {
     overflow: hidden;
     /* clips .popup-border-disk and .popup-slides to a rounded rect */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transition: opacity 0.08s ease-in-out;
 }
+
+body.loaded .popup-window-container {
+    opacity: 1;
+}
+
 
 /* Rotating disk — a large square behind popup-slides that physically spins.
    The 2px margin on popup-slides creates a gap where the colored arc shows

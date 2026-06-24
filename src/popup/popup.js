@@ -80,6 +80,11 @@ const spacingStepToActual = step => step + 2;
 const spacingActualToStep = val  => Math.round(val - 2);
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Safety fallback: reveal the popup after 150ms even if storage retrieval lags
+    setTimeout(() => {
+        document.body.classList.add('loaded');
+    }, 150);
+
     // =========================================================
     //  ELEMENT REFERENCES
     // =========================================================
@@ -483,6 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateCustomColors();
         selectColorSlot(1);
+
+        // Signal that the settings are fully loaded and applied, revealing the popup
+        document.body.classList.add('loaded');
     });
 
     // =========================================================
