@@ -1818,6 +1818,11 @@ select option[value="request_language"] {
     display: flex;
 }
 
+/* When the review toast is visible, reduce the max-height of tab-content to prevent double scrollbars */
+#review-toast.review-toast--visible + .tab-content {
+    max-height: 420px;
+}
+
 /* =========================================================
  *  GALAXY THEME BACKGROUNDS & BLOBS STYLING
  * ========================================================= */
