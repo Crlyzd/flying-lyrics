@@ -25,7 +25,7 @@
             const canvas = document.createElement('canvas');
             canvas.width = targetSize;
             canvas.height = targetSize;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(img, 0, 0, targetSize, targetSize);
 
             // 2. Compute 10% border metrics (12px border, 104px center box)
