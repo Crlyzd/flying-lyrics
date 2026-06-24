@@ -3,11 +3,13 @@
     inherits: true;
     initial-value: #ff007f;
 }
+
 @property --raw-accent-blue {
     syntax: '<color>';
     inherits: true;
     initial-value: #00b4d8;
 }
+
 @property --raw-accent-green {
     syntax: '<color>';
     inherits: true;
@@ -1826,7 +1828,7 @@ select option[value="request_language"] {
 }
 
 /* When the review toast is visible, reduce the max-height of tab-content to prevent double scrollbars */
-#review-toast.review-toast--visible + .tab-content {
+#review-toast.review-toast--visible+.tab-content {
     max-height: 420px;
 }
 
@@ -1838,51 +1840,65 @@ select option[value="request_language"] {
     inset: 0;
     overflow: hidden;
     z-index: -10;
-    background-color: #08080f;
+    background-color: #020208;
+    /* Deep Space black */
+    filter: blur(75px);
+    /* Blends blobs into a single organic color mesh */
     border-radius: 0;
     pointer-events: none;
+    transform: translate3d(0, 0, 0);
+}
+
+.galaxy-noise-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -9;
+    pointer-events: none;
+    opacity: 0.13;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    transform: translate3d(0, 0, 0);
 }
 
 .galaxy-blob {
     position: absolute;
     border-radius: 50%;
-    /* filter: blur(55px);  <-- REMOVED to avoid extremely heavy CPU/GPU blur calculations */
-    /* Increased from 0.16 → 0.30 for more visible, dramatic blobs */
-    opacity: 0.30;
+    /* Increased from 0.16 → 1 for a richer, more glowing color profile */
+    opacity: 1;
     /* Transition CSS custom property values directly instead of background-color (since gradients are background-images) */
     transition: --raw-accent 0.8s ease, --raw-accent-blue 0.8s ease, --raw-accent-green 0.8s ease, transform 0.5s ease;
     will-change: transform;
 }
 
 .blob-1 {
-    /* Enlarged from 160px → 220px */
-    width: 220px;
-    height: 220px;
-    left: -50px;
-    top: -30px;
-    /* Soft radial gradient mimics the blur filter perfectly but with zero blur filter cost */
-    background: radial-gradient(circle, var(--raw-accent) 0%, transparent 70%);
-    animation: floatBlob1 18s infinite ease-in-out;
+    /* Enlarged 1.5x (from 240px → 360px) to overlap and bleed colors better */
+    width: 360px;
+    height: 360px;
+    left: -20px;
+    top: -100px;
+    /* Positioned high up to cover the header area */
+    background: radial-gradient(circle, var(--raw-accent) 20%, transparent 50%);
+    animation: floatBlob1 10s infinite ease-in-out;
 }
 
 .blob-2 {
-    /* Enlarged from 170px → 240px */
-    width: 240px;
-    height: 240px;
-    right: -50px;
-    bottom: -35px;
-    background: radial-gradient(circle, var(--raw-accent-blue) 0%, transparent 70%);
-    animation: floatBlob2 22s infinite ease-in-out;
+    /* Enlarged 1.5x (from 260px → 390px) */
+    width: 390px;
+    height: 390px;
+    right: -80px;
+    bottom: -80px;
+    background: radial-gradient(circle, var(--raw-accent-blue) 20%, transparent 50%);
+    animation: floatBlob2 14s infinite ease-in-out;
 }
 
 .blob-3 {
-    /* Enlarged from 150px → 200px */
-    width: 200px;
-    height: 200px;
-    left: 50px;
-    top: 150px;
-    background: radial-gradient(circle, var(--raw-accent-green) 0%, transparent 70%);
-    animation: floatBlob3 16s infinite ease-in-out;
+    /* Enlarged 1.5x (from 220px → 330px) */
+    width: 330px;
+    height: 330px;
+    left: -80px;
+    top: 180px;
+    background: radial-gradient(circle, var(--raw-accent-green) 20%, transparent 50%);
+    animation: floatBlob3 12s infinite ease-in-out;
 }
 
 @keyframes floatBlob1 {
@@ -1892,12 +1908,13 @@ select option[value="request_language"] {
     }
 
     33% {
-        transform: translate(30px, 20px) scale(1.1) rotate(120deg);
+        transform: translate(60px, 30px) scale(1.07) rotate(120deg);
+        /* Limit vertical translation to keep it near the top */
         border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
     }
 
     66% {
-        transform: translate(10px, 30px) scale(0.95) rotate(240deg);
+        transform: translate(-30px, 20px) scale(0.95) rotate(240deg);
         border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
     }
 
@@ -1914,7 +1931,7 @@ select option[value="request_language"] {
     }
 
     50% {
-        transform: translate(-30px, -20px) scale(1.15) rotate(-180deg);
+        transform: translate(-60px, -70px) scale(1.1) rotate(-180deg);
         border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%;
     }
 
@@ -1931,7 +1948,8 @@ select option[value="request_language"] {
     }
 
     50% {
-        transform: translate(25px, -25px) scale(1.2) rotate(180deg);
+        transform: translate(70px, -80px) scale(1.12) rotate(180deg);
+        /* Drifts upwards toward the top-right */
         border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
     }
 
@@ -1962,7 +1980,8 @@ select option[value="request_language"] {
     pointer-events: none;
     z-index: 0;
     will-change: opacity;
-    transform: translate3d(0, 0, 0); /* Promote to its own GPU compositor layer */
+    transform: translate3d(0, 0, 0);
+    /* Promote to its own GPU compositor layer */
 }
 
 .stars-layer-1 {
@@ -1975,7 +1994,7 @@ select option[value="request_language"] {
         radial-gradient(circle at 35% 35%, #ffffff 0.8px, transparent 1px),
         radial-gradient(circle at 60% 10%, #ffffff 1px, transparent 1.2px),
         radial-gradient(circle at 92% 50%, #ffffff 0.8px, transparent 1px);
-    animation: starBlink 6s infinite ease-in-out;
+    animation: starBlink 3s infinite ease-in-out;
 }
 
 .stars-layer-2 {
@@ -1987,8 +2006,8 @@ select option[value="request_language"] {
         radial-gradient(circle at 10% 70%, #ffffff 0.9px, transparent 1.1px),
         radial-gradient(circle at 40% 25%, #ffffff 0.8px, transparent 1px),
         radial-gradient(circle at 95% 88%, #ffffff 1px, transparent 1.2px);
-    animation: starBlink 8s infinite ease-in-out;
-    animation-delay: 3s;
+    animation: starBlink 4.5s infinite ease-in-out;
+    animation-delay: 1.2s;
 }
 
 /* Third star layer with unique positions and timing for denser starfield */
@@ -2002,19 +2021,19 @@ select option[value="request_language"] {
         radial-gradient(circle at 18% 5%, #ffffff 0.8px, transparent 1px),
         radial-gradient(circle at 85% 15%, #ffffff 1.1px, transparent 1.3px),
         radial-gradient(circle at 48% 38%, #ffffff 0.7px, transparent 0.9px);
-    animation: starBlink 10s infinite ease-in-out;
-    animation-delay: 1.5s;
+    animation: starBlink 6s infinite ease-in-out;
+    animation-delay: 2.4s;
 }
 
 @keyframes starBlink {
 
     0%,
     100% {
-        opacity: 0.2;
+        opacity: 0.12;
     }
 
     50% {
-        opacity: 0.9;
+        opacity: 0.85;
     }
 }
 
@@ -2346,6 +2365,10 @@ select option[value="request_language"] {
 }
 
 .popup-window-container.theme-classic .galaxy-bg-container {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-noise-layer {
     display: none !important;
 }
 

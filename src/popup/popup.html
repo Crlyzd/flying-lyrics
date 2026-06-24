@@ -31,6 +31,8 @@
             <div class="galaxy-blob blob-2"></div>
             <div class="galaxy-blob blob-3"></div>
         </div>
+        <!-- Noise Texture Overlay Layer -->
+        <div class="galaxy-noise-layer" aria-hidden="true"></div>
         <!-- Sparkle stars inside popup slides -->
         <div class="stars-layer stars-layer-1"></div>
         <div class="stars-layer stars-layer-2"></div>
@@ -290,7 +292,6 @@
                             </span>
                             <div class="acm-text">
                                 <span class="acm-title">Galaxy Mode</span>
-                                <span class="galaxy-perf-warning" style="font-style: italic; font-size: 10px; font-weight: 500; display: block; margin-top: 2px; color: #ffaa55;">May impact performance</span>
                             </div>
                         </div>
                         <label class="switch">
@@ -303,8 +304,11 @@
                     <div id="galaxy-customization-controls">
                         <!-- Toggle for Background Animation -->
                         <div class="control-group">
-                            <div class="row">
-                                <label for="toggle-bg-animation" style="margin-bottom:0;">Animate Background</label>
+                            <div class="row" style="align-items: center;">
+                                <div style="display: flex; flex-direction: column;">
+                                    <label for="toggle-bg-animation" style="margin-bottom:0;">Animate Background</label>
+                                    <span class="galaxy-perf-warning" style="font-style: italic; font-size: 10px; font-weight: 500; display: block; margin-top: 2px; color: #ffaa55;">May impact performance</span>
+                                </div>
                                 <label class="switch">
                                     <input type="checkbox" id="toggle-bg-animation">
                                     <span class="slider"></span>
