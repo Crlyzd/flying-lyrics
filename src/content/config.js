@@ -54,6 +54,7 @@ window.FLYING_LYRICS.defaults = {
     autoLaunch: false,
     songOffsets: {},
     lyricsOverrides: {},
+    ecoMode: true,
 
     // Visual Settings
     customFont: "'Noto Sans', 'Segoe UI', sans-serif",

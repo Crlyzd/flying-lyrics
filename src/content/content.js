@@ -20,6 +20,7 @@
     fl.songOffsets = fl.defaults.songOffsets;
     fl.lyricsOverrides = fl.defaults.lyricsOverrides;
     fl.pipMode = fl.defaults.pipMode;
+    fl.ecoMode = fl.defaults.ecoMode;
 
     // Visual Settings
     fl.userFontFamily = fl.defaults.customFont;
@@ -203,6 +204,7 @@
         fl.songOffsets = items.songOffsets;
         fl.lyricsOverrides = items.lyricsOverrides;
         fl.pipMode = items.pipMode;
+        fl.ecoMode = items.ecoMode;
 
         // Visual
         fl.userFontFamily = items.customFont;
@@ -403,6 +405,9 @@
                 fl.galaxyMode = p.galaxyMode;
                 fl.needsLayoutUpdate = true;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.ecoMode !== undefined) {
+                fl.ecoMode = p.ecoMode;
             }
             reportPreferencesDebounced();
         } else if (msg.type === 'GET_SYNC_OFFSET') {

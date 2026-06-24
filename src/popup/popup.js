@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleTrans = document.getElementById('toggle-translation');
     const toggleAutolaunch = document.getElementById('toggle-autolaunch');
     const toggleBorderlessPip = document.getElementById('toggle-borderless-pip');
+    const toggleEcoMode = document.getElementById('toggle-eco-mode');
     const toggleCloudSync = document.getElementById('toggle-cloud-sync');
     const langSelect = document.getElementById('lang-select');
     const offsetMinus = document.getElementById('offset-minus');
@@ -362,7 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
-        pipMode: 'document', cloudSyncEnabled: true,
+        pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
         
         themeAccent: 'galaxy',
         popupBgAnimation: false,
@@ -380,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         globalOffsetInput.value = currentGlobalOffset;
         toggleAutolaunch.checked = items.autoLaunch;
         toggleBorderlessPip.checked = items.pipMode === 'video';
+        toggleEcoMode.checked = items.ecoMode;
         toggleCloudSync.checked = items.cloudSyncEnabled;
 
         // Customization settings — populate controls
@@ -949,6 +951,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     toggleBorderlessPip.addEventListener('change', () => {
         saveAndNotify({ pipMode: toggleBorderlessPip.checked ? 'video' : 'document' });
+    });
+
+    toggleEcoMode.addEventListener('change', () => {
+        saveAndNotify({ ecoMode: toggleEcoMode.checked });
     });
 
     toggleTrans.addEventListener('change', () => {

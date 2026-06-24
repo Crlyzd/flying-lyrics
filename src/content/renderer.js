@@ -10,6 +10,16 @@
     fl.lastLyricsLen = 0;           // Last known lyric count
     fl.needsLayoutUpdate = true;    // Dirty flag (true on first run)
     fl.cachedLayout = [];           // Pre-computed {y, mainSize} for each lyric line
+    fl.bgCacheCanvas = null;        // Offscreen canvas for cached background
+    fl.bgCacheCtx = null;
+    fl.bgCacheW = -1;
+    fl.bgCacheH = -1;
+    fl.bgCacheUrl = "";
+    fl.bgCacheBlur = -1;
+    fl.bgCacheDarkness = -1;
+    fl.bgCacheMode = "";
+    fl.bgCacheVibrant = "";
+    fl.bgCacheRaw = "";
 
     // OPT-4: Cached PiP DOM element references (populated by injectStructure via _refreshEls).
     // Avoids getElementById on every frame once the PiP structure is stable.
@@ -358,64 +368,109 @@
         const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
         const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
 
+        // If Eco Mode is OFF, draw directly to the main canvas (no offscreen canvas cache)
+        if (!fl.ecoMode) {
+            fl.drawDirectBackground(fl.ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
+            return;
+        }
+
+        const cacheMatches = 
+            fl.bgCacheCanvas &&
+            fl.bgCacheW === w &&
+            fl.bgCacheH === h &&
+            fl.bgCacheUrl === fl.canvasBgImageUrl &&
+            fl.bgCacheBlur === blurPx &&
+            fl.bgCacheDarkness === effectiveDarkness &&
+            fl.bgCacheMode === effectiveCoverMode &&
+            fl.bgCacheVibrant === fl.currentPalette.vibrant &&
+            fl.bgCacheRaw === fl.currentPalette.raw &&
+            ((!fl.canvasBgImage) || (fl.bgCacheImgElement === fl.canvasBgImage));
+
+        if (!cacheMatches) {
+            if (!fl.bgCacheCanvas) {
+                fl.bgCacheCanvas = document.createElement('canvas');
+            }
+            if (fl.bgCacheCanvas.width !== w) fl.bgCacheCanvas.width = w;
+            if (fl.bgCacheCanvas.height !== h) fl.bgCacheCanvas.height = h;
+            fl.bgCacheCtx = fl.bgCacheCanvas.getContext('2d');
+
+            const cacheCtx = fl.bgCacheCtx;
+            cacheCtx.clearRect(0, 0, w, h);
+
+            fl.drawDirectBackground(cacheCtx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
+
+            // Update cache parameters
+            fl.bgCacheW = w;
+            fl.bgCacheH = h;
+            fl.bgCacheUrl = fl.canvasBgImageUrl;
+            fl.bgCacheBlur = blurPx;
+            fl.bgCacheDarkness = effectiveDarkness;
+            fl.bgCacheMode = effectiveCoverMode;
+            fl.bgCacheVibrant = fl.currentPalette.vibrant;
+            fl.bgCacheRaw = fl.currentPalette.raw;
+            fl.bgCacheImgElement = fl.canvasBgImage;
+        }
+
+        // Draw offscreen canvas
+        fl.ctx.drawImage(fl.bgCacheCanvas, 0, 0);
+    };
+
+    fl.drawDirectBackground = function (ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness) {
         if (effectiveCoverMode === 'centered') {
-            fl.ctx.save();
+            ctx.save();
             if (blurPx > 0) {
-                fl.ctx.filter = `blur(${blurPx}px)`;
+                ctx.filter = `blur(${blurPx}px)`;
             }
 
             // Draw gradient background only when palette has been extracted from actual art.
-            // fl.currentPalette.raw is set by extractPalette() in rgb() format — safe for deriveDarkBg.
-            // The default fl.currentPalette.vibrant is a hex string (#1DB954) which the
-            // /\d+/g regex in deriveDarkBg misparses, producing near-black colours.
             if (fl.canvasBgImage && fl.currentPalette && fl.currentPalette.raw) {
                 const rawColor = fl.currentPalette.raw;
                 const baseBg = fl.deriveDarkBg(rawColor);
                 const topBg = fl.deriveLightBg(rawColor);
-                const grad = fl.ctx.createLinearGradient(0, 0, 0, h);
+                const grad = ctx.createLinearGradient(0, 0, 0, h);
                 grad.addColorStop(0, topBg);
                 grad.addColorStop(1, baseBg);
-                fl.ctx.fillStyle = grad;
-                fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+                ctx.fillStyle = grad;
+                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
             } else {
-                fl.ctx.fillStyle = '#121212';
-                fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+                ctx.fillStyle = '#121212';
+                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
             }
 
             // Draw centered art with drop shadow and rounded corners
             if (fl.canvasBgImage) {
                 const size = Math.min(w, h) * 0.65;
-                const x = (w - size) / 2;
-                const y = (h - size) / 2;
+                const cx = (w - size) / 2;
+                const cy = (h - size) / 2;
                 const vmin = Math.min(w, h) / 100;
                 const cornerRadius = vmin * 4.5;
 
                 // 1. Draw the drop shadow using a filled rounded rectangle matching the image bounds
-                fl.ctx.save();
-                fl.ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-                fl.ctx.shadowBlur = vmin * 8;
-                fl.ctx.shadowOffsetY = vmin * 2;
-                fl.ctx.fillStyle = '#000000';
-                fl.ctx.beginPath();
-                fl.ctx.roundRect(x, y, size, size, cornerRadius);
-                fl.ctx.fill();
-                fl.ctx.restore();
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+                ctx.shadowBlur = vmin * 8;
+                ctx.shadowOffsetY = vmin * 2;
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, size, size, cornerRadius);
+                ctx.fill();
+                ctx.restore();
 
                 // 2. Clip and draw the album cover image inside the rounded rectangle
-                fl.ctx.save();
-                fl.ctx.beginPath();
-                fl.ctx.roundRect(x, y, size, size, cornerRadius);
-                fl.ctx.clip();
-                fl.ctx.drawImage(fl.canvasBgImage, x, y, size, size);
-                fl.ctx.restore();
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, size, size, cornerRadius);
+                ctx.clip();
+                ctx.drawImage(fl.canvasBgImage, cx, cy, size, size);
+                ctx.restore();
             }
-            fl.ctx.restore();
+            ctx.restore();
         } else {
             // Fill or Repeated cover mode
             if (fl.canvasBgImage) {
-                fl.ctx.save();
+                ctx.save();
                 if (blurPx > 0) {
-                    fl.ctx.filter = `blur(${blurPx}px)`;
+                    ctx.filter = `blur(${blurPx}px)`;
                 }
 
                 if (effectiveCoverMode === 'repeated') {
@@ -425,10 +480,9 @@
                     tempCanvas.height = 400;
                     const tempCtx = tempCanvas.getContext('2d');
                     tempCtx.drawImage(fl.canvasBgImage, 0, 0, 400, 400);
-                    const pattern = fl.ctx.createPattern(tempCanvas, 'repeat');
-                    fl.ctx.fillStyle = pattern;
-                    // Extra margin to hide blur border artifacts
-                    fl.ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+                    const pattern = ctx.createPattern(tempCanvas, 'repeat');
+                    ctx.fillStyle = pattern;
+                    ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
                 } else {
                     // Fill / Cover mode
                     const imgW = fl.canvasBgImage.width;
@@ -438,19 +492,19 @@
                     const drawH = imgH * scale;
                     const drawX = (w - drawW) / 2;
                     const drawY = (h - drawH) / 2;
-                    fl.ctx.drawImage(fl.canvasBgImage, drawX - blurPx * 2, drawY - blurPx * 2, drawW + blurPx * 4, drawH + blurPx * 4);
+                    ctx.drawImage(fl.canvasBgImage, drawX - blurPx * 2, drawY - blurPx * 2, drawW + blurPx * 4, drawH + blurPx * 4);
                 }
-                fl.ctx.restore();
+                ctx.restore();
             } else {
-                fl.ctx.fillStyle = '#121212';
-                fl.ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#121212';
+                ctx.fillRect(0, 0, w, h);
             }
         }
 
         // Draw darkness overlay
         if (effectiveDarkness > 0) {
-            fl.ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness / 100})`;
-            fl.ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness / 100})`;
+            ctx.fillRect(0, 0, w, h);
         }
     };
 
@@ -458,6 +512,18 @@
         if (!fl.pipWin || (fl.activePipType !== 'video' && fl.pipWin.closed)) return;
 
         fl.isRenderLoopRunning = true;
+
+        // --- FPS Limit Throttling (Eco Mode) ---
+        if (fl.ecoMode) {
+            const now = performance.now();
+            const elapsed = now - (fl.lastFrameTimeMs || 0);
+            if (elapsed < 33.3 - 2) { // 30 FPS cap with 2ms jitter tolerance
+                const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
+                nextFrame(fl.renderLoop);
+                return;
+            }
+            fl.lastFrameTimeMs = now;
+        }
 
         const state = fl.getPlayerState();
         // Apply Sync Offset
@@ -873,11 +939,11 @@
         const isFastScroll = Math.abs(scrollDelta) > (h * 0.05);
 
         // --- OPT-3: IDLE THROTTLE ---
-        // When the track is paused AND the scroll animation has fully settled,
-        // the canvas content is static. Drop to ~4fps to save CPU/battery.
-        // The threshold of 0.5px is imperceptible in the PiP window.
+        // When the scroll animation has fully settled AND we are either paused OR
+        // the active index hasn't changed (static rendering), the canvas content is static.
+        // Drop to ~4fps to save CPU/battery. The threshold of 0.1px is imperceptible.
         const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-        const isIdle = state.paused && absScrollDelta < 0.5 && !fl.needsLayoutUpdate;
+        const isIdle = fl.ecoMode && (state.paused || (absScrollDelta < 0.1 && !fl.needsLayoutUpdate)) && !fl.userGlowEnabled;
 
         const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
 
