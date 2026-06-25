@@ -56,16 +56,29 @@
             // B. Helper to run K-Means
             const runKMeans = (pixels) => {
                 if (pixels.length === 0) return [];
+
+                // Subsample pixels if count exceeds 2,000 to avoid blocking the JavaScript main thread.
+                // 2,000 pixels is statistically more than enough to determine dominant colors accurately.
+                const maxKMeansPixels = 2000;
+                let samplePixels = pixels;
+                if (pixels.length > maxKMeansPixels) {
+                    const step = Math.ceil(pixels.length / maxKMeansPixels);
+                    samplePixels = [];
+                    for (let i = 0; i < pixels.length; i += step) {
+                        samplePixels.push(pixels[i]);
+                    }
+                }
+
                 const k = 8;
                 let centroids = [];
                 for (let i = 0; i < k; i++) {
-                    const idx = Math.floor(pixels.length * (i / k));
-                    centroids.push({ ...pixels[idx] });
+                    const idx = Math.floor(samplePixels.length * (i / k));
+                    centroids.push({ ...samplePixels[idx] });
                 }
 
                 for (let iter = 0; iter < 10; iter++) {
                     const buckets = Array.from({ length: k }, () => []);
-                    for (const p of pixels) {
+                    for (const p of samplePixels) {
                         let minD = Infinity;
                         let bestIdx = 0;
                         for (let c = 0; c < k; c++) {
@@ -95,7 +108,7 @@
                                 count: b.length
                             };
                         } else {
-                            centroids[c] = { ...pixels[Math.floor(Math.random() * pixels.length)], count: 0 };
+                            centroids[c] = { ...samplePixels[Math.floor(Math.random() * samplePixels.length)], count: 0 };
                         }
                     }
                 }

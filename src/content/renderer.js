@@ -555,6 +555,9 @@
                 fl.needsLayoutUpdate = true;
                 fl._els = null;
                 fl.lastKnownValidDuration = 0;
+                // Reset scroll positions immediately to avoid top-to-bottom slide transitions
+                fl.scrollPos = 0;
+                fl.targetScroll = 0;
                 // Reset extracted art cache so the next song triggers a fresh palette extraction
                 fl.lastExtractedArt = "";
                 // Reset stored vibrant color to default so popup preview snaps back to neutral
@@ -570,6 +573,9 @@
                 fl.needsLayoutUpdate = true;
                 fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
                 fl.lastKnownValidDuration = 0;
+                // Reset scroll positions immediately to avoid top-to-bottom slide transitions
+                fl.scrollPos = 0;
+                fl.targetScroll = 0;
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
@@ -923,6 +929,12 @@
             // Update scroll target inside the invalidation block so the lerp always
             // chases the new position, even when scrollPos is mid-animation.
             fl.targetScroll = (fl.cachedLayout[activeIdx]?.y) || 0;
+
+            // Instantly snap scroll position on initial track load/reset to prevent slide transition
+            if (fl.needsLayoutUpdate && (fl.scrollPos === 0 || fl.lyricLines.length === 1)) {
+                fl.scrollPos = fl.targetScroll;
+            }
+
             fl.lastActiveIdx = activeIdx;
             fl.lastLyricsLen = fl.lyricLines.length;
             fl.needsLayoutUpdate = false;
