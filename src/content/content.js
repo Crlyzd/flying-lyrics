@@ -21,6 +21,8 @@
     fl.lyricsOverrides = fl.defaults.lyricsOverrides;
     fl.pipMode = fl.defaults.pipMode;
     fl.ecoMode = fl.defaults.ecoMode;
+    fl.lastPipWidth = fl.defaults.lastPipWidth;
+    fl.lastPipHeight = fl.defaults.lastPipHeight;
 
     // Visual Settings
     fl.userFontFamily = fl.defaults.customFont;
@@ -207,6 +209,8 @@
         fl.lyricsOverrides = items.lyricsOverrides;
         fl.pipMode = items.pipMode;
         fl.ecoMode = items.ecoMode;
+        fl.lastPipWidth = items.lastPipWidth;
+        fl.lastPipHeight = items.lastPipHeight;
 
         // Visual
         fl.userFontFamily = items.customFont;
@@ -242,6 +246,12 @@
             const p = msg.payload;
             if (p.autoLaunch !== undefined) {
                 fl.autoLaunch = p.autoLaunch;
+            }
+            if (p.lastPipWidth !== undefined) {
+                fl.lastPipWidth = p.lastPipWidth;
+            }
+            if (p.lastPipHeight !== undefined) {
+                fl.lastPipHeight = p.lastPipHeight;
             }
             if (p.pipMode !== undefined) {
                 if (fl.pipMode !== p.pipMode) {

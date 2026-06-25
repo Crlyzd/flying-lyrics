@@ -70,6 +70,8 @@ window.FLYING_LYRICS.defaults = {
     verticalAnchor: 4, // Default scale 1-10, mapped to offset
     albumCoverMode: false, // When true, forces centered art + hides lyrics, locks all visual settings
     pipMode: 'document',
+    lastPipWidth: 200,
+    lastPipHeight: 250,
     
     // Popup Visuals Settings
     popupBgAnimation: false,

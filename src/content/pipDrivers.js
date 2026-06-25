@@ -2,11 +2,18 @@
     const fl = window.FLYING_LYRICS;
 
     let resizeTimeout = null;
-    function saveWindowSize(w, h) {
+    function saveWindowSize(win, w, h) {
         if (resizeTimeout) clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
+            if (!win || win.closed || win !== fl.pipWin) return;
             fl.lastPipWidth = w;
             fl.lastPipHeight = h;
+            if (typeof FLYING_LYRICS?.storage?.set === 'function') {
+                FLYING_LYRICS.storage.set({
+                    lastPipWidth: w,
+                    lastPipHeight: h
+                });
+            }
         }, 500);
     }
 
@@ -36,7 +43,11 @@
         try {
             fl.pipLaunchTime = performance.now();
             const size = getSavedSize();
-            fl.pipWin = await window.documentPictureInPicture.requestWindow({ width: size.pipWidth, height: size.pipHeight });
+            fl.pipWin = await window.documentPictureInPicture.requestWindow({
+                width: size.pipWidth,
+                height: size.pipHeight,
+                preferInitialWindowPlacement: true
+            });
             fl.activePipType = 'document';
             fl.pipSessionId = (fl.pipSessionId || 0) + 1;
             fl.hasAutoLaunched = true;
@@ -93,12 +104,19 @@
                 fl.extractPalette(preWarmArt);
             }
 
-            fl.pipWin.addEventListener('resize', () => {
-                if (performance.now() - fl.pipLaunchTime < 1000) return;
-                if (fl.pipWin) {
-                    saveWindowSize(fl.pipWin.innerWidth, fl.pipWin.innerHeight);
+            // Capture the specific window instance created in this launch cycle
+            const activeWin = fl.pipWin;
+
+            // Delay registering the resize listener to avoid capturing initial layout/browser-chrome setup sizes
+            setTimeout(() => {
+                if (fl.pipWin === activeWin && !activeWin.closed) {
+                    activeWin.addEventListener('resize', () => {
+                        if (fl.pipWin === activeWin && !activeWin.closed) {
+                            saveWindowSize(activeWin, activeWin.innerWidth, activeWin.innerHeight);
+                        }
+                    });
                 }
-            });
+            }, 2000);
 
             fl.pipWin.addEventListener('pagehide', () => {
                 fl.pipWin = null;
