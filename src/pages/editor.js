@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentTrackFound = false;
     let lastSavedText = '';
+    let currentArtist = '';
+    let currentTitle = '';
 
     // =========================================================
     //  THEME / ACCENT COLOR REFLECTION
@@ -159,6 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (response && response.artist && response.title) {
                     currentTrackFound = true;
+                    currentArtist = response.artist;
+                    currentTitle = response.title;
                     subtitle.textContent = `Editing: ${response.artist} - ${response.title}`;
                 }
             });
@@ -229,6 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editor.value !== lastSavedText) {
             e.preventDefault();
             e.returnValue = ''; // Required to trigger Chrome's native "Leave Site" dialog
+        }
+    });
+
+    // Listen for editor status requests from the popup
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'GET_EDITOR_STATUS') {
+            sendResponse({
+                artist: currentArtist,
+                title: currentTitle
+            });
         }
     });
 });
