@@ -980,7 +980,7 @@
         // the active index hasn't changed (static rendering), the canvas content is static.
         // Drop to ~4fps to save CPU/battery. The threshold of 0.1px is imperceptible.
         const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-        const isIdle = fl.ecoMode && (state.paused || (absScrollDelta < 0.1 && !fl.needsLayoutUpdate)) && !fl.userGlowEnabled;
+        const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !fl.userGlowEnabled;
 
         const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
 
