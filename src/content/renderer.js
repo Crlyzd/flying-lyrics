@@ -558,6 +558,7 @@
                 // Reset scroll positions immediately to avoid top-to-bottom slide transitions
                 fl.scrollPos = 0;
                 fl.targetScroll = 0;
+                fl.lastAnimationTimeMs = null;
                 // Reset extracted art cache so the next song triggers a fresh palette extraction
                 fl.lastExtractedArt = "";
                 // Reset stored vibrant color to default so popup preview snaps back to neutral
@@ -576,6 +577,7 @@
                 // Reset scroll positions immediately to avoid top-to-bottom slide transitions
                 fl.scrollPos = 0;
                 fl.targetScroll = 0;
+                fl.lastAnimationTimeMs = null;
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
@@ -934,12 +936,21 @@
             // Instantly snap scroll position on initial track load/reset to prevent slide transition
             if (fl.needsLayoutUpdate && (fl.scrollPos === 0 || fl.lyricLines.length === 1)) {
                 fl.scrollPos = fl.targetScroll;
+                fl.lastAnimationTimeMs = null;
             }
 
             fl.lastActiveIdx = activeIdx;
             fl.lastLyricsLen = fl.lyricLines.length;
             fl.needsLayoutUpdate = false;
         }
+
+        // Calculate frame-rate independent delta time (dt) in seconds
+        const now = performance.now();
+        const dt = fl.lastAnimationTimeMs ? (now - fl.lastAnimationTimeMs) / 1000 : 0.0166;
+        fl.lastAnimationTimeMs = now;
+
+        // Clamp dt to a maximum value to avoid physics jumps when the tab or window is suspended/backgrounded
+        const clippedDt = Math.min(dt, 0.1);
 
         const scrollDelta = fl.targetScroll - fl.scrollPos;
 
@@ -950,8 +961,12 @@
         // the destination (0.3x screen height), then let the normal easing smoothly slide it the rest of the way.
         if (Math.abs(scrollDelta) > h * 0.8) {
             fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 0.3));
+            fl.lastAnimationTimeMs = null; // Reset timing on teleport to keep subsequent glide smooth
         } else {
-            fl.scrollPos += scrollDelta * 0.1;
+            // Easing constant (k = 6.0 yields a speed equivalent to the previous 0.1 factor at 60 FPS)
+            const k = 6.0;
+            const decay = 1 - Math.exp(-k * clippedDt);
+            fl.scrollPos += scrollDelta * Math.min(1, decay);
         }
 
         const isFastScroll = Math.abs(scrollDelta) > (h * 0.05);
@@ -1118,7 +1133,10 @@
         const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
-            timerHost.setTimeout(() => nextFrame(fl.renderLoop), 250);
+            timerHost.setTimeout(() => {
+                fl.lastAnimationTimeMs = null; // Reset timing after waking up from sleep throttle
+                nextFrame(fl.renderLoop);
+            }, 250);
         } else {
             nextFrame(fl.renderLoop);
         }
