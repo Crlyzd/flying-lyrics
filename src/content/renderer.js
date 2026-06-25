@@ -829,11 +829,12 @@
 
             // OPT-1: O(1) Set lookup instead of Array.includes() for system message detection.
             const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text);
-            const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
+            const isWaitForIt = fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...";
+            const fontScale = (isSystemMessage && !isWaitForIt) ? 1 : (fl.userFontSize / 18);
 
             // Target width for the active line fit
             const fitWidth = maxWidth * 0.75;
-            const displayFontFamily = (isSystemMessage || fl.galaxyMode === false) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
+            const displayFontFamily = ((isSystemMessage && !isWaitForIt) || (fl.galaxyMode === false && !isWaitForIt)) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
             const activeSizeMin = vmin * 6.5 * fontScale;
             const activeSizeMax = vmin * 9.5 * fontScale;
 
@@ -1005,6 +1006,7 @@
 
                     // OPT-1: O(1) Set lookup for system message detection in the draw pass.
                     const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(line.text);
+                    const isWaitForIt = fl.lyricLines.length === 1 && line.text === "Wait for it...";
                     let drawX = 0;
                     if (isSystemMessage) {
                         fl.ctx.textAlign = 'center';
@@ -1019,7 +1021,7 @@
                     }
 
                     const isCurrent = (i === activeIdx);
-                    const displayFontFamily = isSystemMessage ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
+                    const displayFontFamily = (isSystemMessage && !isWaitForIt) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
 
                     // Universal Dark Shadow for all text
                     fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
@@ -1027,7 +1029,7 @@
 
                     // Mirror the layout block's sizing logic exactly so draw positions
                     // match the pre-computed offsets in cachedLayout.
-                    const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
+                    const fontScale = (isSystemMessage && !isWaitForIt) ? 1 : (fl.userFontSize / 18);
 
                     // OPT-2: Reuse the mainSize already computed in the layout pass.
                     // For the active line this avoids a second calculateFitSize → measureText call.
