@@ -115,11 +115,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.window.FLYING_LYRICS && window.window.FLYING_LYRICS.storage) {
         window.window.FLYING_LYRICS.storage.get(themeDefaults, (theme) => {
             applyTheme(theme);
+            document.body.classList.add('loaded');
+            setTimeout(() => {
+                document.body.classList.remove('preload');
+            }, 100);
         });
     } else if (window.FLYING_LYRICS && window.FLYING_LYRICS.storage) {
         window.FLYING_LYRICS.storage.get(themeDefaults, (theme) => {
             applyTheme(theme);
+            document.body.classList.add('loaded');
+            setTimeout(() => {
+                document.body.classList.remove('preload');
+            }, 100);
         });
+    } else {
+        document.body.classList.add('loaded');
+        setTimeout(() => {
+            document.body.classList.remove('preload');
+        }, 100);
     }
 
     // Listen to changes in chrome.storage

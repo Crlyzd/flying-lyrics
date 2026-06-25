@@ -31,6 +31,11 @@
             --bg-galaxy: #08080f;
         }
 
+        /* Prevent transition flash on initial load */
+        .preload * {
+            transition: none !important;
+        }
+
         *,
         *::before,
         *::after {
@@ -52,6 +57,12 @@
             overflow: hidden;
             position: relative;
             isolation: isolate;
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+
+        body.loaded {
+            opacity: 1;
         }
 
         .header {
@@ -415,7 +426,7 @@
     </style>
 </head>
 
-<body>
+<body class="preload">
     <!-- Galaxy Background Animation Layer -->
     <div class="galaxy-bg-container">
         <div class="galaxy-blob blob-1"></div>
