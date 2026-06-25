@@ -365,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
+        lastPipWidth: 200, lastPipHeight: 250,
         
         themeAccent: 'galaxy',
         popupBgAnimation: false,
@@ -497,6 +498,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Signal that the settings are fully loaded and applied, revealing the popup
         document.body.classList.add('loaded');
+
+        // Remove preload class after rendering the initial state to enable animations
+        setTimeout(() => {
+            document.body.classList.remove('preload');
+        }, 50);
     });
 
     // =========================================================
@@ -887,12 +893,36 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("No active track found.");
             return;
         }
-        chrome.windows.create({
-            url: chrome.runtime.getURL('src/pages/editor.html'),
-            type: 'popup',
-            width: 550,
-            height: 650,
-            focused: true
+
+        const editorUrl = chrome.runtime.getURL('src/pages/editor.html');
+        chrome.tabs.query({ url: editorUrl }, (tabs) => {
+            if (tabs && tabs.length > 0) {
+                const tab = tabs[0];
+                chrome.windows.update(tab.windowId, { focused: true });
+                
+                // Query editor tab status to check if it's editing the same track
+                chrome.tabs.sendMessage(tab.id, { type: 'GET_EDITOR_STATUS' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        // Editor might be loading or unresponsive, trigger reload
+                        chrome.tabs.reload(tab.id);
+                        return;
+                    }
+                    if (response && response.artist === currentActiveTrack.artist && response.title === currentActiveTrack.title) {
+                        // Same track, focusing the window is enough
+                        return;
+                    }
+                    // Different track, reload to load new lyrics
+                    chrome.tabs.reload(tab.id);
+                });
+            } else {
+                chrome.windows.create({
+                    url: editorUrl,
+                    type: 'popup',
+                    width: 550,
+                    height: 650,
+                    focused: true
+                });
+            }
         });
     });
 
@@ -1804,7 +1834,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pipDefaults = {
                 customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
                 coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
-                lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false
+                lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false,
+                lastPipWidth: 200, lastPipHeight: 250
             };
 
             // Reset UI Elements

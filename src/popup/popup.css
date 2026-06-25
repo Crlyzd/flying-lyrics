@@ -43,6 +43,11 @@
     --bg-galaxy: #08080f;
 }
 
+/* Prevent transition flash on initial load */
+.preload * {
+    transition: none !important;
+}
+
 
 
 *,
