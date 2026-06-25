@@ -155,7 +155,7 @@
             uiContainer.style.setProperty('--vibrant-color', activeColor);
         }
 
-        const displayFontFamily = fl.galaxyMode !== false ? "'Fredoka', 'Noto Sans', 'Segoe UI', sans-serif" : "'Noto Sans', 'Segoe UI', sans-serif";
+        const displayFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
         const mainSize = vmin * 6.5;
         const lineHeight = mainSize * 1.45; // relaxed line spacing
 
@@ -983,27 +983,19 @@
         const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !fl.userGlowEnabled;
 
         const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
+        const isWaiting = fl.isWaitingState;
 
         fl.ctx.save();
-        fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
-
-        // --- VIDEO PIP LOADING PLACEHOLDER ---
-        // When the canvas album-art image hasn't loaded yet (async) AND there's nothing
-        // else to render (albumCoverMode=true OR lyrics are missing), the canvas would
-        // otherwise be solid black. Show the waiting animation regardless of albumCoverMode
-        // so the user sees something meaningful while the image loads.
-        if (shouldShowLoadingPlaceholder) {
-            fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
-        } else if (!fl.albumCoverMode) {
-            // isMissingLyrics sets lyricLines = [] — no forEach would draw anything.
-            // Treat that as a waiting state so the idle animation shows instead of a black canvas.
-            const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
-            if (isWaiting) {
-                if (fl.lyricLines && fl.lyricLines[0]) {
-                    fl.lyricLines[0].isWaitingPlaceholder = true;
-                }
-                fl.drawWaitingState(w, h, vmin, maxWidth, anchorOffset);
-            } else {
+        if (shouldShowLoadingPlaceholder || isWaiting) {
+            // Draw waiting state centered, unaffected by vertical anchor / scroll position / sliders
+            fl.ctx.translate(w / 2, h / 2);
+            if (fl.lyricLines && fl.lyricLines[0]) {
+                fl.lyricLines[0].isWaitingPlaceholder = true;
+            }
+            fl.drawWaitingState(w, h, vmin, maxWidth, 0);
+        } else {
+            fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
+            if (!fl.albumCoverMode) {
                 fl.lyricLines.forEach((line, i) => {
                     const entry = fl.cachedLayout[i];
                     if (!entry) return;
@@ -1120,7 +1112,6 @@
                 });
             }
         }
-
         fl.ctx.restore();
 
         // Draw video PiP sync status badge directly onto the canvas

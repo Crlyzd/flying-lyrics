@@ -90,3 +90,15 @@ window.FLYING_LYRICS.SYSTEM_MSG_SET = new Set([
     "Wait for it...",
     "No Lyrics Available"
 ]);
+
+// Centralized getter to determine if the extension is in the "No Music" (waiting) state.
+// Decoupled here so it can be reused safely by renderer.js and ui.js.
+Object.defineProperty(window.FLYING_LYRICS, 'isWaitingState', {
+    get: function () {
+        return !!(this.lyricLines && this.lyricLines.length === 1 && 
+                 (this.lyricLines[0].text === "Waiting for music..." || this.lyricLines[0].isWaitingPlaceholder));
+    },
+    configurable: true,
+    enumerable: true
+});
+

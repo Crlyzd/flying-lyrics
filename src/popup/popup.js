@@ -589,6 +589,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = e.target.closest('.result-item');
         if (!item || item.id === 'local-file-card' || item.id === 'deep-search-indicator') return; // Ignore clicks that aren't on result items or are on the read-only local card
 
+        if (!currentActiveTrack || !currentActiveTrack.artist || !currentActiveTrack.title) {
+            alert("No active track found.");
+            return;
+        }
+
         if (item.id === 'auto-match-card') {
             saveAndNotify({ lyricOverride: null });
             const spinner = document.createElement('div');
@@ -872,6 +877,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     //  LOCAL FILE UPLOAD
     // =========================================================
+    localUpload.addEventListener('click', (e) => {
+        if (!currentActiveTrack || !currentActiveTrack.artist || !currentActiveTrack.title) {
+            e.preventDefault();
+            alert("No active track found.");
+        }
+    });
+
     localUpload.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;

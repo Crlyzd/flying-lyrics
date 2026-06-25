@@ -501,9 +501,8 @@
             const bgCover = targetDoc.getElementById('bg-cover');
             const centerArt = targetDoc.getElementById('center-art');
 
-            // When lyrics are missing OR the user has explicitly enabled Album Cover Mode,
-            // force Cover Album Mode: override to centered art with no blur and no darkening.
-            const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+            const isWaiting = fl.isWaitingState;
+            const isAlbumCoverForced = isWaiting || fl.isMissingLyrics || fl.albumCoverMode;
             const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
             const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
             const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
@@ -570,7 +569,6 @@
                 bgDark.style.opacity = String(effectiveDarkness / 100);
             }
         }
-
         const systemFontNames = ['noto sans', 'segoe ui', 'sans-serif', 'arial', 'helvetica', 'serif', 'monospace'];
         const fontName = fl.userFontFamily.split(',')[0].replace(/['"/]/g, '').trim();
         const primaryFont = fontName.toLowerCase();
