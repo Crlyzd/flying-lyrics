@@ -317,11 +317,15 @@
                 const sy = s.y * h;
 
                 fl.ctx.save();
-                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
-                fl.ctx.shadowColor = '#ffffff';
-                fl.ctx.shadowBlur = s.size * 2;
+
+                // Outer glow ring (simulates shadowBlur glow)
+                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity * 0.25})`;
+                fl.ctx.beginPath();
+                fl.ctx.arc(sx, sy, s.size * 0.95, 0, Math.PI * 2);
+                fl.ctx.fill();
 
                 // Core dot
+                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
                 fl.ctx.beginPath();
                 fl.ctx.arc(sx, sy, s.size * 0.4, 0, Math.PI * 2);
                 fl.ctx.fill();

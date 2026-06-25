@@ -1,6 +1,72 @@
 (() => {
     const fl = window.FLYING_LYRICS;
 
+    // --- COLOR HELPERS (Hoisted to module scope to avoid closure overhead) ---
+    function hexToRgba(hex, alpha) {
+        if (!hex) return 'rgba(0,0,0,0)';
+        hex = hex.replace('#', '');
+        if (hex.length === 3) {
+            hex = hex.split('').map(c => c + c).join('');
+        }
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function applyPeachFilterAndClamp(hex) {
+        if (!hex) return hex;
+        let r = parseInt(hex.slice(1, 3), 16);
+        let g = parseInt(hex.slice(3, 5), 16);
+        let b = parseInt(hex.slice(5, 7), 16);
+
+        let mixedR = Math.round(r * 0.6 + 255 * 0.4);
+        let mixedG = Math.round(g * 0.6 + 170 * 0.4);
+        let mixedB = Math.round(b * 0.6 + 128 * 0.4);
+
+        let normR = mixedR / 255, normG = mixedG / 255, normB = mixedB / 255;
+        let max = Math.max(normR, normG, normB), min = Math.min(normR, normG, normB);
+        let h, s, l = (max + min) / 2;
+
+        if (max === min) {
+            h = s = 0;
+        } else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case normR: h = (normG - normB) / d + (normG < normB ? 6 : 0); break;
+                case normG: h = (normB - normR) / d + 2; break;
+                case normB: h = (normR - normG) / d + 4; break;
+            }
+            h /= 6;
+        }
+
+        h = Math.round(h * 360);
+        s = Math.round(s * 100);
+        l = Math.round(l * 100);
+
+        l = Math.max(50, Math.min(l, 78));
+
+        s /= 100; l /= 100;
+        let c = (1 - Math.abs(2 * l - 1)) * s;
+        let x = c * (1 - Math.abs((h / 60) % 2 - 1));
+        let m = l - c / 2;
+        let finalR = 0, finalG = 0, finalB = 0;
+
+        if (0 <= h && h < 60) { finalR = c; finalG = x; finalB = 0; }
+        else if (60 <= h && h < 120) { finalR = x; finalG = c; finalB = 0; }
+        else if (120 <= h && h < 180) { finalR = 0; finalG = c; finalB = x; }
+        else if (180 <= h && h < 240) { finalR = 0; finalG = x; finalB = c; }
+        else if (240 <= h && h < 300) { finalR = x; finalG = 0; finalB = c; }
+        else if (300 <= h && h < 360) { finalR = c; finalG = 0; finalB = x; }
+
+        let outR = Math.round((finalR + m) * 255).toString(16).padStart(2, '0');
+        let outG = Math.round((finalG + m) * 255).toString(16).padStart(2, '0');
+        let outB = Math.round((finalB + m) * 255).toString(16).padStart(2, '0');
+
+        return `#${outR}${outG}${outB}`;
+    }
+
     // --- ICONS (SVG STRINGS) ---
     const ICON_PREV = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>`;
     const ICON_NEXT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>`;
@@ -395,71 +461,6 @@
         if (!fl.pipWin || fl.pipWin.closed) return;
         const targetDoc = fl.activePipType === 'video' ? document : fl.pipWin.document;
 
-        function hexToRgba(hex, alpha) {
-            if (!hex) return 'rgba(0,0,0,0)';
-            hex = hex.replace('#', '');
-            if (hex.length === 3) {
-                hex = hex.split('').map(c => c + c).join('');
-            }
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
-
-        function applyPeachFilterAndClamp(hex) {
-            if (!hex) return hex;
-            let r = parseInt(hex.slice(1, 3), 16);
-            let g = parseInt(hex.slice(3, 5), 16);
-            let b = parseInt(hex.slice(5, 7), 16);
-
-            let mixedR = Math.round(r * 0.6 + 255 * 0.4);
-            let mixedG = Math.round(g * 0.6 + 170 * 0.4);
-            let mixedB = Math.round(b * 0.6 + 128 * 0.4);
-
-            let normR = mixedR / 255, normG = mixedG / 255, normB = mixedB / 255;
-            let max = Math.max(normR, normG, normB), min = Math.min(normR, normG, normB);
-            let h, s, l = (max + min) / 2;
-
-            if (max === min) {
-                h = s = 0;
-            } else {
-                let d = max - min;
-                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                switch (max) {
-                    case normR: h = (normG - normB) / d + (normG < normB ? 6 : 0); break;
-                    case normG: h = (normB - normR) / d + 2; break;
-                    case normB: h = (normR - normG) / d + 4; break;
-                }
-                h /= 6;
-            }
-
-            h = Math.round(h * 360);
-            s = Math.round(s * 100);
-            l = Math.round(l * 100);
-
-            l = Math.max(50, Math.min(l, 78));
-
-            s /= 100; l /= 100;
-            let c = (1 - Math.abs(2 * l - 1)) * s;
-            let x = c * (1 - Math.abs((h / 60) % 2 - 1));
-            let m = l - c / 2;
-            let finalR = 0, finalG = 0, finalB = 0;
-
-            if (0 <= h && h < 60) { finalR = c; finalG = x; finalB = 0; }
-            else if (60 <= h && h < 120) { finalR = x; finalG = c; finalB = 0; }
-            else if (120 <= h && h < 180) { finalR = 0; finalG = c; finalB = x; }
-            else if (180 <= h && h < 240) { finalR = 0; finalG = x; finalB = c; }
-            else if (240 <= h && h < 300) { finalR = x; finalG = 0; finalB = c; }
-            else if (300 <= h && h < 360) { finalR = c; finalG = 0; finalB = x; }
-
-            let outR = Math.round((finalR + m) * 255).toString(16).padStart(2, '0');
-            let outG = Math.round((finalG + m) * 255).toString(16).padStart(2, '0');
-            let outB = Math.round((finalB + m) * 255).toString(16).padStart(2, '0');
-
-            return `#${outR}${outG}${outB}`;
-        }
-
         targetDoc.documentElement.classList.remove('theme-green');
         let f1, f2, f3, raw1, raw2, raw3;
         if (fl.galaxyMode !== false) {
@@ -745,13 +746,6 @@
 
             injectSpotify();
 
-            const observer = new MutationObserver(() => {
-                if (!document.getElementById('pip-trigger')) {
-                    injectSpotify();
-                }
-            });
-
-            observer.observe(document.body, { childList: true, subtree: true });
 
         } else if (isYTM) {
             Object.assign(btn.style, {
