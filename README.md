@@ -3,7 +3,7 @@
 > [!NOTE]
 > ALL LYRICS PANEL FOR SPOTIFY AND YOUTUBE MUSIC IN THE WHOLE INTERNET IS TRASH (IF YOU FOUND A BETTER ONE PLEASE TELL ME SO I CAN DITCH MY RELEASE) BECAUSE THEY COULD NOT EVEN ROMANIZED JAPANESE OR KOREAN LETTERS SO I MADE THIS SIMPLE EXTENSION FOR CHROMIUM BROWSER
 
-<img width="642" height="693" alt="Image" src="https://github.com/user-attachments/assets/9eb0803f-10a0-458e-9a6c-7fc0e1e1f79f" />
+<img width="1611" height="1319" alt="image" src="https://github.com/user-attachments/assets/73ad54a2-9339-41e0-9dbb-69fd3d753c3d" />
 
 # 🎵 Flying Lyrics - Romanize Your Lyrics
 **Lyrics that follow you wherever you go. Flying Lyrics is a floating browser extension that pulls in synchronized lyrics, romanization, and translations so you can sing along while multitasking without ever switching tabs.**
@@ -46,6 +46,8 @@
 * **Dynamic Aurora & Twinkling Sparkles:** When waiting for music or loading lyrics, enjoy a smooth animated aurora gradient that shifts dynamically alongside a premium particle system that spawns 25 twinkling sparkles and cross-flare stars.
 * **High-Res Art Upgrades:** Spotify and YouTube Music album artwork URLs are automatically upgraded to high resolution (up to 640x640 for Spotify and 544x544 for YouTube Music).
 
+<img width="1626" height="1278" alt="image" src="https://github.com/user-attachments/assets/9caeb6ef-a925-41a1-8623-b3699ceca706" />
+
 ### 🕹️ Full Control at Your Fingertips
 * **Universal Language Support:** Play/pause controls work perfectly regardless of your browser's display language. Uses direct HTML5 media elements state monitoring and a smart SVG path shape analyzer to translate click actions.
 * **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
@@ -58,8 +60,7 @@
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
 * **Dynamic Help Button:** A handy "Help, how to use Flying Lyrics ??" button appears in the extension popup for quick access to setup and onboarding guides.
 
-<img width="544" height="647" alt="image" src="https://github.com/user-attachments/assets/44387a3e-91bf-4852-b011-b95fa133109e" />
-
+<img width="674" height="647" alt="image" src="https://github.com/user-attachments/assets/b3367b4c-5c34-48d7-a0bb-c379354dcc79" />
 
 ### ⚡ Smarter Performance & Polished Experience
 * **Tiered Lyric Searching:** Smarter and faster lyric lookups! Dynamically adjusts search depth based on whether synced candidates exist (e.g. Netease vs LRCLIB) to reduce network waste and rate limiting.
@@ -72,10 +73,12 @@
 * **Handy Tooltips & Indicators:** Hover over the progress bar to see exact timestamps before skipping, and get clearer status bubbles that tell you if lyrics are synced, unsynced, or still retrying.
 * **Privacy-First Performance Tracking:** To make Flying Lyrics faster and better, we optionally collect anonymous speed metrics (like how fast lyrics load). You have full control with an easy opt-out switch in the welcome screen.
 
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/8c0c22a6-f855-494b-8fcc-b02c8c3aea76" />
-<img width="330" height="628" alt="image" src="https://github.com/user-attachments/assets/4c7a184a-051f-42ad-b734-1e29c52e9cd0" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/f0f43bc1-aed2-4d4a-95ab-e3e6c1bf8f7b" />
-<img width="320" height="614" alt="image" src="https://github.com/user-attachments/assets/5b98061f-ebd2-4b57-998b-6bf12ef46996" />
+<img width="309" height="605" alt="image" src="https://github.com/user-attachments/assets/b3dddd6d-a437-47a8-8a12-6ba94849b05f" />
+<img width="324" height="601" alt="image" src="https://github.com/user-attachments/assets/b1b9738a-7382-4eb6-9061-c3f10e36e9d8" />
+<img width="324" height="601" alt="image" src="https://github.com/user-attachments/assets/ccf0c899-aea6-4d10-b070-02a2eecaf773" />
+<img width="324" height="575" alt="image" src="https://github.com/user-attachments/assets/c50db21e-f827-4f50-a78a-e3e7dc2afe78" />
+<img width="305" height="562" alt="image" src="https://github.com/user-attachments/assets/701f957b-618e-4312-8a7d-838164172bf3" />
+
 
 ---
 
