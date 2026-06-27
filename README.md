@@ -35,8 +35,9 @@
 <img width="138" height="135" alt="Sync Indicator" src="https://github.com/user-attachments/assets/db46a459-24a1-4b2e-a0ae-90d81ceb5c3a" />
 
 ### 🎨 Beautiful & Adaptive Design
-* **Matching Colors:** The window automatically extracts colors from your song's album art to match the "vibe" of the music.
-* **Smart Color Swatch Selection:** Color extraction evaluates saturation and population to ensure the most vibrant colors are chosen (even for colorful or black-and-white art) with graceful dark/monochrome fallbacks.
+* **Matching Colors:** The window automatically extracts colors from your song's album art using our new **custom K-Means algorithm**. It is incredibly lightweight, fast, and replaces heavy external libraries to keep your browser running fast.
+* **Smart Color Swatch Selection:** Evaluates saturation, population, and lighting levels across 4 separate analysis passes to pick the most vibrant colors for your interface, even with tricky or complex album artwork.
+* **Galaxy Mode & Theme Customization:** Go beyond defaults! Enable **Galaxy Mode** to enjoy animated floating background blobs and twinkling stars. Customize the colors using the slot picker and HSL sliders, or choose from beautiful presets like Orion, Sunset, Cyberpunk, and Aurora.
 * **Rounded Album Art & Drop Shadows:** Album covers feature a sleek `24px` border-radius with smooth clipping and a subtle, premium drop-shadow box.
 * **Advanced Visual Menu:** Dial in the look with adjustable **Blur** and **Darkness** options for the album cover background to make the lyrics pop.
 * **Font Control:** Choose from **thousands of fonts** available in the cloud and adjust the **Text Size**, **Alignment** (Left, Center, Right), **Line Spacing** and **Vertical Position**, to your liking.
@@ -48,10 +49,12 @@
 ### 🕹️ Full Control at Your Fingertips
 * **Universal Language Support:** Play/pause controls work perfectly regardless of your browser's display language. Uses direct HTML5 media elements state monitoring and a smart SVG path shape analyzer to translate click actions.
 * **Manual Cloud Search:** Can't find the right match? Search by Artist and Title to browse and pick the perfect version.
-* **Built-in Lyrics Editor:** Notice a typo or a lyric that's out of sync? Open the new popup editor to manually fix the text or timing tags, and save your custom version directly to your extension.
+* **Built-in Lyrics Editor:** Notice a typo or a lyric that's out of sync? Open the popup editor to manually fix the text or timing tags, and save your custom version directly to your extension. It is now restricted to a single window instance, automatically focusing your existing tab if you try to open it again!
+* **Theme-Adaptive Lyrics Editor:** The built-in Lyrics Editor now automatically styles itself to match your current custom Galaxy colors.
 * **Built-in Controls:** Pause, skip, or scrub through the song using the seeker bar directly inside the floating window.
 * **Timing Fixes:** Use the Sync Offset buttons to line up lyrics perfectly. Use the **"Set Global"** button to set a universal timing baseline for your entire library.
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
+* **Automatic Cloud Settings Sync:** Your visual settings, option preferences, and custom theme configs now automatically synchronize across all of your Chrome browsers/devices (with a simple toggle to use local storage instead).
 * **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
 * **Dynamic Help Button:** A handy "Help, how to use Flying Lyrics ??" button appears in the extension popup for quick access to setup and onboarding guides.
 
@@ -60,8 +63,10 @@
 
 ### ⚡ Smarter Performance & Polished Experience
 * **Tiered Lyric Searching:** Smarter and faster lyric lookups! Dynamically adjusts search depth based on whether synced candidates exist (e.g. Netease vs LRCLIB) to reduce network waste and rate limiting.
-* **Silky Smooth Animations:** The lyrics scrolling engine is incredibly lightweight, reducing CPU usage while delivering butter-smooth animations.
+* **Silky Smooth Animations:** The lyrics scrolling engine is incredibly lightweight and uses **frame-rate independent scrolling (delta-time physics)** to deliver butter-smooth animation whether you're using a standard 30Hz/60Hz display or a high-refresh rate screen.
 * **Cinematic Scroll Easing:** Large timing jumps instantly teleport close to the destination line before smoothly easing in, eliminating lag spikes.
+* **Eco Mode (Reduce CPU):** Using a low-power or older device? Enable **Eco Mode** in settings to cap the canvas renderer at 30 FPS and significantly reduce CPU/battery usage.
+* **Background Cache Rendering:** Uses a smart offscreen background canvas cache for blurred visuals, saving CPU cycles by avoiding heavy real-time CSS/canvas filters on every frame.
 * **Battery Saver (Idle Throttle):** Canvas drawing frame rates automatically drop to ~4fps when playback is paused and the layout is static, reducing CPU wakeups to save battery.
 * **Welcome Onboarding Guide:** First time installing? A brand-new setup guide (featuring a video tutorial at https://youtu.be/f-DYtvHDSas) will walk you through exactly how to launch the floating window. If no active player is found, it can automatically open YouTube Music for you.
 * **Handy Tooltips & Indicators:** Hover over the progress bar to see exact timestamps before skipping, and get clearer status bubbles that tell you if lyrics are synced, unsynced, or still retrying.
