@@ -615,8 +615,14 @@
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
         // If the cover is essentially monochromatic (B&W), skip colorizing
-        if (hsl.s < 0.17) return '#1e1e1e';
-        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.20), 0.40);
+        if (hsl.s < 0.17) return '#181818';
+
+        // Check if hue falls in the warm/sludge range (yellows, olives, oranges)
+        const isWarmSludgeHue = hsl.h >= 0.08 && hsl.h <= 0.25;
+        const targetS = isWarmSludgeHue ? Math.min(hsl.s, 0.40) : Math.max(hsl.s, 0.20);
+        const targetL = isWarmSludgeHue ? 0.24 : 0.40;
+
+        return fl.hslToRgb(hsl.h, targetS, targetL);
     }
 
     fl.deriveLightBg = function (vibrantColorStr) {
@@ -626,8 +632,14 @@
         const [r, g, b] = match.map(Number);
         const hsl = fl.rgbToHsl(r, g, b);
         // If the cover is essentially monochromatic (B&W), skip colorizing
-        if (hsl.s < 0.17) return '#3a3a3a';
-        return fl.hslToRgb(hsl.h, Math.max(hsl.s, 0.15), 0.60);
+        if (hsl.s < 0.17) return '#2d2d2d';
+
+        // Check if hue falls in the warm/sludge range (yellows, olives, oranges)
+        const isWarmSludgeHue = hsl.h >= 0.08 && hsl.h <= 0.25;
+        const targetS = isWarmSludgeHue ? Math.min(hsl.s, 0.40) : Math.max(hsl.s, 0.15);
+        const targetL = isWarmSludgeHue ? 0.46 : 0.60;
+
+        return fl.hslToRgb(hsl.h, targetS, targetL);
     }
 
     fl.updateCenteredArt = function (artUrl) {

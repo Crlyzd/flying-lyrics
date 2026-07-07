@@ -125,9 +125,9 @@
                     const hsl = fl.rgbToHsl(c.r, c.g, c.b);
                     if (hsl.l < 0.12 || hsl.l > 0.88 || hsl.s < 0.12) continue;
 
-                    const popWeight = Math.log(1 + c.count);
-                    const satWeight = hsl.s * hsl.s;
-                    const lumaWeight = 1 - Math.abs(hsl.l - 0.55) * 2;
+                    const popWeight = c.count; // Linear population weight prevents tiny vibrant specks from easily dominating
+                    const satWeight = hsl.s;   // Linear saturation weight gives a fairer chance to less saturated background colors
+                    const lumaWeight = 1 - Math.abs(hsl.l - 0.5) * 0.6; // Gentle luma penalty to avoid over-filtering dark/light backdrops
                     const score = popWeight * satWeight * lumaWeight;
 
                     if (score > highestScore) {
