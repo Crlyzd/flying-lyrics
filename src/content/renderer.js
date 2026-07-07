@@ -512,6 +512,16 @@
         }
     };
 
+    fl.queueNextFrame = function (callback) {
+        if (!fl.ecoMode && fl.activePipType === 'video') {
+            // Bypass Chrome's background tab requestAnimationFrame throttling via high-frequency setTimeout
+            window.setTimeout(callback, 16.6);
+        } else {
+            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
+            nextFrame(callback);
+        }
+    };
+
     fl.renderLoop = function () {
         if (!fl.pipWin || (fl.activePipType !== 'video' && fl.pipWin.closed)) return;
 
@@ -522,8 +532,7 @@
             const now = performance.now();
             const elapsed = now - (fl.lastFrameTimeMs || 0);
             if (elapsed < 33.3 - 2) { // 30 FPS cap with 2ms jitter tolerance
-                const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
-                nextFrame(fl.renderLoop);
+                fl.queueNextFrame(fl.renderLoop);
                 return;
             }
             fl.lastFrameTimeMs = now;
@@ -656,7 +665,10 @@
 
         if (fl.activePipType === 'video') {
             if (!fl.canvas) {
-                return fl.pipWin ? window.requestAnimationFrame(fl.renderLoop) : null;
+                if (fl.pipWin) {
+                    fl.queueNextFrame(fl.renderLoop);
+                }
+                return null;
             }
         } else {
             if (!fl.canvas || !fl.pipWin.document.body.contains(fl.canvas)) {
@@ -668,8 +680,8 @@
             }
         }
         if (!fl.canvas) {
-            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
-            return nextFrame(fl.renderLoop);
+            fl.queueNextFrame(fl.renderLoop);
+            return;
         }
         if (!fl.ctx) fl.ctx = fl.canvas.getContext('2d');
 
@@ -679,8 +691,8 @@
         // Bail out if the PiP window hasn't finished laying out yet (can happen on the very first frame).
         // Re-queuing the loop is cheaper than drawing garbage into a 0x0 canvas.
         if (w <= 0 || h <= 0) {
-            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
-            return nextFrame(fl.renderLoop);
+            fl.queueNextFrame(fl.renderLoop);
+            return;
         }
 
         // --- CANVAS RESIZE GUARD ---
@@ -809,7 +821,7 @@
         // --- Optimization / Bounds Checking ---
         // If the window is too small, the CSS overlay is showing and the canvas is hidden.
         if (fl.activePipType !== 'video' && (w < 140 || h < 140)) {
-            fl.pipWin.requestAnimationFrame(fl.renderLoop);
+            fl.queueNextFrame(fl.renderLoop);
             return;
         }
 
@@ -968,7 +980,7 @@
             fl.lastAnimationTimeMs = null; // Reset timing on teleport to keep subsequent glide smooth
         } else {
             // Easing constant (k = 6.0 yields a speed equivalent to the previous 0.1 factor at 60 FPS)
-            const k = 6.0;
+            const k = fl.ecoMode ? 6.0 : 9.0;
             const decay = 1 - Math.exp(-k * clippedDt);
             fl.scrollPos += scrollDelta * Math.min(1, decay);
         }
@@ -1125,15 +1137,14 @@
         // while glow is active — but glow forces a repaint via the continuous rAF loop
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
-        const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
             timerHost.setTimeout(() => {
                 fl.lastAnimationTimeMs = null; // Reset timing after waking up from sleep throttle
-                nextFrame(fl.renderLoop);
+                fl.queueNextFrame(fl.renderLoop);
             }, 250);
         } else {
-            nextFrame(fl.renderLoop);
+            fl.queueNextFrame(fl.renderLoop);
         }
     }
 
