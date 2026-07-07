@@ -513,12 +513,15 @@
     };
 
     fl.queueNextFrame = function (callback) {
-        if (!fl.ecoMode && fl.activePipType === 'video') {
-            // Bypass Chrome's background tab requestAnimationFrame throttling via high-frequency setTimeout
-            window.setTimeout(callback, 16.6);
-        } else {
-            const nextFrame = fl.activePipType === 'video' ? window.requestAnimationFrame : fl.pipWin.requestAnimationFrame;
-            nextFrame(callback);
+        if (fl.activePipType === 'video') {
+            if (!fl.ecoMode) {
+                // Bypass Chrome's background tab requestAnimationFrame throttling via high-frequency setTimeout
+                window.setTimeout(callback, 16.6);
+            } else {
+                window.requestAnimationFrame(callback);
+            }
+        } else if (fl.activePipType === 'document' && fl.pipWin && !fl.pipWin.closed) {
+            fl.pipWin.requestAnimationFrame(callback);
         }
     };
 
