@@ -925,7 +925,7 @@
             // OPT-1: O(1) Set lookup instead of Array.includes() for system message detection.
             const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text);
             const isWaitForIt = fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...";
-            const fontScale = (isSystemMessage && !isWaitForIt) ? 1 : (fl.userFontSize / 18);
+            const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
             // Target width for the active line fit
             const fitWidth = maxWidth * 0.75;
@@ -1076,7 +1076,8 @@
         const isGlowDynamic = fl.userGlowEnabled && fl.userLyricShadowEnabled && !fl.ecoMode;
         const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !isGlowDynamic;
 
-        const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
+        const isWaitForItGlobal = fl.lyricLines.length === 1 && fl.lyricLines[0]?.text === "Wait for it...";
+        const anchorOffset = isWaitForItGlobal ? 0 : (((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5);
         const isWaiting = fl.isWaitingState;
 
         fl.ctx.save();
@@ -1141,7 +1142,7 @@
 
                     // Mirror the layout block's sizing logic exactly so draw positions
                     // match the pre-computed offsets in cachedLayout.
-                    const fontScale = (isSystemMessage && !isWaitForIt) ? 1 : (fl.userFontSize / 18);
+                    const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
                     // OPT-2: Reuse the mainSize already computed in the layout pass.
                     // For the active line this avoids a second calculateFitSize → measureText call.
