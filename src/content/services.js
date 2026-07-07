@@ -539,15 +539,31 @@
             });
             if (abortSignal?.aborted) throw new Error('TrackChanged');
 
-            const raw = resData?.syncedLyrics || resData?.plainLyrics || "";
-            if (raw) fl.activeLyricSource = { type: 'api', id: override.id, name: resData.trackName || key, synced: !!resData.syncedLyrics };
+            if (!resData) return ""; // Network/API error: fall back to auto-search
+
+            let raw = resData.syncedLyrics || resData.plainLyrics || "";
+            if (!raw) {
+                // Explicitly found in database but has no lyrics (instrumental or empty)
+                raw = resData.instrumental 
+                    ? "[00:00.00] ♫ (Instrumental) ♫" 
+                    : "[00:00.00] ♫ (No Lyrics Available) ♫";
+            }
+            fl.activeLyricSource = { type: 'api', id: override.id, name: resData.trackName || key, synced: !!resData.syncedLyrics || !!resData.instrumental };
             return raw;
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
                 chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
             });
-            const raw = resMsg?.lyric || "";
-            if (raw) fl.activeLyricSource = { type: 'netease', id: resMsg?.id || override.id, name: resMsg?.name || key };
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+
+            if (!resMsg) return ""; // Network/API error: fall back to auto-search
+
+            let raw = resMsg.lyric || "";
+            if (!raw) {
+                // Explicitly found in database but has no lyrics
+                raw = "[00:00.00] ♫ (No Lyrics Available) ♫";
+            }
+            fl.activeLyricSource = { type: 'netease', id: resMsg.id || override.id, name: resMsg.name || key };
             return raw;
         }
         return "";
