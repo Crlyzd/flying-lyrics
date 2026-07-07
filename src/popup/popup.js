@@ -1159,6 +1159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             customFontContainer.style.display = 'none';
             glowPreview.style.fontFamily = val;
             saveAndNotify({ customFont: val });
+            clearCustomFontSelection();
         }
     });
 
@@ -1863,6 +1864,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fontFamilySelect.value = pipDefaults.customFont;
             customFontContainer.style.display = 'none';
             glowPreview.style.fontFamily = pipDefaults.customFont;
+            clearCustomFontSelection();
 
             fontSizeSlider.value = 5;
             fontSizeValue.textContent = 5;
@@ -2122,6 +2124,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+    }
+
+    function clearCustomFontSelection() {
+        currentlyAppliedFont = "";
+        currentlyLoadingFont = "";
+        fontResultsContainer.querySelectorAll('.google-font-item').forEach(card => {
+            const checkSpan = card.querySelector('.google-font-check');
+            if (checkSpan) {
+                checkSpan.className = 'google-font-check';
+            }
+        });
     }
 
     // =========================================================
