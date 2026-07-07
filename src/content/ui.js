@@ -584,16 +584,32 @@
             fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
             
             fontLink.onload = () => {
-                targetDoc.fonts.load(`1em "${fontName}"`).then(() => {
-                    chrome.runtime.sendMessage({
-                        type: 'FONT_LOADED_IN_PIP',
-                        payload: { fontName: fontName }
+                // Yield one frame to ensure browser's CSSOM @font-face registry is fully updated
+                requestAnimationFrame(() => {
+                    targetDoc.fonts.load(`1em "${fontName}"`).then(() => {
+                        if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+                        fl.hasDrawnIdleFrame = false;
+                        chrome.runtime.sendMessage({
+                            type: 'FONT_LOADED_IN_PIP',
+                            payload: { fontName: fontName, success: true }
+                        });
+                    }).catch(() => {
+                        if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+                        fl.hasDrawnIdleFrame = false;
+                        chrome.runtime.sendMessage({
+                            type: 'FONT_LOADED_IN_PIP',
+                            payload: { fontName: fontName, success: false }
+                        });
                     });
-                }).catch(() => {
-                    chrome.runtime.sendMessage({
-                        type: 'FONT_LOADED_IN_PIP',
-                        payload: { fontName: fontName }
-                    });
+                });
+            };
+            
+            fontLink.onerror = () => {
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+                fl.hasDrawnIdleFrame = false;
+                chrome.runtime.sendMessage({
+                    type: 'FONT_LOADED_IN_PIP',
+                    payload: { fontName: fontName, success: false }
                 });
             };
             

@@ -396,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (matchedOption) {
             fontFamilySelect.value = items.customFont;
             customFontContainer.style.display = 'none';
+            currentlyAppliedFont = items.customFont;
         } else {
             // It's a custom font — show the search UI and load it for preview
             fontFamilySelect.value = 'custom';
@@ -957,8 +958,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 globalOffsetInput.value = currentGlobalOffset;
             }
         } else if (msg.type === 'FONT_LOADED_IN_PIP') {
-            const fontName = msg.payload.fontName;
-            onFontFinishedLoading(fontName);
+            const { fontName, success } = msg.payload;
+            onFontFinishedLoading(fontName, success !== false);
         } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
             activeSource = msg.payload;
             resultsContainer.querySelectorAll('.sync-spinner').forEach(s => s.remove());
@@ -1242,18 +1243,33 @@ document.addEventListener('DOMContentLoaded', () => {
         checkIfPipOpen().then(isOpen => {
             if (isOpen) {
                 // Wait for FONT_LOADED_IN_PIP message from the tab.
-                // We still update the local preview URL
-                link.href = fontUrl;
+                if (link.href !== fontUrl) {
+                    link.href = fontUrl;
+                }
             } else {
-                // Wait for local popup load
-                link.href = fontUrl;
-                link.onload = () => {
+                if (link.href === fontUrl) {
+                    // Already loaded locally, resolve immediately
                     document.fonts.load(`1em "${fontName}"`).then(() => {
-                        onFontFinishedLoading(fontName);
+                        onFontFinishedLoading(fontName, true);
                     }).catch(() => {
-                        onFontFinishedLoading(fontName);
+                        onFontFinishedLoading(fontName, false);
                     });
-                };
+                } else {
+                    // Wait for local popup load
+                    link.onload = () => {
+                        requestAnimationFrame(() => {
+                            document.fonts.load(`1em "${fontName}"`).then(() => {
+                                onFontFinishedLoading(fontName, true);
+                            }).catch(() => {
+                                onFontFinishedLoading(fontName, false);
+                            });
+                        });
+                    };
+                    link.onerror = () => {
+                        onFontFinishedLoading(fontName, false);
+                    };
+                    link.href = fontUrl;
+                }
             }
         });
 
@@ -2117,10 +2133,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function onFontFinishedLoading(fontName) {
+    function onFontFinishedLoading(fontName, success = true) {
         if (currentlyLoadingFont === fontName) {
             currentlyLoadingFont = "";
-            currentlyAppliedFont = fontName;
+            
+            if (success) {
+                currentlyAppliedFont = fontName;
+            } else {
+                // Revert UI to the last successful font
+                if (fontFamilySelect) {
+                    const matchedOption = Array.from(fontFamilySelect.options).find(opt => opt.value === currentlyAppliedFont);
+                    if (matchedOption) {
+                        fontFamilySelect.value = currentlyAppliedFont;
+                    } else {
+                        fontFamilySelect.value = 'custom';
+                        customFontInput.value = currentlyAppliedFont;
+                    }
+                }
+            }
 
             // Update the checkmarks in results
             fontResultsContainer.querySelectorAll('.google-font-item').forEach(card => {
@@ -2128,9 +2158,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const checkSpan = card.querySelector('.google-font-check');
                 if (nameSpan && checkSpan) {
                     if (nameSpan.textContent === fontName) {
+                        if (success) {
+                            checkSpan.textContent = '✓';
+                            checkSpan.className = 'google-font-check active';
+                            checkSpan.removeAttribute('title');
+                        } else {
+                            checkSpan.textContent = '⚠️';
+                            checkSpan.className = 'google-font-check active error';
+                            checkSpan.title = 'Failed to load font. Using system fallback.';
+                        }
+                    } else if (nameSpan.textContent === currentlyAppliedFont) {
+                        checkSpan.textContent = '✓';
                         checkSpan.className = 'google-font-check active';
+                        checkSpan.removeAttribute('title');
                     } else {
                         checkSpan.className = 'google-font-check';
+                        checkSpan.textContent = '✓';
+                        checkSpan.removeAttribute('title');
                     }
                 }
             });

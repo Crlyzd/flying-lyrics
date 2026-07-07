@@ -1829,6 +1829,11 @@ select option[value="request_language"] {
     overflow: hidden;
 }
 
+.google-font-check.error {
+    color: #ff9f43; /* warning orange */
+    cursor: help;
+}
+
 .font-chip {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);

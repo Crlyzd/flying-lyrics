@@ -183,6 +183,9 @@
             const pipWin = await video.requestPictureInPicture();
             fl.pipWin = pipWin;
             fl.activePipType = 'video';
+            if (typeof fl.applyVisualSettings === 'function') {
+                fl.applyVisualSettings();
+            }
             fl.pipSessionId = (fl.pipSessionId || 0) + 1;
             fl.hasAutoLaunched = true;
 
