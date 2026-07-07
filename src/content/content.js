@@ -33,6 +33,7 @@
     fl.userGlowEnabled = fl.defaults.glowEnabled;
     fl.userGlowStyle = fl.defaults.glowStyle;
     fl.userSpotlightEnabled = fl.defaults.spotlightEnabled;
+    fl.userLyricShadowEnabled = fl.defaults.lyricShadowEnabled;
     fl.userLyricAlignment = fl.defaults.lyricAlignment;
     fl.userLineSpacing = fl.defaults.lineSpacing;
     fl.userVerticalAnchor = fl.defaults.verticalAnchor;
@@ -180,6 +181,7 @@
                         glowEnabled: fl.userGlowEnabled,
                         glowStyle: fl.userGlowStyle,
                         spotlightEnabled: fl.userSpotlightEnabled,
+                        lyricShadowEnabled: fl.userLyricShadowEnabled,
                         lyricAlignment: fl.userLyricAlignment,
                         lineSpacing: fl.userLineSpacing,
                         verticalAnchor: fl.userVerticalAnchor,
@@ -221,6 +223,7 @@
         fl.userGlowEnabled = items.glowEnabled;
         fl.userGlowStyle = items.glowStyle;
         fl.userSpotlightEnabled = items.spotlightEnabled;
+        fl.userLyricShadowEnabled = items.lyricShadowEnabled ?? true; // default true for existing installs
         fl.userLyricAlignment = items.lyricAlignment;
         fl.userLineSpacing = items.lineSpacing;
         fl.userVerticalAnchor = items.verticalAnchor;
@@ -381,6 +384,12 @@
             if (p.spotlightEnabled !== undefined) {
                 fl.userSpotlightEnabled = p.spotlightEnabled;
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+            }
+            if (p.lyricShadowEnabled !== undefined) {
+                fl.userLyricShadowEnabled = p.lyricShadowEnabled;
+                // Shadow toggle doesn't change layout metrics (no relayout needed).
+                // Clearing the idle flag is enough to wake the loop for one immediate redraw.
+                fl.hasDrawnIdleFrame = false;
             }
 
             if (p.lyricAlignment !== undefined) {

@@ -321,7 +321,18 @@
         let currentY = growUpwards ? y - ((lines.length - 1) * lineHeight) : y;
 
         for (let k = 0; k < lines.length; k++) {
-            if (doStroke) ctx.strokeText(lines[k], x, currentY);
+            if (doStroke) {
+                ctx.strokeText(lines[k], x, currentY);
+            } else if (!fl.userLyricShadowEnabled) {
+                // Shadow OFF: draw cheap vector outline for readability contrast
+                // instead of the expensive Gaussian shadowBlur convolution.
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+                ctx.lineWidth = Math.max(2, lineHeight * 0.08);
+                ctx.lineJoin = 'round';
+                ctx.strokeText(lines[k], x, currentY);
+                ctx.restore();
+            }
             ctx.fillText(lines[k], x, currentY);
             currentY += lineHeight;
         }

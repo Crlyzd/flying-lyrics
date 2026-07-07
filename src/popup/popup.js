@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleGlow = document.getElementById('toggle-glow');
     const glowPerfWarning = document.getElementById('glow-perf-warning');
     const toggleSpotlight = document.getElementById('toggle-spotlight');
+    const toggleLyricShadow = document.getElementById('toggle-lyric-shadow');
     const glowStyleContainer = document.getElementById('glow-style-container');
     const glowStyleSelect = document.getElementById('glow-style-select');
     const alignSelect = document.getElementById('align-select');
@@ -363,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fallbackDefaults = {
         showTranslation: true, translationLang: getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
+        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
         lastPipWidth: 200, lastPipHeight: 250,
@@ -450,6 +451,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleSpotlight.checked = items.spotlightEnabled;
         glowPreview.classList.toggle('highlighted', items.spotlightEnabled);
+
+        toggleLyricShadow.checked = items.lyricShadowEnabled ?? true;
 
         // Load song vibrant color from local storage (written by extractPalette in content script).
         // Apply it as --glow-color so the preview matches the current song's album art color.
@@ -1524,6 +1527,11 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ spotlightEnabled: toggleSpotlight.checked });
     });
 
+    // Lyric Shadow Toggle
+    toggleLyricShadow.addEventListener('change', () => {
+        saveAndNotify({ lyricShadowEnabled: toggleLyricShadow.checked });
+    });
+
     // Glow Style
     glowStyleSelect.addEventListener('change', () => {
         const val = glowStyleSelect.value;
@@ -1855,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pipDefaults = {
                 customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricAlignment: 'center',
+                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
                 lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false,
                 lastPipWidth: 200, lastPipHeight: 250
             };
@@ -1894,6 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleGlow.checked = false;
             glowPerfWarning.style.display = 'none';
             toggleSpotlight.checked = false;
+            toggleLyricShadow.checked = true;
             glowPreview.classList.remove('active', 'rainbow', 'highlighted');
             glowStyleContainer.style.display = 'none';
             glowStyleSelect.value = 'theme';

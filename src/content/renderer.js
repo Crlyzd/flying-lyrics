@@ -163,8 +163,13 @@
         const drawX = 0;
 
         fl.ctx.save();
-        fl.ctx.shadowColor = activeColor;
-        fl.ctx.shadowBlur = 15;
+        // Shadow is controlled by the user's Lyric Shadow toggle, not Eco Mode.
+        if (fl.userLyricShadowEnabled) {
+            fl.ctx.shadowColor = activeColor;
+            fl.ctx.shadowBlur = 15;
+        } else {
+            fl.ctx.shadowBlur = 0;
+        }
         fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
         fl.ctx.fillStyle = "#FFFFFF";
         fl.ctx.textAlign = 'center';
@@ -195,7 +200,8 @@
         fl.ctx.restore();
 
         // Draw Wide Equalizer at the bottom (growing downwards)
-        const barCount = 35;
+        // ECO-5: Reduce bar count in Eco Mode to cut per-frame draw calls by ~57%.
+        const barCount = fl.ecoMode ? 15 : 35;
         const totalW = maxWidth * 0.65;
         const barW = (totalW / barCount) * 0.7;
         const barGap = (totalW / barCount) * 0.3;
@@ -214,8 +220,13 @@
         grad.addColorStop(0, activeColor);
         grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
         fl.ctx.fillStyle = grad;
-        fl.ctx.shadowColor = activeColor;
-        fl.ctx.shadowBlur = 10;
+        // Equalizer shadow is controlled by the Lyric Shadow toggle.
+        if (fl.userLyricShadowEnabled) {
+            fl.ctx.shadowColor = activeColor;
+            fl.ctx.shadowBlur = 10;
+        } else {
+            fl.ctx.shadowBlur = 0;
+        }
 
         for (let b = 0; b < barCount; b++) {
             const distFromCenter = Math.abs(b - (barCount - 1) / 2) / ((barCount - 1) / 2);
@@ -243,7 +254,9 @@
             // --- AURORA SLOSH: three soft radial blobs (green, blue, purple) ---
             // Each blob has an independently shifting center using different sin/cos
             // frequencies, so they drift past each other in a slow organic slosh.
-            const t = performance.now() * 0.0002; // master time (slow)
+            // ECO-8: Freeze the aurora master time constant so gradient centers don't
+            // move, eliminating per-frame radial gradient recalculation overhead.
+            const t = fl.ecoMode ? 0.5 : performance.now() * 0.0002; // master time (slow)
             const diag = Math.sqrt(w * w + h * h);
             const blobR = diag * 0.65; // radius large enough to fill the canvas softly
 
@@ -275,20 +288,25 @@
             fl.ctx.globalCompositeOperation = 'source-over';
 
             // --- SPARKLES / STARS EFFECT ---
-            if (!fl.waitingSparkles) {
-                fl.waitingSparkles = [];
-                for (let i = 0; i < 25; i++) {
-                    const maxOpacity = (0.3 + Math.random() * 0.5) * 0.7; // 30% reduction (multiplied by 0.7)
-                    fl.waitingSparkles.push({
-                        x: Math.random(),
-                        y: Math.random(),
-                        size: 1.5 + Math.random() * 2,
-                        opacity: Math.random() * maxOpacity,
-                        maxOpacity: maxOpacity,
-                        speed: (0.005 + Math.random() * 0.01) / 6, // 6 times longer fade in/out (divided by 6)
-                        phase: Math.random() > 0.5 ? 'in' : 'out'
-                    });
-                }
+            // C3-FIX (ECO-5): Trim or grow the existing sparkle array instead of
+            // reinitializing it wholesale on eco mode toggle. Full reinit would wipe
+            // all opacity/phase state mid-animation, causing a visible flicker.
+            const maxSparkles = fl.ecoMode ? 8 : 25;
+            if (!fl.waitingSparkles) fl.waitingSparkles = [];
+            // Trim excess sparkles (switching non-eco→eco)
+            while (fl.waitingSparkles.length > maxSparkles) fl.waitingSparkles.pop();
+            // Grow missing sparkles (switching eco→non-eco or first init)
+            while (fl.waitingSparkles.length < maxSparkles) {
+                const maxOpacity = (0.3 + Math.random() * 0.5) * 0.7;
+                fl.waitingSparkles.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    size: 1.5 + Math.random() * 2,
+                    opacity: Math.random() * maxOpacity,
+                    maxOpacity: maxOpacity,
+                    speed: (0.005 + Math.random() * 0.01) / 6,
+                    phase: Math.random() > 0.5 ? 'in' : 'out'
+                });
             }
 
             for (const s of fl.waitingSparkles) {
@@ -518,10 +536,19 @@
                 // Bypass Chrome's background tab requestAnimationFrame throttling via high-frequency setTimeout
                 window.setTimeout(callback, 16.6);
             } else {
-                window.requestAnimationFrame(callback);
+                // C2-FIX (ECO-1): For Video PiP, rAF is irrelevant (canvas feeds a <video> stream).
+                // A flat 50ms timer gives a clean ~20 FPS without the double-delay of setTimeout→rAF.
+                window.setTimeout(callback, 50);
             }
         } else if (fl.activePipType === 'document' && fl.pipWin && !fl.pipWin.closed) {
-            fl.pipWin.requestAnimationFrame(callback);
+            if (fl.ecoMode) {
+                // ECO-1: Document PiP rAF is gated by pipWin's display refresh rate (can be 144Hz).
+                // Delay by 30ms first to throttle to ~30 FPS max.
+                const timerHost = fl.pipWin;
+                timerHost.setTimeout(() => fl.pipWin && !fl.pipWin.closed && fl.pipWin.requestAnimationFrame(callback), 30);
+            } else {
+                fl.pipWin.requestAnimationFrame(callback);
+            }
         }
     };
 
@@ -531,10 +558,13 @@
         fl.isRenderLoopRunning = true;
 
         // --- FPS Limit Throttling (Eco Mode) ---
+        // ECO-5: In the waiting (no-music) state, throttle even harder to ~12 FPS.
+        // isWaitingState is safe to call here; it's a getter defined on fl in config.js.
         if (fl.ecoMode) {
             const now = performance.now();
             const elapsed = now - (fl.lastFrameTimeMs || 0);
-            if (elapsed < 33.3 - 2) { // 30 FPS cap with 2ms jitter tolerance
+            const ecoTargetDelay = fl.isWaitingState ? 83.3 : 33.3; // 12 FPS waiting, 30 FPS playing
+            if (elapsed < ecoTargetDelay - 2) {
                 fl.queueNextFrame(fl.renderLoop);
                 return;
             }
@@ -688,8 +718,19 @@
         }
         if (!fl.ctx) fl.ctx = fl.canvas.getContext('2d');
 
-        const w = fl.activePipType === 'video' ? fl.pipWin.width : fl.pipWin.innerWidth;
-        const h = fl.activePipType === 'video' ? fl.pipWin.height : fl.pipWin.innerHeight;
+        let w = fl.activePipType === 'video' ? fl.pipWin.width : fl.pipWin.innerWidth;
+        let h = fl.activePipType === 'video' ? fl.pipWin.height : fl.pipWin.innerHeight;
+
+        // ECO-7: Cap canvas internal resolution to 480px max (browser upscales via CSS).
+        // Cuts GPU fill-rate by up to 65% on large windows; text softens slightly.
+        if (fl.ecoMode) {
+            const maxRes = 480;
+            if (w > maxRes || h > maxRes) {
+                const scale = maxRes / Math.max(w, h);
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+            }
+        }
 
         // Bail out if the PiP window hasn't finished laying out yet (can happen on the very first frame).
         // Re-queuing the loop is cheaper than drawing garbage into a 0x0 canvas.
@@ -823,9 +864,42 @@
 
         // --- Optimization / Bounds Checking ---
         // If the window is too small, the CSS overlay is showing and the canvas is hidden.
+        // OPT-6 (Universal): Sleep 500ms between checks to cut loop thrashing from 144Hz to 2Hz.
         if (fl.activePipType !== 'video' && (w < 140 || h < 140)) {
-            fl.queueNextFrame(fl.renderLoop);
+            const timerHost = fl.pipWin || window;
+            timerHost.setTimeout(() => fl.queueNextFrame(fl.renderLoop), 500);
             return;
+        }
+
+        // OPT-4 (Universal): Skip all drawing when the track is paused and scroll has settled.
+        // We draw exactly ONE idle frame to capture any seek or state change, then suspend
+        // the draw loop. The CPU cost during pause drops to ~0% in Eco Mode, and avoids
+        // redundant clears/redraws in Non-Eco Mode too.
+        // Uses fl.isWaitingState getter (defined in config.js) to avoid variable collision.
+        const _isScrollSettled = Math.abs(fl.targetScroll - fl.scrollPos) < 0.1;
+        const _isLoopIdle = _isScrollSettled && !fl.needsLayoutUpdate && !(fl.userGlowEnabled && !fl.ecoMode);
+        if (_isLoopIdle && state.paused && !fl.isWaitingState) {
+            if (fl.hasDrawnIdleFrame) {
+                // C1-FIX: Flag is latched here at the skip-return site, not inside the
+                // eco-only idle sleep block. This guarantees the flag is set the moment
+                // we confirm the draw is being skipped, regardless of eco mode.
+                if (fl.ecoMode) {
+                    const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
+                    timerHost.setTimeout(() => {
+                        fl.lastAnimationTimeMs = null;
+                        fl.queueNextFrame(fl.renderLoop);
+                    }, 250);
+                } else {
+                    // Non-eco: re-queue immediately but skip the draw. CPU wakeup rate
+                    // is reduced because the rAF host (pipWin) only fires at display rate,
+                    // but the draw itself is bypassed — saving all clearRect/drawImage costs.
+                    fl.queueNextFrame(fl.renderLoop);
+                }
+                return;
+            }
+            // First idle frame: let it fall through and render once, then latch the flag.
+        } else {
+            fl.hasDrawnIdleFrame = false;
         }
 
         fl.ctx.clearRect(0, 0, w, h);
@@ -995,7 +1069,12 @@
         // the active index hasn't changed (static rendering), the canvas content is static.
         // Drop to ~4fps to save CPU/battery. The threshold of 0.1px is imperceptible.
         const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-        const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !fl.userGlowEnabled;
+        // isGlowDynamic: glow only produces a continuously-changing canvas (via sine-wave shadowBlur pulse)
+        // when ALL THREE are true: glow is enabled, shadow blur is on, AND eco mode is off.
+        // If any of those is false, the active line is rendered with a static shadow value and the
+        // canvas can be considered idle — allowing the 250ms sleep throttle to fire.
+        const isGlowDynamic = fl.userGlowEnabled && fl.userLyricShadowEnabled && !fl.ecoMode;
+        const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !isGlowDynamic;
 
         const anchorOffset = ((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5;
         const isWaiting = fl.isWaitingState;
@@ -1049,9 +1128,16 @@
                     const isCurrent = (i === activeIdx);
                     const displayFontFamily = (isSystemMessage && !isWaitForIt) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
 
-                    // Universal Dark Shadow for all text
-                    fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                    fl.ctx.shadowBlur = 8;
+                    // Universal Dark Shadow for all text.
+                    // Controlled by the Lyric Shadow toggle — independent of Eco Mode.
+                    // When shadow is OFF, wrapText (utils.js) draws a cheap vector outline instead.
+                    if (fl.userLyricShadowEnabled) {
+                        fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                        fl.ctx.shadowBlur = 8;
+                    } else {
+                        fl.ctx.shadowBlur = 0;
+                        fl.ctx.shadowColor = 'transparent';
+                    }
 
                     // Mirror the layout block's sizing logic exactly so draw positions
                     // match the pre-computed offsets in cachedLayout.
@@ -1084,28 +1170,44 @@
                     // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
                     // fixed vibrant glow that already existed (subtle, palette-matched).
                     if (isCurrent) {
+                        // Shadow color for the glow stroke is controlled by Lyric Shadow toggle.
                         if (fl.userGlowEnabled && fl.userGlowStyle === 'rainbow') {
                             const timeSec = performance.now() / 1000;
                             const hue = (timeSec * 60) % 360;
-                            fl.ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
+                            if (fl.userLyricShadowEnabled) fl.ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
                             fl.ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
                         } else {
-                            fl.ctx.shadowColor = fl.currentPalette.vibrant;
+                            if (fl.userLyricShadowEnabled) fl.ctx.shadowColor = fl.currentPalette.vibrant;
                             fl.ctx.strokeStyle = fl.currentPalette.vibrant;
                         }
 
                         if (fl.userGlowEnabled && !isFastScroll) {
                             fl.ctx.lineWidth = Math.max(2, mainSize * 0.04);
-                            // Pulse between 10 and 40 shadow blur over ~2s cycle
-                            const glowTime = performance.now() / 1000;
-                            const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
-                            fl.ctx.shadowBlur = pulsedBlur;
-                            // Request a re-render next frame so the animation is continuous
-                            // (handled by the outer requestAnimationFrame loop in renderLoop)
-                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                            if (!fl.userLyricShadowEnabled) {
+                                // Shadow OFF: static colored stroke with no blur.
+                                fl.ctx.shadowBlur = 0;
+                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                            } else if (fl.ecoMode) {
+                                // ECO-3 + Shadow ON: static shadowBlur (no expensive sine-wave pulse).
+                                fl.ctx.shadowBlur = 15;
+                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                            } else {
+                                // Full: pulse between 10 and 40 shadow blur over ~2s cycle.
+                                const glowTime = performance.now() / 1000;
+                                const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
+                                fl.ctx.shadowBlur = pulsedBlur;
+                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                            }
                         } else {
-                            fl.ctx.shadowBlur = 15;
-                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                            if (!fl.userLyricShadowEnabled) {
+                                // Shadow OFF: no blur, no vibrant stroke in non-glow mode.
+                                fl.ctx.shadowBlur = 0;
+                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                            } else {
+                                // Shadow ON: fixed 15px shadow. wrapText draws fill; no extra stroke.
+                                fl.ctx.shadowBlur = 15;
+                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                            }
                         }
                     }
 
@@ -1116,8 +1218,14 @@
                         const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
                         const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
 
-                        fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                        fl.ctx.shadowBlur = 8;
+                        // Translation shadow controlled by Lyric Shadow toggle.
+                        if (fl.userLyricShadowEnabled) {
+                            fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                            fl.ctx.shadowBlur = 8;
+                        } else {
+                            fl.ctx.shadowBlur = 0;
+                            fl.ctx.shadowColor = 'transparent';
+                        }
 
                         fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
                         fl.ctx.fillStyle = isCurrent ? fl.currentPalette.trans : "#CCCCCC";
@@ -1140,13 +1248,20 @@
         // while glow is active — but glow forces a repaint via the continuous rAF loop
         // below. When glow is on and the track is paused we still want smooth glow,
         // so we skip throttling if glow is enabled too.
+        // OPT-4: Latch hasDrawnIdleFrame AFTER the draw is committed so the OPT-4
+        // early-exit at the top of the loop can skip all future redundant paused frames.
         if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
+            // C1-FIX: Set the flag here after a real draw completes while paused.
+            // This is the authoritative latch site — the early-exit guard reads this flag.
+            if (state.paused) fl.hasDrawnIdleFrame = true;
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
             timerHost.setTimeout(() => {
                 fl.lastAnimationTimeMs = null; // Reset timing after waking up from sleep throttle
                 fl.queueNextFrame(fl.renderLoop);
             }, 250);
         } else {
+            // Not idle — clear the latch so next pause starts fresh.
+            fl.hasDrawnIdleFrame = false;
             fl.queueNextFrame(fl.renderLoop);
         }
     }
@@ -1276,7 +1391,8 @@
             fl.ctx.beginPath();
             fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
             fl.ctx.fillStyle = dotColor;
-            if (dotGlowBlur > 0) {
+            // Sync badge dot glow controlled by Lyric Shadow toggle.
+            if (dotGlowBlur > 0 && fl.userLyricShadowEnabled) {
                 fl.ctx.shadowColor = dotGlowColor;
                 fl.ctx.shadowBlur  = dotGlowBlur;
             }

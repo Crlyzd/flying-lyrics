@@ -243,8 +243,6 @@
                 // has laid out the window. Skip the update in that case — renderLoop handles
                 // canvas sizing itself and will pick up the correct size on its next frame.
                 if (pipWin.width <= 0 || pipWin.height <= 0) return;
-                canvas.width = pipWin.width;
-                canvas.height = pipWin.height;
                 fl.needsLayoutUpdate = true;
             };
 
@@ -367,7 +365,7 @@
 
         // 3. Set up the canvas stream to the video if not already set
         if (!video.srcObject) {
-            const stream = canvas.captureStream(30);
+            const stream = canvas.captureStream(fl.ecoMode ? 20 : 30);
             video.srcObject = stream;
         }
 
