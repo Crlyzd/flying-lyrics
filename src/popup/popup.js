@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fallbackDefaults = {
         showTranslation: true, translationLang: getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-        coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
+        coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
         lastPipWidth: 200, lastPipHeight: 250,
@@ -1863,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pipDefaults = {
                 customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-                coverMode: 'default', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
+                coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
                 lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false,
                 lastPipWidth: 200, lastPipHeight: 250
             };

@@ -61,7 +61,7 @@ window.FLYING_LYRICS.defaults = {
     fontSize: 26,
     bgBlur: 2,
     bgDarkness: 40,
-    coverMode: 'default',
+    coverMode: 'centered',
     glowEnabled: false,
     glowStyle: 'theme',
     spotlightEnabled: false,

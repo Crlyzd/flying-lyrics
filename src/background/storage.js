@@ -19,6 +19,7 @@
             'glowEnabled',
             'glowStyle',
             'spotlightEnabled',
+            'lyricShadowEnabled',
             'lyricAlignment',
             'lineSpacing',
             'verticalAnchor',
