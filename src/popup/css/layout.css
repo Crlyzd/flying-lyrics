@@ -1,0 +1,580 @@
+/* =========================================================
+ *  POPUP WINDOW CONTAINER — outer clip frame
+ * ========================================================= */
+.popup-window-container {
+    position: relative;
+    width: 300px;
+    border-radius: 0;
+    overflow: hidden;
+    /* clips .popup-border-disk and .popup-slides to a rounded rect */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transition: opacity 0.08s ease-in-out;
+}
+
+body.loaded .popup-window-container {
+    opacity: 1;
+}
+
+/* Rotating disk — a large square behind popup-slides that physically spins.
+   The 2px margin on popup-slides creates a gap where the colored arc shows
+   as the border ring. var(--bg-galaxy) fills the 'off' portion of the gradient
+   so it blends with the popup background instead of leaking the OS frame color. */
+.popup-border-disk {
+    position: absolute;
+    width: 800px;
+    /* oversized so all corners stay covered during full rotation */
+    height: 800px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    /* Pre-blended in JavaScript as --accent-1, --accent-2, --accent-3.
+       Using them directly avoids dynamic per-pixel color-mix calculation during rotation! */
+    background: conic-gradient(var(--accent-1) 0%,
+            var(--accent-2) 33%,
+            var(--accent-3) 66%,
+            var(--accent-1) 100%);
+    animation: diskSpin 4s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+}
+
+@keyframes diskSpin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* =========================================================
+ *  POPUP SLIDES — inner content wrapper (sits inside border disk gap)
+ * ========================================================= */
+.popup-slides {
+    position: relative;
+    margin: 2px;
+    /* gap that reveals the rotating border disk */
+    border-radius: 0;
+    background-color: var(--bg-galaxy);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* =========================================================
+ *  FIXED HEADER & TAB SYSTEM
+ * ========================================================= */
+.popup-header-fixed {
+    position: sticky;
+    top: 0;
+    background-color: rgba(11, 9, 20, 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.logo-row h2 {
+    margin: 0;
+    padding: 12px 15px 8px 15px;
+    font-size: 16px;
+    text-align: center;
+    color: var(--accent) !important;
+    text-shadow: 0 0 8px var(--accent-glow);
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    transition: color 0.3s, text-shadow 0.3s;
+}
+
+.tab-bar {
+    display: flex;
+    background-color: rgba(22, 22, 22, 0.35);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 8px 0 6px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 600;
+    transition: color 0.2s, background-color 0.2s;
+    outline: none;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn svg {
+    transition: transform 0.2s;
+}
+
+.tab-btn:hover {
+    color: #ccc;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn:hover svg {
+    transform: scale(1.08);
+}
+
+.tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background-color: var(--accent-bg);
+}
+
+/* =========================================================
+ *  SCROLLABLE CONTENT AREA
+ * ========================================================= */
+.tab-content {
+    padding: 15px;
+    /* Right padding creates a visual gap between content and the scrollbar,
+       so the scrollbar doesn't run flush against the border. */
+    padding-right: 10px;
+    max-height: 480px;
+    overflow-y: auto;
+    background-color: transparent;
+}
+
+/* Tab-content custom scrollbar — overrides base.css global scrollbar
+   to use a slightly wider, offset thumb for the main content area */
+.tab-content::-webkit-scrollbar {
+    /* Increased from 4px to 8px; visible thumb will be ~5px wide
+   because the thumb uses a 3px transparent right border for gap */
+    width: 8px;
+}
+
+.tab-content::-webkit-scrollbar-track {
+    background: transparent;
+    margin-right: 2px;
+}
+
+.tab-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    /* 3px transparent border on the right = visual gap between thumb and panel edge */
+    border-right: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+.tab-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+    background-clip: padding-box;
+    border-right: 3px solid transparent;
+}
+
+.tab-pane {
+    display: none;
+}
+
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tab-pane.active {
+    display: block;
+    animation: tabFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* =========================================================
+ *  HEADER (Backwards compatibility — legacy .popup-header class)
+ * ========================================================= */
+.popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.popup-header h2 {
+    margin: 0;
+    font-size: 18px;
+    text-align: center;
+    color: var(--accent);
+    flex: 1;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 17px;
+    line-height: 1;
+    transition: background 0.18s, color 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: #282828;
+    color: white;
+}
+
+.icon-btn.phantom {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* =========================================================
+ *  CONTROL GROUPS — card-style section wrappers
+ * ========================================================= */
+.control-group {
+    margin-bottom: 15px;
+    background: rgba(30, 25, 45, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Fold: .margin-0 was only on toggle row labels — use contextual rule */
+.row>label {
+    margin: 0;
+}
+
+/* =========================================================
+ *  PANEL HEADER (used in slide-out sub-panels)
+ * ========================================================= */
+.panel-header-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Fold: .margin-right-8 was only on #btn-back */
+#btn-back {
+    margin-right: 8px;
+}
+
+.panel-title {
+    margin: 0;
+    font-size: 14px;
+    color: #1DB954;
+}
+
+/* =========================================================
+ *  FOOTER — base link styles (backwards-compat)
+ * ========================================================= */
+.footer a {
+    color: var(--accent);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+}
+
+.footer a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.footer .icon {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+/* =========================================================
+ *  FOOTER (redesigned System tab)
+ * ========================================================= */
+.footer {
+    margin-top: 18px;
+    border-top: 1px solid #1e1e1e;
+    padding-top: 14px;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.footer p {
+    margin: 0 0 6px;
+}
+
+.footer-tagline {
+    color: #888;
+    font-size: 10.5px;
+    margin-bottom: 10px;
+}
+
+/* Star strip */
+.star-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.star-label {
+    font-size: 11px;
+    color: #888;
+    transform: translateY(1.5px);
+}
+
+.stars {
+    display: flex;
+    gap: 2px;
+    cursor: pointer;
+}
+
+.stars span {
+    font-size: 17px;
+    color: #303030;
+    transition: color 0.1s, transform 0.1s;
+    line-height: 1;
+    display: inline-block;
+}
+
+/* Hover: light up entire strip up to the hovered star */
+.stars:hover span {
+    color: #ffcc00 !important;
+    transform: scale(1.15);
+}
+
+.stars span:hover~span {
+    color: #303030 !important;
+    transform: scale(1);
+}
+
+/* Rated state: saved yellow up to the chosen rating */
+.stars.rated span {
+    color: #ffcc00;
+}
+
+.stars.rated[data-rating="1"] span:nth-child(n+2) {
+    color: #303030;
+}
+
+.stars.rated[data-rating="2"] span:nth-child(n+3) {
+    color: #303030;
+}
+
+.stars.rated[data-rating="3"] span:nth-child(n+4) {
+    color: #303030;
+}
+
+.stars.rated[data-rating="4"] span:nth-child(n+5) {
+    color: #303030;
+}
+
+/* Row 3a: Credits & links */
+.footer-credits {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+/* Row 3b: Coffee / donation line */
+.footer-coffee {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.footer-credits a,
+.footer-coffee a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.footer-credits a:hover,
+.footer-coffee a:hover {
+    text-decoration: underline;
+}
+
+/* Thin separator between footer sections */
+.footer-sep {
+    border: none;
+    border-top: 1px solid #1e1e1e;
+    margin: 8px 0;
+}
+
+/* Bug / feature link — subtle grey, hot on hover */
+.footer-bug a {
+    color: #888;
+    text-decoration: none;
+    font-size: 10.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.15s;
+}
+
+.footer-bug a:hover {
+    color: #ff7070;
+}
+
+/* Telemetry toggle link — same color as bug link, no color change on hover */
+.footer-telemetry {
+    margin-top: 6px;
+}
+
+.footer-telemetry a {
+    color: #888;
+    text-decoration: none;
+    font-size: 10.5px;
+    cursor: pointer;
+}
+
+.footer-telemetry a:hover {
+    color: #888;
+    text-decoration: underline;
+}
+
+.footer-system {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 10px;
+}
+
+.red-heart {
+    color: #ff5555;
+}
+
+/* =========================================================
+ *  REVIEW TOAST BANNER
+ * ========================================================= */
+
+/* Outer positioning wrapper — adds margin inside the popup-slides context */
+.review-toast-margin {
+    margin: 12px 15px 0 15px;
+}
+
+#review-toast {
+    display: none;
+    flex-direction: row;
+    /* row: text-body left, ✕ right */
+    align-items: center;
+    /* ✕ vertically centred */
+    gap: 10px;
+    background: rgba(29, 185, 84, 0.1);
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 8px;
+    padding: 9px 10px 7px 12px;
+    margin-bottom: 0;
+    transition: background 0.2s;
+}
+
+#review-toast:hover {
+    background: rgba(29, 185, 84, 0.15);
+}
+
+/* Left column: the two text lines stacked, left-aligned */
+#review-toast-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+/* Line 1: main message */
+#review-toast-text {
+    font-size: 11px;
+    color: #1DB954;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1.3;
+}
+
+/* Line 2: snooze */
+#snooze-review-toast {
+    font-size: 10px;
+    color: #aaa;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.15s;
+}
+
+#snooze-review-toast:hover {
+    color: #fff;
+}
+
+/* Right side: ✕ vertically centred by parent align-items: center */
+#close-review-toast {
+    flex-shrink: 0;
+    color: #777;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px;
+    transition: color 0.15s;
+}
+
+#close-review-toast:hover {
+    color: #aaa;
+}
+
+/* Review toast — shown via class toggle instead of inline style */
+#review-toast.review-toast--visible {
+    display: flex;
+}
+
+/* When the review toast is visible, reduce the max-height of tab-content to prevent double scrollbars */
+#review-toast.review-toast--visible+.tab-content {
+    max-height: 420px;
+}
+
+/* =========================================================
+ *  STATUS / FEEDBACK MESSAGE UTILITIES
+ *  Replaces inline style="..." strings in popup.js (CSP fix)
+ * ========================================================= */
+.status-msg {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
+.status-msg--error {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #ff5555;
+}
+
+.status-msg--dim {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}

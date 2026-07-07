@@ -1,0 +1,559 @@
+/* =========================================================
+ *  GALAXY THEME BACKGROUNDS & BLOBS STYLING
+ * ========================================================= */
+.galaxy-bg-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: -10;
+    background-color: #020208;
+    /* Deep Space black */
+    filter: blur(75px);
+    /* Blends blobs into a single organic color mesh */
+    border-radius: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0, 0);
+}
+
+.galaxy-noise-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -9;
+    pointer-events: none;
+    opacity: 0.13;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    transform: translate3d(0, 0, 0);
+}
+
+.galaxy-blob {
+    position: absolute;
+    border-radius: 50%;
+    /* Increased from 0.16 → 1 for a richer, more glowing color profile */
+    opacity: 1;
+    /* Transition CSS custom property values directly instead of background-color (since gradients are background-images) */
+    transition: --raw-accent 0.8s ease, --raw-accent-blue 0.8s ease, --raw-accent-green 0.8s ease, transform 0.5s ease;
+    will-change: transform;
+}
+
+.blob-1 {
+    /* Enlarged 1.5x (from 240px → 360px) to overlap and bleed colors better */
+    width: 360px;
+    height: 360px;
+    left: -20px;
+    top: -100px;
+    /* Positioned high up to cover the header area */
+    background: radial-gradient(circle, var(--raw-accent) 20%, transparent 50%);
+    animation: floatBlob1 10s infinite ease-in-out;
+}
+
+.blob-2 {
+    /* Enlarged 1.5x (from 260px → 390px) */
+    width: 390px;
+    height: 390px;
+    right: -80px;
+    bottom: -80px;
+    background: radial-gradient(circle, var(--raw-accent-blue) 20%, transparent 50%);
+    animation: floatBlob2 14s infinite ease-in-out;
+}
+
+.blob-3 {
+    /* Enlarged 1.5x (from 220px → 330px) */
+    width: 330px;
+    height: 330px;
+    left: -80px;
+    top: 180px;
+    background: radial-gradient(circle, var(--raw-accent-green) 20%, transparent 50%);
+    animation: floatBlob3 12s infinite ease-in-out;
+}
+
+@keyframes floatBlob1 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+    }
+
+    33% {
+        transform: translate(60px, 30px) scale(1.07) rotate(120deg);
+        /* Limit vertical translation to keep it near the top */
+        border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
+    }
+
+    66% {
+        transform: translate(-30px, 20px) scale(0.95) rotate(240deg);
+        border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(360deg);
+        border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+    }
+}
+
+@keyframes floatBlob2 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    }
+
+    50% {
+        transform: translate(-60px, -70px) scale(1.1) rotate(-180deg);
+        border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(-360deg);
+        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    }
+}
+
+@keyframes floatBlob3 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+    }
+
+    50% {
+        transform: translate(70px, -80px) scale(1.12) rotate(180deg);
+        /* Drifts upwards toward the top-right */
+        border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(360deg);
+        border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+    }
+}
+
+/* =========================================================
+ *  ANIMATION PAUSE — bg-frozen state
+ *  Applied when the popup detects user is not in focus or
+ *  wants to reduce motion for performance.
+ * ========================================================= */
+.popup-window-container.bg-frozen .popup-border-disk {
+    animation-play-state: paused !important;
+}
+
+.popup-window-container.bg-frozen .galaxy-blob {
+    animation-play-state: paused !important;
+}
+
+.popup-window-container.bg-frozen .stars-layer {
+    animation-play-state: paused !important;
+}
+
+/* =========================================================
+ *  SLOW BLINKING STARS
+ * ========================================================= */
+.stars-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    will-change: opacity;
+    transform: translate3d(0, 0, 0);
+    /* Promote to its own GPU compositor layer */
+}
+
+.stars-layer-1 {
+    background-image:
+        radial-gradient(circle at 12% 18%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 82% 28%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 45% 65%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 25% 85%, #ffffff 1.4px, transparent 1.8px),
+        radial-gradient(circle at 88% 75%, #ffffff 0.9px, transparent 1.2px),
+        radial-gradient(circle at 35% 35%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 60% 10%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 92% 50%, #ffffff 0.8px, transparent 1px);
+    animation: starBlink 3s infinite ease-in-out;
+}
+
+.stars-layer-2 {
+    background-image:
+        radial-gradient(circle at 68% 12%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 22% 48%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 75% 58%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 55% 90%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 10% 70%, #ffffff 0.9px, transparent 1.1px),
+        radial-gradient(circle at 40% 25%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 95% 88%, #ffffff 1px, transparent 1.2px);
+    animation: starBlink 4.5s infinite ease-in-out;
+    animation-delay: 1.2s;
+}
+
+/* Third star layer with unique positions and timing for denser starfield */
+.stars-layer-3 {
+    background-image:
+        radial-gradient(circle at 5% 30%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 50% 50%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 78% 40%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 30% 60%, #ffffff 0.9px, transparent 1.1px),
+        radial-gradient(circle at 65% 78%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 18% 5%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 85% 15%, #ffffff 1.1px, transparent 1.3px),
+        radial-gradient(circle at 48% 38%, #ffffff 0.7px, transparent 0.9px);
+    animation: starBlink 6s infinite ease-in-out;
+    animation-delay: 2.4s;
+}
+
+@keyframes starBlink {
+
+    0%,
+    100% {
+        opacity: 0.12;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}
+
+/* =========================================================
+ *  CUSTOM HSL COLOR SWATCHES & PICKER PANEL
+ * ========================================================= */
+.color-swatch-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.color-swatch-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    color: #cbd5e0;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.color-swatch-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.color-swatch-btn.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.swatch-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    display: inline-block;
+}
+
+.hsl-picker-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hsl-slider-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hsl-slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #a0aec0;
+}
+
+.hsl-slider-header .hsl-value {
+    font-weight: bold;
+    color: var(--accent);
+    font-family: monospace;
+}
+
+.hsl-slider-item input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+    margin: 4px 0;
+    transition: background 0.1s;
+}
+
+.hsl-slider-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition: transform 0.1s;
+}
+
+.hsl-slider-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Hue track: full-spectrum rainbow */
+#hsl-hue {
+    background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+}
+
+/* =========================================================
+ *  GALAXY PRESETS GRID (Scrollbar-Free)
+ * ========================================================= */
+.presets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding-right: 2px;
+}
+
+.preset-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e2e8f0;
+    font-size: 11px;
+    font-family: inherit;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.preset-colors {
+    display: flex;
+    width: 32px;
+    height: 12px;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preset-colors span {
+    flex: 1;
+    height: 100%;
+}
+
+/* =========================================================
+ *  UNIFIED SWIRLING/ROTATING THEME ANIMATED BUTTONS
+ *  Uses a large spinning radial-gradient pseudo-element to
+ *  create the colour-swirl effect without extra DOM elements.
+ * ========================================================= */
+.btn-theme-animated {
+    position: relative;
+    overflow: hidden;
+    border: none !important;
+    background: transparent !important;
+    color: #121212 !important;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    transition: transform 0.1s, box-shadow 0.2s;
+    cursor: pointer;
+    isolation: isolate;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+}
+
+.btn-theme-animated::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 380px;
+    height: 380px;
+    z-index: 1;
+    background:
+        radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent-1) 42%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 65% 35%, color-mix(in srgb, var(--accent-2) 36%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--accent-3) 38%, #ffffff) 0%, transparent 65%),
+        #ffffff;
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation: circle-rotate 9s linear infinite;
+    pointer-events: none;
+}
+
+.btn-theme-animated span,
+.btn-theme-animated .icon-mask {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+}
+
+@keyframes circle-rotate {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.btn-theme-animated:hover {
+    box-shadow: 0 0 12px var(--accent-glow), 0 4px 16px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02) translate3d(0, 0, 0);
+}
+
+.btn-theme-animated:active {
+    transform: scale(0.98) translate3d(0, 0, 0);
+}
+
+/* =========================================================
+ *  CLASSIC MODE OVERRIDES (Galaxy Mode toggled OFF)
+ *  Resets all dynamic accent variables to Spotify green and
+ *  hides all galaxy visual layers.
+ * ========================================================= */
+.popup-window-container.theme-classic {
+    --accent: #1DB954 !important;
+    --accent-hover: #1ed760 !important;
+    --accent-bg: rgba(29, 185, 84, 0.08) !important;
+    --accent-glow: rgba(29, 185, 84, 0.45) !important;
+    --accent-blue: #1DB954 !important;
+    --accent-green: #1DB954 !important;
+    --raw-accent: #1DB954 !important;
+    --raw-accent-blue: #1DB954 !important;
+    --raw-accent-green: #1DB954 !important;
+    --accent-1: #1DB954 !important;
+    --accent-2: #1DB954 !important;
+    --accent-3: #1DB954 !important;
+    --raw-accent-1: #1DB954 !important;
+    --raw-accent-2: #1DB954 !important;
+    --raw-accent-3: #1DB954 !important;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.popup-window-container.theme-classic .popup-border-disk {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-bg-container {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-noise-layer {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .stars-layer {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .popup-slides {
+    margin: 0 !important;
+    background-color: #121212 !important;
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+}
+
+/* Revert font-family for body and all dynamic text */
+.popup-window-container.theme-classic,
+.popup-window-container.theme-classic body,
+.popup-window-container.theme-classic button,
+.popup-window-container.theme-classic select,
+.popup-window-container.theme-classic input,
+.popup-window-container.theme-classic textarea,
+.popup-window-container.theme-classic .logo-row h2 {
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+    text-shadow: none !important;
+}
+
+/* Hide galaxy customizer elements in Classic Mode */
+.popup-window-container.theme-classic #galaxy-customization-controls {
+    display: none !important;
+}
+
+/* =========================================================
+ *  MUSIC PLAYER SHORTCUTS (Spotify / YouTube Music launch)
+ * ========================================================= */
+.music-launch-row {
+    display: flex;
+    gap: 8px;
+}
+
+.launch-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    line-height: 1;
+}
+
+.launch-btn:active {
+    transform: scale(0.97);
+}
+
+.launch-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+}
+
+.launch-btn span {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.spotify-btn {
+    background: #1DB954;
+    box-shadow: 0 4px 10px rgba(29, 185, 84, 0.2);
+}
+
+.spotify-btn:hover {
+    background: #1ed760;
+    box-shadow: 0 6px 14px rgba(29, 185, 84, 0.35);
+}
+
+.ytm-btn {
+    background: #FF0000;
+    box-shadow: 0 4px 10px rgba(255, 0, 0, 0.2);
+}
+
+.ytm-btn:hover {
+    background: #ff3333;
+    box-shadow: 0 6px 14px rgba(255, 0, 0, 0.35);
+}

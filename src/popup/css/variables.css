@@ -1,0 +1,44 @@
+@property --raw-accent {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #ff007f;
+}
+
+@property --raw-accent-blue {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #00b4d8;
+}
+
+@property --raw-accent-green {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #1DB954;
+}
+
+:root {
+    /* 3-Color Galaxy Theme Color Pickers */
+    --accent-1: #ff007f;
+    /* Color 1 */
+    --accent-2: #00b4d8;
+    /* Color 2 */
+    --accent-3: #1DB954;
+    /* Color 3 */
+
+    --accent: var(--accent-1);
+    --accent-hover: var(--accent-1);
+    --accent-bg: rgba(255, 0, 127, 0.08);
+    --accent-glow: rgba(255, 0, 127, 0.45);
+
+    --accent-blue: var(--accent-2);
+    --accent-green: var(--accent-3);
+
+    --raw-accent-1: var(--accent-1);
+    --raw-accent-2: var(--accent-2);
+    --raw-accent-3: var(--accent-3);
+    --raw-accent: var(--raw-accent-1);
+    --raw-accent-blue: var(--raw-accent-2);
+    --raw-accent-green: var(--raw-accent-3);
+
+    --bg-galaxy: #08080f;
+}

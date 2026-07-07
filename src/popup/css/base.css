@@ -1,0 +1,83 @@
+/* =========================================================
+ *  BASE RESETS & TYPOGRAPHY
+ *  Applies box-sizing, font inheritance, body defaults,
+ *  and prevents transition flash during initial load.
+ * ========================================================= */
+
+/* Prevent transition flash on initial load */
+.preload * {
+    transition: none !important;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    background: transparent;
+}
+
+body {
+    width: 300px;
+    font-family: 'Fredoka', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: white;
+    user-select: none;
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg-galaxy);
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Make sure all inputs/buttons inherit font */
+button,
+select,
+input,
+textarea {
+    font-family: inherit;
+}
+
+/* =========================================================
+ *  CUSTOM SCROLLBAR — applied globally to all lists
+ * ========================================================= */
+*::-webkit-scrollbar {
+    width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+}
+
+/* =========================================================
+ *  NUMBER INPUT — hide native spinners (Firefox + Webkit)
+ * ========================================================= */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+/* =========================================================
+ *  UTILITY CLASSES
+ * ========================================================= */
+
+/* .hidden — generic display:none utility, used instead of inline style.display */
+.hidden {
+    display: none !important;
+}

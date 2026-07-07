@@ -1,0 +1,394 @@
+/* =========================================================
+ *  SEARCH UI — LYRICS TAB
+ * ========================================================= */
+.search-bar-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.search-input {
+    flex-grow: 1;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.07);
+    color: white;
+    outline: none;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 13px;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.search-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.search-btn:hover {
+    background-color: var(--accent-hover);
+    transform: scale(1.02);
+}
+
+.search-btn:active {
+    transform: scale(0.98);
+}
+
+/* Saved state — applied after a lyric is successfully saved */
+.search-btn.saved {
+    background-color: var(--accent-hover) !important;
+}
+
+/* =========================================================
+ *  SEARCH RESULTS CONTAINER & RESULT ITEMS
+ * ========================================================= */
+.search-results-container {
+    max-height: 180px;
+    overflow-y: auto;
+    background-color: rgba(11, 9, 20, 0.45);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.result-item {
+    position: relative;
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-item:hover {
+    background-color: #333;
+}
+
+.result-left {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    padding-right: 10px;
+}
+
+.result-title {
+    font-weight: bold;
+    font-size: 13px;
+    color: white;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-artist {
+    font-size: 11px;
+    color: #AAA;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.result-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 65px;
+}
+
+.dot-container {
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
+.result-badges {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+/* Base badge */
+.result-badge {
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 9px;
+    display: inline-block;
+}
+
+/* Provider-specific badge colours */
+.badge-netease {
+    background: var(--accent-blue) !important;
+    color: white !important;
+}
+
+.badge-lrclib {
+    background: var(--accent) !important;
+    color: white !important;
+}
+
+.badge-unsynced {
+    background: #555 !important;
+    color: #FFF !important;
+}
+
+.result-duration {
+    font-size: 11px;
+    color: #AAA;
+}
+
+/* =========================================================
+ *  ACTIVE LYRIC ROW & DOT INDICATOR
+ * ========================================================= */
+.active-lyric {
+    border-left: 3px solid var(--accent);
+    background-color: var(--accent-bg);
+}
+
+/* Pulsing dot shown next to the currently-playing lyric result */
+.active-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 var(--accent-glow);
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0% {
+        box-shadow: 0 0 0 0 var(--accent-glow);
+    }
+
+    70% {
+        box-shadow: 0 0 0 5px rgba(255, 255, 255, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+/* =========================================================
+ *  LYRICS ACTION ROW (Upload / Edit / Clear buttons)
+ * ========================================================= */
+.lyrics-action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+}
+
+.lyrics-action-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* =========================================================
+ *  SEARCH PLACEHOLDER (empty-state message)
+ * ========================================================= */
+.search-placeholder {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
+/* =========================================================
+ *  GLOW PREVIEW — live lyric style preview widget
+ *  Displays inside the customization panel and mirrors the
+ *  active PiP renderer's color/shadow/stroke state.
+ *  --glow-color is set by JS from the extracted vibrant color.
+ * ========================================================= */
+@keyframes lyric-glow-preview {
+    0% {
+        text-shadow: 0 0 6px var(--glow-color, #1DB954), 0 0 12px var(--glow-color, #1DB954);
+    }
+
+    50% {
+        text-shadow: 0 0 18px var(--glow-color, #1DB954), 0 0 30px var(--glow-color, #1DB954), 0 0 5px #fff;
+    }
+
+    100% {
+        text-shadow: 0 0 6px var(--glow-color, #1DB954), 0 0 12px var(--glow-color, #1DB954);
+    }
+}
+
+@keyframes rainbow-glow-preview {
+    0% {
+        text-shadow: 0 0 10px #ff0000;
+    }
+
+    17% {
+        text-shadow: 0 0 20px #ffff00;
+    }
+
+    33% {
+        text-shadow: 0 0 10px #00ff00;
+    }
+
+    50% {
+        text-shadow: 0 0 20px #00ffff;
+    }
+
+    67% {
+        text-shadow: 0 0 10px #0000ff;
+    }
+
+    83% {
+        text-shadow: 0 0 20px #ff00ff;
+    }
+
+    100% {
+        text-shadow: 0 0 10px #ff0000;
+    }
+}
+
+@keyframes rainbow-stroke-preview {
+    0% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+    17% {
+        -webkit-text-stroke-color: #ffff00;
+    }
+    33% {
+        -webkit-text-stroke-color: #00ff00;
+    }
+    50% {
+        -webkit-text-stroke-color: #00ffff;
+    }
+    67% {
+        -webkit-text-stroke-color: #0000ff;
+    }
+    83% {
+        -webkit-text-stroke-color: #ff00ff;
+    }
+    100% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+}
+
+.glow-preview {
+    /* Default (glow OFF): text is drawn in the song's vibrant color,
+       matching how the PiP renderer colors the active lyric line when
+       glowEnabled is false. Falls back to Spotify green if no song loaded. */
+    font-size: 14px;
+    color: var(--glow-color, #1DB954);
+    font-weight: bold;
+    text-align: center;
+    padding: 14px 12px;
+    letter-spacing: 0.03em;
+    /* Prevent font-size changes from wrapping the preview text.
+       Text is clipped with ellipsis so the container height stays stable. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-text-stroke: 0px transparent;
+    transition: color 0.4s, font-size 0.2s, font-family 0.2s, text-shadow 0.2s, -webkit-text-stroke 0.2s;
+
+    /* Default: shadow is ON */
+    text-shadow: 0 0 10px var(--glow-color, #1DB954);
+}
+
+.glow-preview.shadow-disabled {
+    /* Shadow OFF: no text shadow */
+    text-shadow: none !important;
+}
+
+.glow-preview.highlighted {
+    /* Spotlight ON: active line is highlighted white */
+    color: #FFFFFF;
+}
+
+.glow-preview.active {
+    /* Aura (Glow Shadow) ON: vibrant pulsing shadow */
+    animation: lyric-glow-preview 2s ease-in-out infinite;
+}
+
+.glow-preview.active.rainbow {
+    /* Rainbow override: shadow is cycled by keyframes */
+    animation: rainbow-glow-preview 3s linear infinite;
+}
+
+.glow-preview.active.shadow-disabled {
+    /* Aura ON + Shadow OFF: static colored stroke, no shadow blur */
+    animation: none !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.shadow-disabled.rainbow {
+    /* Aura ON + Rainbow ON + Shadow OFF: animated colored stroke, no shadow blur */
+    animation: rainbow-stroke-preview 3s linear infinite !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+/* =========================================================
+ *  SUB-TAB COMPONENT (used inside the Lyrics tab)
+ * ========================================================= */
+.sub-tab-bar {
+    display: flex;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 2px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sub-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.sub-tab-btn:hover {
+    color: #ddd;
+}
+
+.sub-tab-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+}
+
+.sub-tab-pane {
+    display: none;
+}
+
+.sub-tab-pane.active {
+    display: block;
+}

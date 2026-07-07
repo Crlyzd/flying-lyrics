@@ -8,7 +8,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="popup.css">
+    <!-- Modular CSS — loaded in dependency order -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/controls.css">
+    <link rel="stylesheet" href="css/lyrics.css">
+    <link rel="stylesheet" href="css/galaxy.css">
 </head>
 
 <body class="preload">
@@ -596,6 +602,12 @@
 
     <script src="../background/storage.js"></script>
     <script src="fonts.js"></script>
+    <!-- Modular JS — loaded in dependency order -->
+    <script src="js/popup-state.js"></script>
+    <script src="js/popup-ui.js"></script>
+    <script src="js/popup-lyrics.js"></script>
+    <script src="js/popup-visuals.js"></script>
+    <script src="js/popup-settings.js"></script>
     <script src="popup.js"></script>
 </body>
 
