@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const darknessValue = document.getElementById('darkness-value');
     const coverModeGroup = document.getElementById('cover-mode-group');
     const toggleGlow = document.getElementById('toggle-glow');
+    const glowPerfWarning = document.getElementById('glow-perf-warning');
     const toggleSpotlight = document.getElementById('toggle-spotlight');
     const glowStyleContainer = document.getElementById('glow-style-container');
     const glowStyleSelect = document.getElementById('glow-style-select');
@@ -443,6 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleGlow.checked = items.glowEnabled;
         glowStyleSelect.value = items.glowStyle;
         glowStyleContainer.style.display = items.glowEnabled ? 'flex' : 'none';
+        glowPerfWarning.style.display = items.glowEnabled ? 'block' : 'none';
         glowPreview.classList.toggle('active', items.glowEnabled);
         glowPreview.classList.toggle('rainbow', items.glowStyle === 'rainbow');
 
@@ -1511,6 +1513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleGlow.addEventListener('change', () => {
         glowPreview.classList.toggle('active', toggleGlow.checked);
         glowStyleContainer.style.display = toggleGlow.checked ? 'flex' : 'none';
+        glowPerfWarning.style.display = toggleGlow.checked ? 'block' : 'none';
         saveAndNotify({ glowEnabled: toggleGlow.checked });
     });
 
@@ -1887,6 +1890,7 @@ document.addEventListener('DOMContentLoaded', () => {
             alignSelect.value = 'center';
 
             toggleGlow.checked = false;
+            glowPerfWarning.style.display = 'none';
             toggleSpotlight.checked = false;
             glowPreview.classList.remove('active', 'rainbow', 'highlighted');
             glowStyleContainer.style.display = 'none';
