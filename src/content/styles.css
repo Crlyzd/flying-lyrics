@@ -48,6 +48,11 @@ body {
     /* Match Video PiP size (65% of viewport min dimension) */
     width: 65vmin;
     height: 65vmin;
+    --min-art-size: 200px;
+    min-width: var(--min-art-size);
+    min-height: var(--min-art-size);
+    max-width: 100vmin;
+    max-height: 100vmin;
     /* Center horizontally and vertically */
     top: 50%;
     left: 50%;

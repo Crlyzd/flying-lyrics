@@ -453,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         glowPreview.classList.toggle('highlighted', items.spotlightEnabled);
 
         toggleLyricShadow.checked = items.lyricShadowEnabled ?? true;
+        glowPreview.classList.toggle('shadow-disabled', !(items.lyricShadowEnabled ?? true));
 
         // Load song vibrant color from local storage (written by extractPalette in content script).
         // Apply it as --glow-color so the preview matches the current song's album art color.
@@ -1529,6 +1530,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Lyric Shadow Toggle
     toggleLyricShadow.addEventListener('change', () => {
+        glowPreview.classList.toggle('shadow-disabled', !toggleLyricShadow.checked);
         saveAndNotify({ lyricShadowEnabled: toggleLyricShadow.checked });
     });
 
@@ -1903,7 +1905,7 @@ document.addEventListener('DOMContentLoaded', () => {
             glowPerfWarning.style.display = 'none';
             toggleSpotlight.checked = false;
             toggleLyricShadow.checked = true;
-            glowPreview.classList.remove('active', 'rainbow', 'highlighted');
+            glowPreview.classList.remove('active', 'rainbow', 'highlighted', 'shadow-disabled');
             glowStyleContainer.style.display = 'none';
             glowStyleSelect.value = 'theme';
 

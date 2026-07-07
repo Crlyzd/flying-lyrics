@@ -855,6 +855,30 @@ select:hover {
     }
 }
 
+@keyframes rainbow-stroke-preview {
+    0% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+    17% {
+        -webkit-text-stroke-color: #ffff00;
+    }
+    33% {
+        -webkit-text-stroke-color: #00ff00;
+    }
+    50% {
+        -webkit-text-stroke-color: #00ffff;
+    }
+    67% {
+        -webkit-text-stroke-color: #0000ff;
+    }
+    83% {
+        -webkit-text-stroke-color: #ff00ff;
+    }
+    100% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+}
+
 .glow-preview {
     /* Default (glow OFF): text is drawn in the song's vibrant color,
        matching how the PiP renderer colors the active lyric line when
@@ -870,7 +894,16 @@ select:hover {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: color 0.4s, font-size 0.2s, font-family 0.2s;
+    -webkit-text-stroke: 0px transparent;
+    transition: color 0.4s, font-size 0.2s, font-family 0.2s, text-shadow 0.2s, -webkit-text-stroke 0.2s;
+
+    /* Default: shadow is ON */
+    text-shadow: 0 0 10px var(--glow-color, #1DB954);
+}
+
+.glow-preview.shadow-disabled {
+    /* Shadow OFF: no text shadow */
+    text-shadow: none !important;
 }
 
 .glow-preview.highlighted {
@@ -886,6 +919,20 @@ select:hover {
 .glow-preview.active.rainbow {
     /* Rainbow override: shadow is cycled by keyframes */
     animation: rainbow-glow-preview 3s linear infinite;
+}
+
+.glow-preview.active.shadow-disabled {
+    /* Aura ON + Shadow OFF: static colored stroke, no shadow blur */
+    animation: none !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.shadow-disabled.rainbow {
+    /* Aura ON + Rainbow ON + Shadow OFF: animated colored stroke, no shadow blur */
+    animation: rainbow-stroke-preview 3s linear infinite !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
 }
 
 /* Hide number input spinners */
