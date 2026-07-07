@@ -597,40 +597,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = e.target.closest('.result-item');
         if (!item || item.id === 'local-file-card' || item.id === 'deep-search-indicator') return; // Ignore clicks that aren't on result items or are on the read-only local card
 
-        if (!currentActiveTrack || !currentActiveTrack.artist || !currentActiveTrack.title) {
-            alert("No active track found.");
-            return;
-        }
-
-        if (item.id === 'auto-match-card') {
-            saveAndNotify({ lyricOverride: null });
-            const spinner = document.createElement('div');
-            spinner.className = 'sync-spinner';
-            const dotContainer = item.querySelector('.dot-container');
-            if (dotContainer) {
-                const existingDot = dotContainer.querySelector('.active-dot');
-                if (existingDot) existingDot.remove();
-                dotContainer.appendChild(spinner);
+        refreshActiveTrack((track) => {
+            if (!track) {
+                alert("No active track found.");
+                return;
             }
-            return;
-        }
 
-        // It's a standard result
-        const source = item.dataset.source;
-        const id = item.dataset.id;
-        const name = item.dataset.name;
-
-        if (source && id) {
-            saveAndNotify({ lyricOverride: { type: source, id: id } });
-            const spinner = document.createElement('div');
-            spinner.className = 'sync-spinner';
-            const dotContainer = item.querySelector('.dot-container');
-            if (dotContainer) {
-                const existingDot = dotContainer.querySelector('.active-dot');
-                if (existingDot) existingDot.remove();
-                dotContainer.appendChild(spinner);
+            if (item.id === 'auto-match-card') {
+                saveAndNotify({ lyricOverride: null });
+                const spinner = document.createElement('div');
+                spinner.className = 'sync-spinner';
+                const dotContainer = item.querySelector('.dot-container');
+                if (dotContainer) {
+                    const existingDot = dotContainer.querySelector('.active-dot');
+                    if (existingDot) existingDot.remove();
+                    dotContainer.appendChild(spinner);
+                }
+                return;
             }
-        }
+
+            // It's a standard result
+            const source = item.dataset.source;
+            const id = item.dataset.id;
+            const name = item.dataset.name;
+
+            if (source && id) {
+                saveAndNotify({ lyricOverride: { type: source, id: id } });
+                const spinner = document.createElement('div');
+                spinner.className = 'sync-spinner';
+                const dotContainer = item.querySelector('.dot-container');
+                if (dotContainer) {
+                    const existingDot = dotContainer.querySelector('.active-dot');
+                    if (existingDot) existingDot.remove();
+                    dotContainer.appendChild(spinner);
+                }
+            }
+        });
     });
 
     function renderSearchResults(results, activeOverride) {
@@ -767,6 +769,39 @@ document.addEventListener('DOMContentLoaded', () => {
         searchBtn.setAttribute('aria-busy', 'true');
         searchBtn.setAttribute('aria-label', 'Searching…');
         resultsContainer.innerHTML = '<div class="status-msg">Searching...</div>';
+
+        // Fetch latest active track metadata from open music tabs first
+        try {
+            const tabs = await new Promise(resolve => {
+                chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, resolve);
+            });
+            let trackFound = false;
+            if (tabs && tabs.length > 0) {
+                for (const tab of tabs) {
+                    if (!tab.id) continue;
+                    try {
+                        const response = await new Promise((resolveMsg) => {
+                            chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (res) => {
+                                if (chrome.runtime.lastError) {
+                                    resolveMsg(null);
+                                } else {
+                                    resolveMsg(res);
+                                }
+                            });
+                        });
+                        if (response && response.artist && response.title) {
+                            currentActiveTrack = response;
+                            trackFound = true;
+                            break;
+                        }
+                    } catch (err) {
+                        // Ignore and try next tab
+                    }
+                }
+            }
+        } catch (err) {
+            // Ignore tab query errors
+        }
 
         try {
             // Build scoring hints from the active track's clean metadata
@@ -961,6 +996,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (msg.type === 'FONT_LOADED_IN_PIP') {
             const { fontName, success } = msg.payload;
             onFontFinishedLoading(fontName, success !== false);
+        } else if (msg.type === 'ACTIVE_TRACK_CHANGED') {
+            currentActiveTrack = msg.payload || { artist: "", title: "" };
+            if (msg.payload) {
+                const displayArtist = msg.payload.primaryArtist || msg.payload.artist;
+                const displayTitle  = msg.payload.cleanTitle    || msg.payload.title;
+                searchInput.value = `${displayArtist} - ${displayTitle}`;
+            } else {
+                searchInput.value = "";
+            }
         } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
             activeSource = msg.payload;
             resultsContainer.querySelectorAll('.sync-spinner').forEach(s => s.remove());
@@ -994,8 +1038,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        if (typeof sendResponse === 'function') {
-            sendResponse({ success: true });
+        if (msg.type === 'SETTINGS_UPDATE' || 
+            msg.type === 'FONT_LOADED_IN_PIP' || 
+            msg.type === 'ACTIVE_TRACK_CHANGED' || 
+            msg.type === 'ACTIVE_LYRIC_CHANGED') {
+            if (typeof sendResponse === 'function') {
+                sendResponse({ success: true });
+            }
         }
     });
 
@@ -2113,6 +2162,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveAndNotify(changes) {
         FLYING_LYRICS.storage.set(changes, () => {
             notifyTab(changes);
+        });
+    }
+
+    function refreshActiveTrack(callback) {
+        chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+            let trackFound = false;
+            let checkedCount = 0;
+            const targetTabs = tabs || [];
+            
+            if (targetTabs.length === 0) {
+                if (typeof callback === 'function') callback(null);
+                return;
+            }
+
+            targetTabs.forEach(tab => {
+                if (!tab.id) {
+                    checkedCount++;
+                    if (checkedCount === targetTabs.length && !trackFound) {
+                        if (typeof callback === 'function') callback(null);
+                    }
+                    return;
+                }
+
+                chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (response) => {
+                    checkedCount++;
+                    if (chrome.runtime.lastError) {
+                        if (checkedCount === targetTabs.length && !trackFound) {
+                            if (typeof callback === 'function') callback(null);
+                        }
+                        return;
+                    }
+
+                    if (response && response.artist && response.title && !trackFound) {
+                        currentActiveTrack = response;
+                        trackFound = true;
+                        if (typeof callback === 'function') callback(response);
+                    } else if (checkedCount === targetTabs.length && !trackFound) {
+                        if (typeof callback === 'function') callback(null);
+                    }
+                });
+            });
         });
     }
 

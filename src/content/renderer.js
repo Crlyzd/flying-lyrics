@@ -612,6 +612,8 @@
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
+                // Notify popup/background that track was cleared
+                chrome.runtime.sendMessage({ type: 'ACTIVE_TRACK_CHANGED', payload: null }).catch(() => {});
             } else {
                 // --- INSTANT FLUSH: Clear old lyrics immediately ---
                 fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
@@ -634,6 +636,18 @@
                 fl.lastTimeStr = "";
                 fl.lastTimeValue = 0;
                 fl.lastUpdateMs = performance.now();
+
+                // Notify popup/background that a new track started
+                chrome.runtime.sendMessage({
+                    type: 'ACTIVE_TRACK_CHANGED',
+                    payload: {
+                        artist: meta.artist,
+                        title: meta.title,
+                        cleanTitle: typeof fl.cleanTitle === 'function' ? fl.cleanTitle(meta.title) : meta.title,
+                        primaryArtist: typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist,
+                        duration: state.duration || 0
+                    }
+                }).catch(() => {});
 
                 fl.fetchLyrics();
             }

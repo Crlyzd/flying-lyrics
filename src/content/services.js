@@ -526,7 +526,7 @@
     }
 
     fl.resolveManualOverride = async function (key, abortSignal) {
-        const override = fl.lyricsOverrides[key];
+        const override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
         if (!override) return "";
 
         if (override.type === 'local') {
