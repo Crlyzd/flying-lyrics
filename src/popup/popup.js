@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleTrans = document.getElementById('toggle-translation');
     const toggleAutolaunch = document.getElementById('toggle-autolaunch');
     const toggleBorderlessPip = document.getElementById('toggle-borderless-pip');
+    const labelBorderlessPip = document.querySelector('label[for="toggle-borderless-pip"]');
     const toggleEcoMode = document.getElementById('toggle-eco-mode');
     const toggleCloudSync = document.getElementById('toggle-cloud-sync');
     const langSelect = document.getElementById('lang-select');
@@ -948,7 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     //  SETTINGS_UPDATE BROADCAST FROM CONTENT SCRIPT
     // =========================================================
-    chrome.runtime.onMessage.addListener((msg) => {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg.type === 'SETTINGS_UPDATE') {
             if (msg.payload.syncOffset !== undefined) {
                 updateOffsetDisplay(msg.payload.syncOffset);
@@ -993,6 +994,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+        if (typeof sendResponse === 'function') {
+            sendResponse({ success: true });
+        }
     });
 
     // =========================================================
@@ -1003,7 +1007,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     toggleBorderlessPip.addEventListener('change', () => {
+        // Cooldown mechanism to prevent rapid clicking
+        toggleBorderlessPip.disabled = true;
         saveAndNotify({ pipMode: toggleBorderlessPip.checked ? 'video' : 'document' });
+
+        let secondsLeft = 3;
+        const originalText = labelBorderlessPip ? labelBorderlessPip.textContent : "Borderless Mode";
+        if (labelBorderlessPip) {
+            labelBorderlessPip.textContent = `${originalText} (${secondsLeft}s)`;
+        }
+
+        const intervalId = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft <= 0) {
+                clearInterval(intervalId);
+                toggleBorderlessPip.disabled = false;
+                if (labelBorderlessPip) {
+                    labelBorderlessPip.textContent = originalText;
+                }
+            } else {
+                if (labelBorderlessPip) {
+                    labelBorderlessPip.textContent = `${originalText} (${secondsLeft}s)`;
+                }
+            }
+        }, 1000);
     });
 
     toggleEcoMode.addEventListener('change', () => {

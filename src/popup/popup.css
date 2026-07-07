@@ -353,6 +353,11 @@ input:checked+.slider:before {
     transform: translateX(20px);
 }
 
+input:disabled + .slider {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 /* =========================================================
  *  DROPDOWN
  * ========================================================= */

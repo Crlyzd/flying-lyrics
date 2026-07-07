@@ -436,6 +436,9 @@
                 fl.ecoMode = p.ecoMode;
             }
             reportPreferencesDebounced();
+            if (typeof sendResponse === 'function') {
+                sendResponse({ success: true });
+            }
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
         } else if (msg.type === 'GET_CURRENT_TRACK') {

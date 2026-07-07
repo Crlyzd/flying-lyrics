@@ -129,7 +129,7 @@
 
             fl.pipWin.requestAnimationFrame(fl.renderLoop);
         } catch (e) {
-            console.error("Document PiP Launch Failed:", e);
+            console.warn("Document PiP Launch Failed:", e);
         } finally {
             setTimeout(() => { fl.isLaunchingPip = false; }, 500);
         }
@@ -306,7 +306,7 @@
 
             window.requestAnimationFrame(fl.renderLoop);
         } catch (e) {
-            console.error("Video PiP Launch Failed:", e);
+            console.warn("Video PiP Launch Failed:", e);
         } finally {
             setTimeout(() => { fl.isLaunchingPip = false; }, 500);
         }
