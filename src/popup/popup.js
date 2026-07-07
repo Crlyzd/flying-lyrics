@@ -1374,6 +1374,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyFontByName(name);
                 searchFonts();
                 recentFontsPanel.style.display = 'none';
+                recentFontsBtn.classList.remove('active');
             };
             recentFontsPanel.appendChild(card);
         });
@@ -1385,17 +1386,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const isVisible = recentFontsPanel.style.display !== 'none';
         if (isVisible) {
             recentFontsPanel.style.display = 'none';
+            recentFontsBtn.classList.remove('active');
         } else {
             FLYING_LYRICS.storage.get({ recentFonts: [] }, ({ recentFonts }) => {
                 renderRecentFontsPanel(recentFonts);
                 recentFontsPanel.style.display = 'block';
+                recentFontsBtn.classList.add('active');
             });
         }
     });
 
     // Close Recent panel when clicking anywhere else
     document.addEventListener('click', () => {
-        if (recentFontsPanel) recentFontsPanel.style.display = 'none';
+        if (recentFontsPanel) {
+            recentFontsPanel.style.display = 'none';
+            recentFontsBtn.classList.remove('active');
+        }
     });
 
     // Font Size (1-10 step maps to 18px-36px)
@@ -2112,5 +2118,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+    }
+
+    // =========================================================
+    //  MUSIC PLAYER SHORTCUTS
+    // =========================================================
+    const btnLaunchSpotify = document.getElementById('btn-launch-spotify');
+    const btnLaunchYtm = document.getElementById('btn-launch-ytm');
+
+    function switchToOrOpenTab(urlPatterns, defaultUrl) {
+        if (typeof chrome === 'undefined' || !chrome.tabs) {
+            window.open(defaultUrl, '_blank');
+            return;
+        }
+
+        chrome.tabs.query({}, (tabs) => {
+            if (!tabs) {
+                chrome.tabs.create({ url: defaultUrl });
+                return;
+            }
+
+            // Find tabs matching any of our urlPatterns
+            const matchedTabs = tabs.filter(tab => {
+                if (!tab.url) return false;
+                const urlLower = tab.url.toLowerCase();
+                return urlPatterns.some(pattern => urlLower.includes(pattern.toLowerCase()));
+            });
+
+            if (matchedTabs.length > 0) {
+                // Priority: 1) Audible tab, 2) Active tab, 3) First matched tab
+                const targetTab = matchedTabs.find(tab => tab.audible) ||
+                                  matchedTabs.find(tab => tab.active) ||
+                                  matchedTabs[0];
+
+                // Activate the tab
+                chrome.tabs.update(targetTab.id, { active: true }, () => {
+                    // Focus the window containing the tab
+                    if (targetTab.windowId) {
+                        chrome.windows.update(targetTab.windowId, { focused: true });
+                    }
+                });
+            } else {
+                // No open tab, create a new one
+                chrome.tabs.create({ url: defaultUrl });
+            }
+        });
+    }
+
+    if (btnLaunchSpotify) {
+        btnLaunchSpotify.addEventListener('click', () => {
+            switchToOrOpenTab(['open.spotify.com'], 'https://open.spotify.com/');
+        });
+    }
+
+    if (btnLaunchYtm) {
+        btnLaunchYtm.addEventListener('click', () => {
+            switchToOrOpenTab(['music.youtube.com'], 'https://music.youtube.com/');
+        });
     }
 });
