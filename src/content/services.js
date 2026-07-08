@@ -423,6 +423,7 @@
 
                 fl.lyricLines = entry.lines;
                 fl.isCurrentLyricSynced = entry.isSynced;
+                fl.activeLyricSource = entry.source || null;
 
                 if (entry.translationLang !== fl.translationLang) {
                     fl.lyricLines.forEach(l => l.translation = "");
@@ -482,7 +483,8 @@
                 lines: fl.lyricLines,       // array of {time, text, romaji, translation}
                 isSynced: fl.isCurrentLyricSynced,
                 translationLang: fl.translationLang,
-                savedAt: Date.now()
+                savedAt: Date.now(),
+                source: fl.activeLyricSource
             };
 
             FLYING_LYRICS.storage.set({ lyricsCache: cache });
@@ -542,13 +544,17 @@
             if (!resData) return ""; // Network/API error: fall back to auto-search
 
             let raw = resData.syncedLyrics || resData.plainLyrics || "";
-            if (!raw) {
-                // Explicitly found in database but has no lyrics (instrumental or empty)
-                raw = resData.instrumental 
-                    ? "[00:00.00] ♫ (Instrumental) ♫" 
-                    : "[00:00.00] ♫ (No Lyrics Available) ♫";
+            const isEmpty = !raw || !!resData.instrumental;
+            if (isEmpty) {
+                raw = "[00:00.00] ♫ (Empty) ♫";
             }
-            fl.activeLyricSource = { type: 'api', id: override.id, name: resData.trackName || key, synced: !!resData.syncedLyrics || !!resData.instrumental };
+            fl.activeLyricSource = { 
+                type: 'api', 
+                id: override.id, 
+                name: resData.trackName || key, 
+                synced: !!resData.syncedLyrics || !!resData.instrumental,
+                isEmpty: isEmpty
+            };
             return raw;
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
@@ -559,11 +565,16 @@
             if (!resMsg) return ""; // Network/API error: fall back to auto-search
 
             let raw = resMsg.lyric || "";
-            if (!raw) {
-                // Explicitly found in database but has no lyrics
-                raw = "[00:00.00] ♫ (No Lyrics Available) ♫";
+            const isEmpty = !raw;
+            if (isEmpty) {
+                raw = "[00:00.00] ♫ (Empty) ♫";
             }
-            fl.activeLyricSource = { type: 'netease', id: resMsg.id || override.id, name: resMsg.name || key };
+            fl.activeLyricSource = { 
+                type: 'netease', 
+                id: resMsg.id || override.id, 
+                name: resMsg.name || key,
+                isEmpty: isEmpty
+            };
             return raw;
         }
         return "";

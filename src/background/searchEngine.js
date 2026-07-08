@@ -249,6 +249,7 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
 // ─── Normalise API responses ──────────────────────────────────────────────────
 
 function normalizeLrcLib(item) {
+    const hasLyrics = !!(item.syncedLyrics || item.plainLyrics);
     return {
         source:     'lrclib',
         id:         item.id,
@@ -259,6 +260,8 @@ function normalizeLrcLib(item) {
         // Pre-resolved: LRCLIB always returns the full lyric text in the search response
         synced:     !!item.syncedLyrics,
         rawLyric:   item.syncedLyrics || item.plainLyrics || '',
+        instrumental: !!item.instrumental,
+        isEmpty:    !hasLyrics || !!item.instrumental
     };
 }
 
@@ -623,6 +626,8 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeout
         // Include the pre-resolved raw lyric for LRCLIB so the popup can apply
         // the manual override immediately without an extra network round-trip
         rawLyric:   c.source === 'lrclib' ? (c.rawLyric || '') : null,
+        isEmpty:    c.isEmpty || false,
+        instrumental: c.instrumental || false
     }));
 
     return { results, hasTimeout };

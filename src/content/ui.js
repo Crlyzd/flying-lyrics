@@ -418,15 +418,22 @@
                 ind.classList.remove('is-retrying');
             }
 
-            // Priority order: missing > synced > unsynced
-            if (fl.isMissingLyrics) {
+            // Priority order: missing or empty > synced > unsynced
+            const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
+
+            if (fl.isMissingLyrics || isEmpty) {
                 ind.classList.remove('is-synced');
                 ind.classList.add('is-missing');
                 const isRetrying = ind.classList.contains('is-retrying');
-                ind.title = isRetrying
-                    ? 'No lyrics found for this track (Retrying...)'
-                    : 'No lyrics found for this track';
-                txt.textContent = isRetrying ? 'SEARCHING' : 'NO LYRICS';
+                if (fl.isMissingLyrics) {
+                    ind.title = isRetrying
+                        ? 'No lyrics found for this track (Retrying...)'
+                        : 'No lyrics found for this track';
+                    txt.textContent = isRetrying ? 'SEARCHING' : 'NO LYRICS';
+                } else {
+                    ind.title = 'This track is empty (no lyrics available)';
+                    txt.textContent = 'NO LYRICS';
+                }
             } else {
                 if (fl.isCurrentLyricSynced) {
                     ind.classList.remove('is-missing');

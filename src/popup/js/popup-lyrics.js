@@ -165,11 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (results.length === 0 && state.activeSource && !(activeOverride && activeOverride.type === 'local')) {
             const sourceLabel = state.activeSource.type === 'netease' ? 'NETEASE' : 'LRCLIB';
             const badgeClass  = state.activeSource.type === 'netease' ? 'badge-netease' : 'badge-lrclib';
-            const syncBadge   = state.activeSource.type !== 'local'
-                ? (state.activeSource.synced
-                    ? `<span class="result-badge">SYNCED</span>`
-                    : `<span class="result-badge badge-unsynced">UNSYNCED</span>`)
-                : '';
+            let syncBadge = '';
+            if (state.activeSource.type !== 'local') {
+                if (state.activeSource.isEmpty) {
+                    syncBadge = `<span class="result-badge badge-empty">EMPTY</span>`;
+                } else if (state.activeSource.synced) {
+                    syncBadge = `<span class="result-badge">SYNCED</span>`;
+                } else {
+                    syncBadge = `<span class="result-badge badge-unsynced">UNSYNCED</span>`;
+                }
+            }
             const autoCard = document.createElement('div');
             autoCard.className = 'result-item active-lyric';
             autoCard.innerHTML = `
@@ -178,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="result-artist">Auto-loaded · Click Search for more versions</div>
                 </div>
                 <div class="result-right">
-                    <div class="dot-container"><div class="active-dot"></div></div>
+                    <div class="dot-container"><div class="active-dot${state.activeSource.isEmpty ? ' active-dot--empty' : ''}"></div></div>
                     <div class="result-badges">
                         <span class="result-badge ${badgeClass}">${sourceLabel}</span>
                         ${syncBadge}
@@ -223,9 +228,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             if (isActiveOverride || isActiveLive) {
+                const isItemEmpty = item.isEmpty || (state.activeSource && String(state.activeSource.id) === String(item.id) && state.activeSource.type === item.source && state.activeSource.isEmpty);
                 div.classList.add('active-lyric');
                 const dot = document.createElement('div');
-                dot.className = 'active-dot';
+                dot.className = isItemEmpty ? 'active-dot active-dot--empty' : 'active-dot';
                 div.querySelector('.dot-container').appendChild(dot);
                 foundActiveInList = true;
             }
@@ -358,11 +364,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (state.activeSearchQuery !== query) return;
 
-            const buildBadgeHtml = (item) =>
-                item.source === 'api'
-                    ? `<span class="result-badge badge-lrclib">LRCLIB</span>` +
-                      (item.synced ? `<span class="result-badge">SYNCED</span>` : `<span class="result-badge badge-unsynced">UNSYNCED</span>`)
+            const buildBadgeHtml = (item) => {
+                const isItemEmpty = item.isEmpty || (state.activeSource && state.activeSource.type === item.source && String(state.activeSource.id) === String(item.id) && state.activeSource.isEmpty);
+                const sourceBadge = item.source === 'api'
+                    ? `<span class="result-badge badge-lrclib">LRCLIB</span>`
                     : `<span class="result-badge badge-netease">NETEASE</span>`;
+                let statusBadge = '';
+                if (isItemEmpty) {
+                    statusBadge = `<span class="result-badge badge-empty">EMPTY</span>`;
+                } else if (item.source === 'api') {
+                    statusBadge = item.synced
+                        ? `<span class="result-badge">SYNCED</span>`
+                        : `<span class="result-badge badge-unsynced">UNSYNCED</span>`;
+                }
+                return sourceBadge + statusBadge;
+            };
 
             const results = (response?.results || []).map(item => ({
                 ...item,
@@ -688,9 +704,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeItem) {
                     activeItem.classList.add('active-lyric');
                     const dot = document.createElement('div');
-                    dot.className = 'active-dot';
+                    dot.className = state.activeSource.isEmpty ? 'active-dot active-dot--empty' : 'active-dot';
                     const dotContainer = activeItem.querySelector('.dot-container');
                     if (dotContainer) dotContainer.appendChild(dot);
+
+                    // Dynamically update the provider badge to show EMPTY if the lyric is empty
+                    if (state.activeSource.isEmpty) {
+                        const badgesContainer = activeItem.querySelector('.result-badges');
+                        if (badgesContainer) {
+                            if (!badgesContainer.querySelector('.badge-empty')) {
+                                badgesContainer.innerHTML = 
+                                    (state.activeSource.type === 'netease' 
+                                        ? `<span class="result-badge badge-netease">NETEASE</span>` 
+                                        : `<span class="result-badge badge-lrclib">LRCLIB</span>`) +
+                                    `<span class="result-badge badge-empty">EMPTY</span>`;
+                            }
+                        }
+                    }
                 } else if (!state.activeSource.id) {
                     // Fallback to auto match card if no specific ID matched
                     const autoItem = el.resultsContainer.querySelector('#auto-match-card');

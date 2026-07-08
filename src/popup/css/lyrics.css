@@ -157,6 +157,11 @@
     color: #FFF !important;
 }
 
+.badge-empty {
+    background: #e67e22 !important;
+    color: #FFF !important;
+}
+
 .result-duration {
     font-size: 11px;
     color: #AAA;
@@ -178,6 +183,27 @@
     background: var(--accent);
     box-shadow: 0 0 0 0 var(--accent-glow);
     animation: pulse-dot 2s infinite;
+}
+
+.active-dot--empty {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e67e22 !important;
+    box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4) !important;
+    animation: pulse-dot-empty 2s infinite !important;
+}
+
+@keyframes pulse-dot-empty {
+    0% {
+        box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 5px rgba(230, 126, 34, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(230, 126, 34, 0);
+    }
 }
 
 @keyframes pulse-dot {
