@@ -27,6 +27,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updateBorderlessAvailability() {
+        if (!el.toggleBorderlessPip) return;
+
+        chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+            const targetTabs = tabs || [];
+            if (targetTabs.length === 0) {
+                el.toggleBorderlessPip.disabled = false;
+                if (el.borderlessPipWarning) el.borderlessPipWarning.style.display = 'none';
+                return;
+            }
+
+            let checkedCount = 0;
+            let activePipTab = null;
+
+            targetTabs.forEach(tab => {
+                if (!tab.id) {
+                    checkedCount++;
+                    if (checkedCount === targetTabs.length) {
+                        applyAvailability(activePipTab);
+                    }
+                    return;
+                }
+                chrome.tabs.sendMessage(tab.id, { type: 'IS_PIP_OPEN' }, (response) => {
+                    const err = chrome.runtime.lastError;
+                    checkedCount++;
+                    if (response && response.isOpen) {
+                        activePipTab = tab;
+                    }
+                    if (checkedCount === targetTabs.length) {
+                        applyAvailability(activePipTab);
+                    }
+                });
+            });
+        });
+
+        function applyAvailability(activePipTab) {
+            if (activePipTab) {
+                const isBackground = !activePipTab.active;
+                el.toggleBorderlessPip.disabled = isBackground;
+                if (el.borderlessPipWarning) {
+                    el.borderlessPipWarning.style.display = isBackground ? 'block' : 'none';
+                }
+            } else {
+                el.toggleBorderlessPip.disabled = false;
+                if (el.borderlessPipWarning) el.borderlessPipWarning.style.display = 'none';
+            }
+        }
+    }
+
     if (el.toggleBorderlessPip) {
         el.toggleBorderlessPip.addEventListener('change', () => {
             // Cooldown mechanism to prevent rapid clicking
@@ -43,10 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 secondsLeft--;
                 if (secondsLeft <= 0) {
                     clearInterval(intervalId);
-                    el.toggleBorderlessPip.disabled = false;
                     if (el.labelBorderlessPip) {
                         el.labelBorderlessPip.textContent = originalText;
                     }
+                    updateBorderlessAvailability();
                 } else {
                     if (el.labelBorderlessPip) {
                         el.labelBorderlessPip.textContent = `${originalText} (${secondsLeft}s)`;
@@ -55,6 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
         });
     }
+
+    // Initial check on popup load
+    updateBorderlessAvailability();
+
+    // Re-check when settings tab is clicked
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (btn.dataset.tab === 'settings') {
+                updateBorderlessAvailability();
+            }
+        });
+    });
 
     if (el.toggleEcoMode) {
         el.toggleEcoMode.addEventListener('change', () => {
