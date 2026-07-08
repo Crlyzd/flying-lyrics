@@ -964,3 +964,13 @@ select option[value="request_language"] {
     width: 20px;
     height: 20px;
 }
+
+#borderless-pip-warning {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#borderless-pip-warning:hover {
+    text-decoration: underline;
+    opacity: 0.85;
+}

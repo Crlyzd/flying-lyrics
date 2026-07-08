@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let activeBackgroundMusicTab = null;
+
     function updateBorderlessAvailability() {
         if (!el.toggleBorderlessPip) return;
 
@@ -35,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetTabs.length === 0) {
                 el.toggleBorderlessPip.disabled = false;
                 if (el.borderlessPipWarning) el.borderlessPipWarning.style.display = 'none';
+                activeBackgroundMusicTab = null;
                 return;
             }
 
@@ -69,9 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (el.borderlessPipWarning) {
                     el.borderlessPipWarning.style.display = isBackground ? 'block' : 'none';
                 }
+                activeBackgroundMusicTab = isBackground ? activePipTab : null;
             } else {
                 el.toggleBorderlessPip.disabled = false;
                 if (el.borderlessPipWarning) el.borderlessPipWarning.style.display = 'none';
+                activeBackgroundMusicTab = null;
             }
         }
     }
@@ -102,6 +107,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }, 1000);
+        });
+    }
+
+    if (el.borderlessPipWarning) {
+        el.borderlessPipWarning.addEventListener('click', () => {
+            if (activeBackgroundMusicTab) {
+                chrome.tabs.update(activeBackgroundMusicTab.id, { active: true });
+                if (activeBackgroundMusicTab.windowId) {
+                    chrome.windows.update(activeBackgroundMusicTab.windowId, { focused: true });
+                }
+            }
         });
     }
 

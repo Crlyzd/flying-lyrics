@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleAutolaunch:     document.getElementById('toggle-autolaunch'),
         toggleBorderlessPip:  document.getElementById('toggle-borderless-pip'),
         labelBorderlessPip:   document.querySelector('label[for="toggle-borderless-pip"]'),
+        borderlessPipWarning: document.getElementById('borderless-pip-warning'),
         toggleEcoMode:        document.getElementById('toggle-eco-mode'),
         toggleCloudSync:      document.getElementById('toggle-cloud-sync'),
         langSelect:           document.getElementById('lang-select'),
