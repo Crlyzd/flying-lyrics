@@ -572,6 +572,21 @@
         }
 
         const state = fl.getPlayerState();
+
+        // WORKAROUND: Auto-next simulation for YouTube Music 3 seconds before song ends
+        // This programmatically triggers a Next click to bypass YouTube Music's autoplay preloader
+        // transition, which otherwise breaks/desynchronizes the seeker bar in Document PiP mode.
+        if (fl.getActiveAdapter?.() === fl.adapters?.ytmusic && !state.paused && state.duration > 5) {
+            const timeRemaining = state.duration - state.currentTime;
+            if (timeRemaining > 3) {
+                fl.hasTriggeredAutoNext = false;
+            } else if (timeRemaining > 0 && timeRemaining <= 3 && !fl.hasTriggeredAutoNext) {
+                console.log(`FL: Auto-next triggered 3 seconds before end (Remaining: ${timeRemaining.toFixed(2)}s)`);
+                fl.hasTriggeredAutoNext = true;
+                fl.adapters.ytmusic.clickNext();
+            }
+        }
+
         // Apply Sync Offset
         if (!state.paused) {
             state.currentTime += (fl.syncOffset / 1000);
@@ -592,6 +607,7 @@
         const nowTitle = meta?.title || "";
         if (nowTitle !== fl.currentTrack) {
             fl.currentTrack = nowTitle;
+            fl.hasTriggeredAutoNext = false; // Reset YouTube Music auto-skip latch on track change
 
             if (nowTitle === "") {
                 fl.lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];

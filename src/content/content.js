@@ -10,6 +10,7 @@
     fl.targetScroll = 0;
     fl.pipWin = null;
     fl.hasAutoLaunched = false;
+    fl.hasTriggeredAutoNext = false; // Latch to prevent multiple simulated next clicks per song (workaround for YTM seeker bar desync)
 
     // Settings
     fl.showTranslation = fl.defaults.showTranslation;
