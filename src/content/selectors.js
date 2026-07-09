@@ -48,6 +48,9 @@
                     const path = svg ? svg.querySelector('path') : null;
                     if (path) {
                         const d = path.getAttribute('d') || '';
+                        // Language-agnostic fallback: Spotify's play/pause SVG paths remain the same across locales.
+                        // - Play icon (triangle) is 1 closed path (1 'z' command) -> returns true (is paused)
+                        // - Pause icon (two bars) is 2 closed paths (2 'z' commands) -> returns false (is playing)
                         const zCount = (d.match(/z/gi) || []).length;
                         if (zCount > 1) return false;
                         if (zCount === 1) return true;
