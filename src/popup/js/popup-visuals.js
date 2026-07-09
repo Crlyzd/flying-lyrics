@@ -707,11 +707,50 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            applyPreset(btn.dataset.c1, btn.dataset.c2, btn.dataset.c3);
-        });
-    });
+    function renderColorPresets() {
+        const presets = window.FLYING_LYRICS.colorPresets;
+        if (!presets) return;
+
+        for (const [category, items] of Object.entries(presets)) {
+            const grid = document.getElementById(`presets-grid-${category}`);
+            if (!grid) continue;
+
+            grid.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            items.forEach(preset => {
+                const btn = document.createElement('button');
+                btn.className = 'preset-btn';
+                btn.type = 'button';
+                btn.dataset.c1 = preset.colors[0];
+                btn.dataset.c2 = preset.colors[1];
+                btn.dataset.c3 = preset.colors[2];
+
+                const colorsDiv = document.createElement('div');
+                colorsDiv.className = 'preset-colors';
+
+                preset.colors.forEach(color => {
+                    const span = document.createElement('span');
+                    span.style.background = color;
+                    colorsDiv.appendChild(span);
+                });
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = preset.name;
+
+                btn.appendChild(colorsDiv);
+                btn.appendChild(nameSpan);
+
+                btn.addEventListener('click', () => {
+                    applyPreset(preset.colors[0], preset.colors[1], preset.colors[2]);
+                });
+
+                fragment.appendChild(btn);
+            });
+            grid.appendChild(fragment);
+        }
+    }
+
+    renderColorPresets();
 
     // Galaxy / Animations
     function applyGalaxyModeState(enabled) {
