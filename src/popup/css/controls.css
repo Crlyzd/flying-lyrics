@@ -990,3 +990,101 @@ select option[value="request_language"] {
     text-decoration: underline;
     opacity: 0.85;
 }
+
+/* =========================================================
+ *  COLLAPSIBLE GROUP (ACCORDION) STYLES
+ * ========================================================= */
+.control-group.collapsible-group {
+    padding: 0;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.control-group.collapsible-group:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    color: #eee;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.collapsible-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--accent);
+}
+
+.collapsible-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.collapsible-title-wrapper .icon-svg {
+    opacity: 0.85;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.collapsible-header:hover .collapsible-title-wrapper .icon-svg {
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.chevron-icon {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid #888;
+    border-bottom: 2px solid #888;
+    transform: rotate(-135deg); /* Pointing UP (Expanded) */
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s;
+    margin-right: 4px;
+}
+
+.collapsible-header:hover .chevron-icon {
+    border-color: var(--accent);
+}
+
+.collapsible-content {
+    max-height: 1200px;
+    opacity: 1;
+    padding: 2px 14px 14px 14px;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.22s ease-in-out, 
+                padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: visible;
+}
+
+/* Collapsed State */
+.control-group.collapsible-group.collapsed .collapsible-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.control-group.collapsible-group.collapsed .chevron-icon {
+    transform: rotate(45deg); /* Pointing DOWN (Collapsed) */
+}
+
+/* Disable state support (Album Cover Mode) */
+#visual-controls-wrapper.controls-disabled .collapsible-header {
+    pointer-events: none;
+    opacity: 0.5;
+}

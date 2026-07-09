@@ -753,6 +753,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Collapsible Groups (Accordions) Logic
+    const collapsibleGroups = document.querySelectorAll('.collapsible-group');
+    collapsibleGroups.forEach(group => {
+        const header = group.querySelector('.collapsible-header');
+        if (!header) return;
+
+        const storageKey = `collapsed_${group.id}`;
+        
+        // Load initial state (Default both to collapsed: true)
+        storage.get({ [storageKey]: true }, (res) => {
+            const isCollapsed = res[storageKey];
+            if (isCollapsed) {
+                group.classList.add('collapsed');
+                header.setAttribute('aria-expanded', 'false');
+            } else {
+                group.classList.remove('collapsed');
+                header.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        header.addEventListener('click', () => {
+            const isCollapsedNow = group.classList.toggle('collapsed');
+            header.setAttribute('aria-expanded', !isCollapsedNow ? 'true' : 'false');
+            saveAndNotify({ [storageKey]: isCollapsedNow });
+        });
+    });
+
     // Resets
     if (el.btnResetPipSettings) {
         el.btnResetPipSettings.addEventListener('click', () => {

@@ -153,6 +153,8 @@
     will-change: opacity;
     transform: translate3d(0, 0, 0);
     /* Promote to its own GPU compositor layer */
+    background-size: 300px 600px;
+    background-repeat: repeat-y;
 }
 
 .stars-layer-1 {

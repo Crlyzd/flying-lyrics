@@ -190,143 +190,172 @@
 
                     <!-- Typography & Detail configurations -->
                     <div id="visual-controls-wrapper">
-                        <div class="control-group">
-                            <label for="font-family-select" class="align-select-label">Font Family</label>
-                            <select id="font-family-select">
-                                <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans</option>
-                                <option value="'Indie Flower', cursive">Indie Flower</option>
-                                <option value="'Gaegu', cursive">Gaegu</option>
-                                <option value="'Patrick Hand', cursive">Patrick Hand</option>
-                                <option value="'Gochi Hand', cursive">Gochi Hand</option>
-                                <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
-                                <option value="custom">★ Custom Google Font . . .</option>
-                            </select>
+                        
+                        <!-- ACCORDION SECTION 1: TYPOGRAPHY & LAYOUT -->
+                        <div class="control-group collapsible-group collapsed" id="group-typography">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <path d="M3 6C3 3.79086 4.79086 2 7 2H17C19.2091 2 21 3.79086 21 6C21 8.20914 19.2091 10 17 10H7C4.79086 10 3 8.20914 3 6Z" />
+                                        <path d="M3 16C3 14.8954 3.89543 14 5 14H8C9.10457 14 10 14.8954 10 16V19C10 20.1046 9.10457 21 8 21H5C3.89543 21 3 20.1046 3 19V16Z" />
+                                        <path d="M14 17.5C14 15.567 15.567 14 17.5 14C19.433 14 21 15.567 21 17.5C21 19.433 19.433 21 17.5 21C15.567 21 14 19.433 14 17.5Z" />
+                                    </svg>
+                                    <span>Typography &amp; Layout</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            
+                            <div class="collapsible-content">
+                                <label for="font-family-select" class="align-select-label">Font Family</label>
+                                <select id="font-family-select">
+                                    <option value="'Noto Sans', 'Segoe UI', sans-serif">Noto Sans</option>
+                                    <option value="'Indie Flower', cursive">Indie Flower</option>
+                                    <option value="'Gaegu', cursive">Gaegu</option>
+                                    <option value="'Patrick Hand', cursive">Patrick Hand</option>
+                                    <option value="'Gochi Hand', cursive">Gochi Hand</option>
+                                    <option value="'Nanum Pen Script', cursive">Nanum Pen Script</option>
+                                    <option value="custom">★ Custom Google Font . . .</option>
+                                </select>
 
-                            <!-- Custom Font Search (Hidden by default) -->
-                            <div id="custom-font-container">
-                                <div class="custom-font-input-wrapper">
-                                    <input type="text" id="custom-font-input" class="search-input custom-font-input-field"
-                                        placeholder="Search fonts... (e.g. Pacifico)" autocomplete="off">
-                                    <button id="btn-suggest-fonts" class="suggest-fonts-trigger" title="Get 5 random suggestions">🎲</button>
-                                </div>
-                                <div class="custom-font-actions-row">
-                                    <button class="search-btn" id="apply-custom-font">Search</button>
-                                    <div>
-                                        <button id="btn-recent-fonts" class="btn-recent-fonts-trigger" title="Recently used fonts" aria-label="Recently used fonts">
-                                            <span class="icon-mask icon-recent icon-size-15"></span>
-                                        </button>
-                                        <div id="recent-fonts-panel"></div>
+                                <!-- Custom Font Search (Hidden by default) -->
+                                <div id="custom-font-container">
+                                    <div class="custom-font-input-wrapper">
+                                        <input type="text" id="custom-font-input" class="search-input custom-font-input-field"
+                                            placeholder="Search fonts... (e.g. Pacifico)" autocomplete="off">
+                                        <button id="btn-suggest-fonts" class="suggest-fonts-trigger" title="Get 5 random suggestions">🎲</button>
+                                    </div>
+                                    <div class="custom-font-actions-row">
+                                        <button class="search-btn" id="apply-custom-font">Search</button>
+                                        <div>
+                                            <button id="btn-recent-fonts" class="btn-recent-fonts-trigger" title="Recently used fonts" aria-label="Recently used fonts">
+                                                <span class="icon-mask icon-recent icon-size-15"></span>
+                                            </button>
+                                            <div id="recent-fonts-panel"></div>
+                                        </div>
+                                    </div>
+                                    <div id="font-chips-container"></div>
+                                    <div id="font-results-container"></div>
+                                    <div id="custom-font-link-hint">
+                                        <a href="https://fonts.google.com/" target="_blank" class="green-link">Browse Google Fonts ↗</a>
                                     </div>
                                 </div>
-                                <div id="font-chips-container"></div>
-                                <div id="font-results-container"></div>
-                                <div id="custom-font-link-hint">
-                                    <a href="https://fonts.google.com/" target="_blank" class="green-link">Browse Google Fonts ↗</a>
-                                </div>
-                            </div>
 
-                            <label for="align-select" class="align-select-label">Lyric Alignment</label>
-                            <select id="align-select">
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                            </select>
-
-                            <div class="font-size-label-row">
-                                <label class="margin-bottom-0">Font Size</label>
-                                <span id="font-size-warning">Higher values may cause text to overlap</span>
-                            </div>
-                            <div class="range-row">
-                                <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
-                                <span class="range-value" id="font-size-value">5</span>
-                            </div>
-
-                            <label>Line Spacing</label>
-                            <div class="range-row">
-                                <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="5">
-                                <span class="range-value" id="line-spacing-value">5</span>
-                            </div>
-
-                            <label>Vertical Position</label>
-                            <div class="range-row">
-                                <input type="range" id="anchor-slider" min="1" max="10" step="1" value="5">
-                                <span class="range-value" id="anchor-value">5</span>
-                            </div>
-
-                            <label>Blur</label>
-                            <div class="range-row">
-                                <input type="range" id="blur-slider" min="1" max="10" step="1" value="5">
-                                <span class="range-value" id="blur-value">5</span>
-                            </div>
-
-                            <label>Darkness</label>
-                            <div class="range-row range-row-last">
-                                <input type="range" id="darkness-slider" min="1" max="10" step="1" value="5">
-                                <span class="range-value" id="darkness-value">5</span>
-                            </div>
-                        </div>
-
-                        <!-- Cover Background Mode -->
-                        <div class="control-group">
-                            <label class="cover-mode-label">Cover Background Mode</label>
-                            <div class="cover-mode-group" id="cover-mode-group">
-                                <div class="cover-mode-option" data-mode="centered">
-                                    <span class="cover-radio"></span>
-                                    <div class="cover-mode-desc">Center</div>
-                                </div>
-                                <div class="cover-mode-option" data-mode="repeated">
-                                    <span class="cover-radio"></span>
-                                    <div class="cover-mode-desc">Repeat</div>
-                                </div>
-                                <div class="cover-mode-option selected" data-mode="default">
-                                    <span class="cover-radio"></span>
-                                    <div class="cover-mode-desc">Fill</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Aura & Spotlight Toggles -->
-                        <div class="control-group">
-                            <div class="row" style="align-items: center;">
-                                <div style="display: flex; flex-direction: column;">
-                                    <label style="margin-bottom:0;">Aura</label>
-                                    <span id="glow-perf-warning" class="galaxy-perf-warning" style="font-style: italic; font-size: 10px; font-weight: 500; display: none; margin-top: 2px; color: #ffaa55;">May impact performance</span>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-glow">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="row" style="margin-top: 12px;">
-                                <div>
-                                    <label>Spotlight</label>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-spotlight">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="row" style="margin-top: 12px;">
-                                <div>
-                                    <label>Lyric Shadow</label>
-                                </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-lyric-shadow">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-
-                            <div id="glow-style-container">
-                                <label class="glow-style-label">Style</label>
-                                <select id="glow-style-select">
-                                    <option value="theme">Theme Color</option>
-                                    <option value="rainbow">Rainbow</option>
+                                <label for="align-select" class="align-select-label" style="margin-top: 10px;">Lyric Alignment</label>
+                                <select id="align-select">
+                                    <option value="left">Left</option>
+                                    <option value="center">Center</option>
+                                    <option value="right">Right</option>
                                 </select>
+
+                                <div class="font-size-label-row" style="margin-top: 10px;">
+                                    <label class="margin-bottom-0">Font Size</label>
+                                    <span id="font-size-warning">Higher values may cause text to overlap</span>
+                                </div>
+                                <div class="range-row">
+                                    <input type="range" id="font-size-slider" min="1" max="10" step="1" value="5">
+                                    <span class="range-value" id="font-size-value">5</span>
+                                </div>
+
+                                <label>Line Spacing</label>
+                                <div class="range-row">
+                                    <input type="range" id="line-spacing-slider" min="1" max="10" step="1" value="5">
+                                    <span class="range-value" id="line-spacing-value">5</span>
+                                </div>
+
+                                <label>Vertical Position</label>
+                                <div class="range-row range-row-last">
+                                    <input type="range" id="anchor-slider" min="1" max="10" step="1" value="5">
+                                    <span class="range-value" id="anchor-value">5</span>
+                                </div>
                             </div>
-                            <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
                         </div>
+
+                        <!-- ACCORDION SECTION 2: BACKDROP & EFFECTS -->
+                        <div class="control-group collapsible-group collapsed" id="group-effects">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="-102.4 -102.4 716.80 716.80" xml:space="preserve" fill="currentColor" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <g>
+                                            <path d="M166.646,166.653c34.995-34.961,91.91-34.961,126.861,0l95.26,95.266l64.184-85.884l-97.203-28.632L303.995,0 L193.47,64.711L51.816,51.791l-0.017-0.011v0.011h-0.032l0.032,0.032l12.894,141.66l-64.69,110.51L147.39,355.74l28.648,97.208 l85.884-64.19l-95.266-95.243C131.679,258.552,131.679,201.637,166.646,166.653z"/>
+                                            <path d="M495.605,416.423L272.872,193.71c-21.845-21.867-57.301-21.867-79.163,0 c-21.856,21.856-21.856,57.296,0,79.174l222.722,222.723c21.89,21.857,57.301,21.857,79.19,0 C517.451,473.718,517.467,438.3,495.605,416.423z M253.784,291.006l-39.098-39.109c-5.162-5.201-7.687-11.824-7.687-18.621 c0-6.776,2.514-13.399,7.671-18.599c5.206-5.158,11.851-7.698,18.631-7.698c6.776-0.022,13.421,2.54,18.611,7.719l39.093,39.098 L253.784,291.006z"/>
+                                        </g>
+                                    </svg>
+                                    <span>Backdrop &amp; Effects</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            
+                            <div class="collapsible-content">
+                                <label>Blur</label>
+                                <div class="range-row">
+                                    <input type="range" id="blur-slider" min="1" max="10" step="1" value="5">
+                                    <span class="range-value" id="blur-value">5</span>
+                                </div>
+
+                                <label>Darkness</label>
+                                <div class="range-row">
+                                    <input type="range" id="darkness-slider" min="1" max="10" step="1" value="5">
+                                    <span class="range-value" id="darkness-value">5</span>
+                                </div>
+
+                                <label class="cover-mode-label" style="margin-top: 10px;">Cover Background Mode</label>
+                                <div class="cover-mode-group" id="cover-mode-group" style="margin-bottom: 12px;">
+                                    <div class="cover-mode-option" data-mode="centered">
+                                        <span class="cover-radio"></span>
+                                        <div class="cover-mode-desc">Center</div>
+                                    </div>
+                                    <div class="cover-mode-option" data-mode="repeated">
+                                        <span class="cover-radio"></span>
+                                        <div class="cover-mode-desc">Repeat</div>
+                                    </div>
+                                    <div class="cover-mode-option selected" data-mode="default">
+                                        <span class="cover-radio"></span>
+                                        <div class="cover-mode-desc">Fill</div>
+                                    </div>
+                                </div>
+
+                                <div class="row" style="align-items: center; margin-top: 10px;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <label style="margin-bottom:0;">Aura</label>
+                                        <span id="glow-perf-warning" class="galaxy-perf-warning" style="font-style: italic; font-size: 10px; font-weight: 500; display: none; margin-top: 2px; color: #ffaa55;">May impact performance</span>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggle-glow">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="row" style="margin-top: 12px;">
+                                    <div>
+                                        <label>Spotlight</label>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggle-spotlight">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="row" style="margin-top: 12px; margin-bottom: 12px;">
+                                    <div>
+                                        <label>Lyric Shadow</label>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggle-lyric-shadow">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div id="glow-style-container" style="margin-bottom: 10px;">
+                                    <label class="glow-style-label">Style</label>
+                                    <select id="glow-style-select">
+                                        <option value="theme">Theme Color</option>
+                                        <option value="rainbow">Rainbow</option>
+                                    </select>
+                                </div>
+                                <div class="glow-preview" id="glow-preview">♪ Now Playing Lyrics ♪</div>
+                            </div>
+                        </div>
+
                     </div>
 
                     <!-- Reset Settings -->
