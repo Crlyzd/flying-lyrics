@@ -282,7 +282,7 @@
 
 .hsl-slider-header .hsl-value {
     font-weight: bold;
-    color: var(--accent);
+    color: var(--accent-foreground);
     font-family: monospace;
 }
 

@@ -21,6 +21,21 @@
             --accent-bg: rgba(255, 0, 127, 0.08);
             --accent-glow: rgba(255, 0, 127, 0.45);
             
+            /* Dynamic Contrast and Foreground defaults */
+            --accent-1-contrast: #ffffff;
+            --accent-2-contrast: #ffffff;
+            --accent-3-contrast: #ffffff;
+            --accent-contrast: var(--accent-1-contrast);
+            --accent-blue-contrast: var(--accent-2-contrast);
+            --accent-green-contrast: var(--accent-3-contrast);
+
+            --accent-1-foreground: var(--accent-1);
+            --accent-2-foreground: var(--accent-2);
+            --accent-3-foreground: var(--accent-3);
+            --accent-foreground: var(--accent-1-foreground);
+            --accent-blue-foreground: var(--accent-2-foreground);
+            --accent-green-foreground: var(--accent-3-foreground);
+
             --raw-accent-1: var(--accent-1);
             --raw-accent-2: var(--accent-2);
             --raw-accent-3: var(--accent-3);
@@ -89,7 +104,7 @@
         h1 {
             margin: 0;
             font-size: 18px;
-            color: var(--accent-1);
+            color: var(--accent-1-foreground);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -120,7 +135,7 @@
 
         .btn {
             background-color: var(--accent-1);
-            color: #fff;
+            color: var(--accent-1-contrast);
             border: none;
             padding: 8px 16px;
             border-radius: 4px;
@@ -152,7 +167,7 @@
         .btn.saved {
             background-color: var(--accent-1);
             box-shadow: 0 0 15px 3px var(--accent-glow);
-            color: #fff;
+            color: var(--accent-1-contrast);
         }
 
         .editor-container {
@@ -222,7 +237,7 @@
             left: 50%;
             transform: translateX(-50%) translateY(50px);
             background: var(--accent-1);
-            color: #fff;
+            color: var(--accent-1-contrast);
             padding: 10px 20px;
             border-radius: 30px;
             font-weight: bold;
@@ -421,6 +436,8 @@
             --accent-bg: rgba(29, 185, 84, 0.08) !important;
             --accent-glow: rgba(29, 185, 84, 0.45) !important;
             --bg-galaxy: #121212 !important;
+            --accent-1-contrast: #ffffff !important;
+            --accent-1-foreground: #1DB954 !important;
         }
 
     </style>

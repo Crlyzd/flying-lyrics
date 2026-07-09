@@ -441,50 +441,197 @@
                             </div>
                         </div>
 
-                        <!-- Presets Grid -->
-                        <div class="control-group" style="padding-bottom:5px;">
-                            <label>Galaxy Presets</label>
-                            <div class="presets-grid">
-                                <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#00b4d8" data-c3="#1DB954">
-                                    <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#00b4d8;"></span><span style="background:#1DB954;"></span></div>
-                                    <span>Orion</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#7209b7" data-c2="#ff007f" data-c3="#4cc9f0">
-                                    <div class="preset-colors"><span style="background:#7209b7;"></span><span style="background:#ff007f;"></span><span style="background:#4cc9f0;"></span></div>
-                                    <span>Andromeda</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#ff4d00" data-c2="#e0115f" data-c3="#5c00a3">
-                                    <div class="preset-colors"><span style="background:#ff4d00;"></span><span style="background:#e0115f;"></span><span style="background:#5c00a3;"></span></div>
-                                    <span>Sunset</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#06d6a0" data-c2="#118ab2" data-c3="#70e000">
-                                    <div class="preset-colors"><span style="background:#06d6a0;"></span><span style="background:#118ab2;"></span><span style="background:#70e000;"></span></div>
-                                    <span>Aurora</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#00f0ff" data-c3="#ffea00">
-                                    <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#00f0ff;"></span><span style="background:#ffea00;"></span></div>
-                                    <span>Cyberpunk</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#0077b6" data-c2="#00b4d8" data-c3="#90e0ef">
-                                    <div class="preset-colors"><span style="background:#0077b6;"></span><span style="background:#00b4d8;"></span><span style="background:#90e0ef;"></span></div>
-                                    <span>Ocean</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#d90429" data-c2="#f77f00" data-c3="#fcbf49">
-                                    <div class="preset-colors"><span style="background:#d90429;"></span><span style="background:#f77f00;"></span><span style="background:#fcbf49;"></span></div>
-                                    <span>Supernova</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#2d6a4f" data-c2="#52b788" data-c3="#d8f3dc">
-                                    <div class="preset-colors"><span style="background:#2d6a4f;"></span><span style="background:#52b788;"></span><span style="background:#d8f3dc;"></span></div>
-                                    <span>Forest</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#cccccc" data-c2="#666666" data-c3="#333333">
-                                    <div class="preset-colors"><span style="background:#cccccc;"></span><span style="background:#666666;"></span><span style="background:#333333;"></span></div>
-                                    <span>Void</span>
-                                </button>
-                                <button class="preset-btn" type="button" data-c1="#1DB954" data-c2="#a7ffc3" data-c3="#0f3b1e">
-                                    <div class="preset-colors"><span style="background:#1DB954;"></span><span style="background:#a7ffc3;"></span><span style="background:#0f3b1e;"></span></div>
-                                    <span>Retro</span>
-                                </button>
+                        <!-- Presets Section Header -->
+                        <label style="margin-left: 5px; margin-top: 10px; margin-bottom: 8px; font-size: 14px; font-weight: 600; display: block;">Galaxy Presets</label>
+
+                        <!-- Accordion 1: Cosmic & Space -->
+                        <div class="control-group collapsible-group collapsed" id="group-presets-cosmic">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                        <path d="M2 12h20"></path>
+                                    </svg>
+                                    <span>Space &amp; Cosmic</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            <div class="collapsible-content">
+                                <div class="presets-grid">
+                                    <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#00b4d8" data-c3="#1DB954">
+                                        <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#00b4d8;"></span><span style="background:#1DB954;"></span></div>
+                                        <span>Orion</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#7209b7" data-c2="#ff007f" data-c3="#4cc9f0">
+                                        <div class="preset-colors"><span style="background:#7209b7;"></span><span style="background:#ff007f;"></span><span style="background:#4cc9f0;"></span></div>
+                                        <span>Andromeda</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#d90429" data-c2="#f77f00" data-c3="#fcbf49">
+                                        <div class="preset-colors"><span style="background:#d90429;"></span><span style="background:#f77f00;"></span><span style="background:#fcbf49;"></span></div>
+                                        <span>Supernova</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ff4d00" data-c2="#e0115f" data-c3="#5c00a3">
+                                        <div class="preset-colors"><span style="background:#ff4d00;"></span><span style="background:#e0115f;"></span><span style="background:#5c00a3;"></span></div>
+                                        <span>Sunset</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ff0000" data-c2="#ff8800" data-c3="#ffff00">
+                                        <div class="preset-colors"><span style="background:#ff0000;"></span><span style="background:#ff8800;"></span><span style="background:#ffff00;"></span></div>
+                                        <span>Solar Flare</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#8a2be2" data-c2="#da70d6" data-c3="#4b0082">
+                                        <div class="preset-colors"><span style="background:#8a2be2;"></span><span style="background:#da70d6;"></span><span style="background:#4b0082;"></span></div>
+                                        <span>Nebula</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#000033" data-c2="#000011" data-c3="#4b0082">
+                                        <div class="preset-colors"><span style="background:#000033;"></span><span style="background:#000011;"></span><span style="background:#4b0082;"></span></div>
+                                        <span>Deep Space</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#111122" data-c2="#ffaa00" data-c3="#444455">
+                                        <div class="preset-colors"><span style="background:#111122;"></span><span style="background:#ffaa00;"></span><span style="background:#444455;"></span></div>
+                                        <span>Eclipse</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accordion 2: Earth & Nature -->
+                        <div class="control-group collapsible-group collapsed" id="group-presets-nature">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <path d="M2 22C2 22 8 20 12 16C16 12 22 2 22 2C22 2 12 8 8 12C4 16 2 22 2 22Z" />
+                                        <path d="M2 22L12 12" />
+                                    </svg>
+                                    <span>Earth &amp; Nature</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            <div class="collapsible-content">
+                                <div class="presets-grid">
+                                    <button class="preset-btn" type="button" data-c1="#06d6a0" data-c2="#118ab2" data-c3="#70e000">
+                                        <div class="preset-colors"><span style="background:#06d6a0;"></span><span style="background:#118ab2;"></span><span style="background:#70e000;"></span></div>
+                                        <span>Aurora</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#0077b6" data-c2="#00b4d8" data-c3="#90e0ef">
+                                        <div class="preset-colors"><span style="background:#0077b6;"></span><span style="background:#00b4d8;"></span><span style="background:#90e0ef;"></span></div>
+                                        <span>Ocean</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#2d6a4f" data-c2="#52b788" data-c3="#d8f3dc">
+                                        <div class="preset-colors"><span style="background:#2d6a4f;"></span><span style="background:#52b788;"></span><span style="background:#d8f3dc;"></span></div>
+                                        <span>Forest</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#1b4332" data-c2="#40916c" data-c3="#aacc00">
+                                        <div class="preset-colors"><span style="background:#1b4332;"></span><span style="background:#40916c;"></span><span style="background:#aacc00;"></span></div>
+                                        <span>Jungle</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ffb3c6" data-c2="#ff85a1" data-c3="#ffe5ec">
+                                        <div class="preset-colors"><span style="background:#ffb3c6;"></span><span style="background:#ff85a1;"></span><span style="background:#ffe5ec;"></span></div>
+                                        <span>Sakura</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#4d194d" data-c2="#005f73" data-c3="#0a9396">
+                                        <div class="preset-colors"><span style="background:#4d194d;"></span><span style="background:#005f73;"></span><span style="background:#0a9396;"></span></div>
+                                        <span>Twilight</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#6a040f" data-c2="#dc2f02" data-c3="#f8961e">
+                                        <div class="preset-colors"><span style="background:#6a040f;"></span><span style="background:#dc2f02;"></span><span style="background:#f8961e;"></span></div>
+                                        <span>Volcano</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accordion 3: Retro & Cyber -->
+                        <div class="control-group collapsible-group collapsed" id="group-presets-cyber">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                                    </svg>
+                                    <span>Retro &amp; Cyber</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            <div class="collapsible-content">
+                                <div class="presets-grid">
+                                    <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#00f0ff" data-c3="#ffea00">
+                                        <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#00f0ff;"></span><span style="background:#ffea00;"></span></div>
+                                        <span>Cyberpunk</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#1DB954" data-c2="#a7ffc3" data-c3="#0f3b1e">
+                                        <div class="preset-colors"><span style="background:#1DB954;"></span><span style="background:#a7ffc3;"></span><span style="background:#0f3b1e;"></span></div>
+                                        <span>Retro</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ff007f" data-c2="#7209b7" data-c3="#f72585">
+                                        <div class="preset-colors"><span style="background:#ff007f;"></span><span style="background:#7209b7;"></span><span style="background:#f72585;"></span></div>
+                                        <span>Synthwave</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#00f0ff" data-c2="#ff00ff" data-c3="#7209b7">
+                                        <div class="preset-colors"><span style="background:#00f0ff;"></span><span style="background:#ff00ff;"></span><span style="background:#7209b7;"></span></div>
+                                        <span>Neon City</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#00ff00" data-c2="#003300" data-c3="#008000">
+                                        <div class="preset-colors"><span style="background:#00ff00;"></span><span style="background:#003300;"></span><span style="background:#008000;"></span></div>
+                                        <span>Matrix</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ff70a6" data-c2="#ffd670" data-c3="#e9ff70">
+                                        <div class="preset-colors"><span style="background:#ff70a6;"></span><span style="background:#ffd670;"></span><span style="background:#e9ff70;"></span></div>
+                                        <span>Vaporwave</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ff0055" data-c2="#3a0ca3" data-c3="#4cc9f0">
+                                        <div class="preset-colors"><span style="background:#ff0055;"></span><span style="background:#3a0ca3;"></span><span style="background:#4cc9f0;"></span></div>
+                                        <span>Arcade</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Accordion 4: Monochrome & Minimal -->
+                        <div class="control-group collapsible-group collapsed" id="group-presets-monochrome">
+                            <button class="collapsible-header" type="button" aria-expanded="false">
+                                <span class="collapsible-title-wrapper">
+                                    <svg class="icon-svg icon-size-15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                    </svg>
+                                    <span>Minimal &amp; Mono</span>
+                                </span>
+                                <span class="chevron-icon"></span>
+                            </button>
+                            <div class="collapsible-content">
+                                <div class="presets-grid">
+                                    <button class="preset-btn" type="button" data-c1="#333333" data-c2="#181818" data-c3="#050505">
+                                        <div class="preset-colors"><span style="background:#333333;"></span><span style="background:#181818;"></span><span style="background:#050505;"></span></div>
+                                        <span>Void</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#f8f9fa" data-c2="#e9ecef" data-c3="#dee2e6">
+                                        <div class="preset-colors"><span style="background:#f8f9fa;"></span><span style="background:#e9ecef;"></span><span style="background:#dee2e6;"></span></div>
+                                        <span>Ghost</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#1c1c1e" data-c2="#2c2c2e" data-c3="#3a3a3c">
+                                        <div class="preset-colors"><span style="background:#1c1c1e;"></span><span style="background:#2c2c2e;"></span><span style="background:#3a3a3c;"></span></div>
+                                        <span>Obsidian</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#374151" data-c2="#1f2937" data-c3="#111827">
+                                        <div class="preset-colors"><span style="background:#374151;"></span><span style="background:#1f2937;"></span><span style="background:#111827;"></span></div>
+                                        <span>Charcoal</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#e2e8f0" data-c2="#cbd5e1" data-c3="#94a3b8">
+                                        <div class="preset-colors"><span style="background:#e2e8f0;"></span><span style="background:#cbd5e1;"></span><span style="background:#94a3b8;"></span></div>
+                                        <span>Platinum</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#4a5568" data-c2="#2d3748" data-c3="#1a202c">
+                                        <div class="preset-colors"><span style="background:#4a5568;"></span><span style="background:#2d3748;"></span><span style="background:#1a202c;"></span></div>
+                                        <span>Moonlight</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#09090b" data-c2="#18181b" data-c3="#27272a">
+                                        <div class="preset-colors"><span style="background:#09090b;"></span><span style="background:#18181b;"></span><span style="background:#27272a;"></span></div>
+                                        <span>Ink</span>
+                                    </button>
+                                    <button class="preset-btn" type="button" data-c1="#ffffff" data-c2="#f1f5f9" data-c3="#cbd5e1">
+                                        <div class="preset-colors"><span style="background:#ffffff;"></span><span style="background:#f1f5f9;"></span><span style="background:#cbd5e1;"></span></div>
+                                        <span>Glacier</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 

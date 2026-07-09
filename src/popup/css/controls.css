@@ -47,6 +47,7 @@ input:checked+.slider {
 
 input:checked+.slider:before {
     transform: translateX(20px);
+    background-color: var(--accent-contrast);
 }
 
 input:disabled + .slider {
@@ -94,7 +95,7 @@ select:hover {
 
 /* Language-request option uses accent color to stand out */
 select option[value="request_language"] {
-    color: var(--accent);
+    color: var(--accent-foreground);
 }
 
 /* =========================================================
@@ -119,11 +120,24 @@ select option[value="request_language"] {
     flex: 1;
     -webkit-appearance: none;
     appearance: none;
-    height: 4px;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: transparent;
+    height: 16px;
     outline: none;
     cursor: pointer;
+}
+
+.range-row input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.range-row input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
 }
 
 .range-row input[type=range]::-webkit-slider-thumb {
@@ -131,7 +145,7 @@ select option[value="request_language"] {
     appearance: none;
     width: 16px;
     height: 16px;
-    margin-top: -6px;
+    margin-top: -6px; /* Centering offset: (4px - 16px) / 2 */
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
@@ -162,7 +176,7 @@ select option[value="request_language"] {
     font-size: 12px;
     min-width: 38px;
     text-align: right;
-    color: var(--accent);
+    color: var(--accent-foreground);
     font-family: monospace;
     font-weight: bold;
 }
@@ -372,7 +386,7 @@ select option[value="request_language"] {
     padding: 6px;
     font-size: 12px;
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     border: none;
     cursor: pointer;
     font-weight: 600;
@@ -632,7 +646,7 @@ select option[value="request_language"] {
 #btn-recent-fonts:hover {
     background-color: var(--accent-bg);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-foreground);
     transform: scale(1.02);
 }
 
@@ -643,7 +657,7 @@ select option[value="request_language"] {
 #btn-recent-fonts.active {
     background-color: var(--accent-bg);
     border-color: var(--accent);
-    color: var(--accent);
+    color: var(--accent-foreground);
 }
 
 #recent-fonts-panel {
@@ -690,7 +704,7 @@ select option[value="request_language"] {
 }
 
 .green-link {
-    color: var(--accent);
+    color: var(--accent-foreground);
     text-decoration: none;
 }
 
@@ -768,7 +782,7 @@ select option[value="request_language"] {
 }
 
 .google-font-check {
-    color: var(--accent);
+    color: var(--accent-foreground);
     font-weight: bold;
     display: none;
 }
@@ -783,7 +797,7 @@ select option[value="request_language"] {
     height: 12px;
     border: 2px solid var(--accent-bg);
     border-radius: 50%;
-    border-top-color: var(--accent);
+    border-top-color: var(--accent-foreground);
     animation: spin 1s linear infinite;
     color: transparent;
     overflow: hidden;
@@ -1025,7 +1039,7 @@ select option[value="request_language"] {
 
 .collapsible-header:hover {
     background: rgba(255, 255, 255, 0.03);
-    color: var(--accent);
+    color: var(--accent-foreground);
 }
 
 .collapsible-title-wrapper {

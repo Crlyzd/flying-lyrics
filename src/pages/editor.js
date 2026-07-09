@@ -28,56 +28,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyPeachFilterAndClamp(hex) {
-        if (!hex) return hex;
+        return hex; // Simply return the raw color, no more clamping or peach blending!
+    }
+
+    function getContrastColor(hex) {
+        if (!hex) return '#ffffff';
         let r = parseInt(hex.slice(1, 3), 16);
         let g = parseInt(hex.slice(3, 5), 16);
         let b = parseInt(hex.slice(5, 7), 16);
+        let yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        return (yiq >= 140) ? '#000000' : '#ffffff';
+    }
 
-        let mixedR = Math.round(r * 0.6 + 255 * 0.4);
-        let mixedG = Math.round(g * 0.6 + 170 * 0.4);
-        let mixedB = Math.round(b * 0.6 + 128 * 0.4);
-
-        let normR = mixedR / 255, normG = mixedG / 255, normB = mixedB / 255;
-        let max = Math.max(normR, normG, normB), min = Math.min(normR, normG, normB);
-        let h, s, l = (max + min) / 2;
-
-        if (max === min) {
-            h = s = 0;
-        } else {
-            let d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-            switch (max) {
-                case normR: h = (normG - normB) / d + (normG < normB ? 6 : 0); break;
-                case normG: h = (normB - normR) / d + 2; break;
-                case normB: h = (normR - normG) / d + 4; break;
-            }
-            h /= 6;
+    function getReadableForeground(hex) {
+        if (!hex) return '#ffffff';
+        let r = parseInt(hex.slice(1, 3), 16);
+        let g = parseInt(hex.slice(3, 5), 16);
+        let b = parseInt(hex.slice(5, 7), 16);
+        let yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        
+        if (yiq < 90) {
+            // Boost brightness for readability on dark backgrounds
+            // Mix 30% of raw color with 70% white to boost lightness while preserving hue
+            let brR = Math.min(255, Math.round(r * 0.3 + 255 * 0.7));
+            let brG = Math.min(255, Math.round(g * 0.3 + 255 * 0.7));
+            let brB = Math.min(255, Math.round(b * 0.3 + 255 * 0.7));
+            
+            let outR = brR.toString(16).padStart(2, '0');
+            let outG = brG.toString(16).padStart(2, '0');
+            let outB = brB.toString(16).padStart(2, '0');
+            return `#${outR}${outG}${outB}`;
         }
-
-        h = Math.round(h * 360);
-        s = Math.round(s * 100);
-        l = Math.round(l * 100);
-
-        l = Math.max(50, Math.min(l, 78));
-
-        s /= 100; l /= 100;
-        let c = (1 - Math.abs(2 * l - 1)) * s;
-        let x = c * (1 - Math.abs((h / 60) % 2 - 1));
-        let m = l - c / 2;
-        let finalR = 0, finalG = 0, finalB = 0;
-
-        if (0 <= h && h < 60) { finalR = c; finalG = x; finalB = 0; }
-        else if (60 <= h && h < 120) { finalR = x; finalG = c; finalB = 0; }
-        else if (120 <= h && h < 180) { finalR = 0; finalG = c; finalB = x; }
-        else if (180 <= h && h < 240) { finalR = 0; finalG = x; finalB = c; }
-        else if (240 <= h && h < 300) { finalR = x; finalG = 0; finalB = c; }
-        else if (300 <= h && h < 360) { finalR = c; finalG = 0; finalB = x; }
-
-        let outR = Math.round((finalR + m) * 255).toString(16).padStart(2, '0');
-        let outG = Math.round((finalG + m) * 255).toString(16).padStart(2, '0');
-        let outB = Math.round((finalB + m) * 255).toString(16).padStart(2, '0');
-
-        return `#${outR}${outG}${outB}`;
+        return hex;
     }
 
     function applyTheme(theme) {
@@ -92,6 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const f2 = applyPeachFilterAndClamp(c2);
         const f3 = applyPeachFilterAndClamp(c3);
 
+        const contrast1 = getContrastColor(f1);
+        const contrast2 = getContrastColor(f2);
+        const contrast3 = getContrastColor(f3);
+
+        const fore1 = getReadableForeground(f1);
+        const fore2 = getReadableForeground(f2);
+        const fore3 = getReadableForeground(f3);
+
         root.style.setProperty('--accent-1', f1);
         root.style.setProperty('--accent-2', f2);
         root.style.setProperty('--accent-3', f3);
@@ -99,6 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
         root.style.setProperty('--accent-blue', f2);
         root.style.setProperty('--accent-green', f3);
         
+        root.style.setProperty('--accent-1-contrast', contrast1);
+        root.style.setProperty('--accent-2-contrast', contrast2);
+        root.style.setProperty('--accent-3-contrast', contrast3);
+        root.style.setProperty('--accent-contrast', contrast1);
+        root.style.setProperty('--accent-blue-contrast', contrast2);
+        root.style.setProperty('--accent-green-contrast', contrast3);
+
+        root.style.setProperty('--accent-1-foreground', fore1);
+        root.style.setProperty('--accent-2-foreground', fore2);
+        root.style.setProperty('--accent-3-foreground', fore3);
+        root.style.setProperty('--accent-foreground', fore1);
+        root.style.setProperty('--accent-blue-foreground', fore2);
+        root.style.setProperty('--accent-green-foreground', fore3);
+
         root.style.setProperty('--raw-accent-1', c1);
         root.style.setProperty('--raw-accent-2', c2);
         root.style.setProperty('--raw-accent-3', c3);

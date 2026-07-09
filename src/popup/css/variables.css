@@ -33,6 +33,21 @@
     --accent-blue: var(--accent-2);
     --accent-green: var(--accent-3);
 
+    /* Dynamic Contrast and Foreground defaults */
+    --accent-1-contrast: #ffffff;
+    --accent-2-contrast: #ffffff;
+    --accent-3-contrast: #ffffff;
+    --accent-contrast: var(--accent-1-contrast);
+    --accent-blue-contrast: var(--accent-2-contrast);
+    --accent-green-contrast: var(--accent-3-contrast);
+
+    --accent-1-foreground: var(--accent-1);
+    --accent-2-foreground: var(--accent-2);
+    --accent-3-foreground: var(--accent-3);
+    --accent-foreground: var(--accent-1-foreground);
+    --accent-blue-foreground: var(--accent-2-foreground);
+    --accent-green-foreground: var(--accent-3-foreground);
+
     --raw-accent-1: var(--accent-1);
     --raw-accent-2: var(--accent-2);
     --raw-accent-3: var(--accent-3);
