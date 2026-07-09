@@ -407,6 +407,11 @@
             }
             if (p.albumCoverMode !== undefined) {
                 fl.albumCoverMode = p.albumCoverMode;
+                fl.needsLayoutUpdate = true;
+                fl.hasDrawnIdleFrame = false;
+                if (fl.albumCoverMode) {
+                    fl.scrollPos = fl.targetScroll;
+                }
                 // Re-apply visuals immediately — forces or releases the cover mode override
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
             }

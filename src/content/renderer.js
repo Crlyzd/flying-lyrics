@@ -892,26 +892,29 @@
         // Uses fl.isWaitingState getter (defined in config.js) to avoid variable collision.
         const _isScrollSettled = Math.abs(fl.targetScroll - fl.scrollPos) < 0.1;
         const _isLoopIdle = _isScrollSettled && !fl.needsLayoutUpdate && !(fl.userGlowEnabled && !fl.ecoMode);
-        if (_isLoopIdle && state.paused && !fl.isWaitingState) {
+        const isStaticAlbumMode = fl.albumCoverMode && !fl.needsLayoutUpdate;
+
+        if (fl.albumCoverMode) {
+            fl.scrollPos = fl.targetScroll;
+        }
+
+        if ((_isLoopIdle && state.paused && !fl.isWaitingState) || isStaticAlbumMode) {
             if (fl.hasDrawnIdleFrame) {
-                // C1-FIX: Flag is latched here at the skip-return site, not inside the
-                // eco-only idle sleep block. This guarantees the flag is set the moment
-                // we confirm the draw is being skipped, regardless of eco mode.
-                if (fl.ecoMode) {
+                const throttleDelay = fl.albumCoverMode 
+                    ? (fl.activePipType === 'video' ? 250 : 100) 
+                    : 250;
+
+                if (fl.ecoMode || fl.albumCoverMode) {
                     const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
                     timerHost.setTimeout(() => {
                         fl.lastAnimationTimeMs = null;
                         fl.queueNextFrame(fl.renderLoop);
-                    }, 250);
+                    }, throttleDelay);
                 } else {
-                    // Non-eco: re-queue immediately but skip the draw. CPU wakeup rate
-                    // is reduced because the rAF host (pipWin) only fires at display rate,
-                    // but the draw itself is bypassed — saving all clearRect/drawImage costs.
                     fl.queueNextFrame(fl.renderLoop);
                 }
                 return;
             }
-            // First idle frame: let it fall through and render once, then latch the flag.
         } else {
             fl.hasDrawnIdleFrame = false;
         }
@@ -1257,23 +1260,19 @@
             fl.drawVideoPipSyncStatus(w, h);
         }
 
-        // OPT-3: If truly idle (paused + scroll settled + no layout dirty), sleep for
-        // ~250ms before the next rAF tick. This cuts CPU wakeups from ~60/s to ~4/s.
-        // Glow animations bypass the throttle because needsLayoutUpdate stays false
-        // while glow is active — but glow forces a repaint via the continuous rAF loop
-        // below. When glow is on and the track is paused we still want smooth glow,
-        // so we skip throttling if glow is enabled too.
-        // OPT-4: Latch hasDrawnIdleFrame AFTER the draw is committed so the OPT-4
-        // early-exit at the top of the loop can skip all future redundant paused frames.
-        if (isIdle && !fl.userGlowEnabled && !isWaitingState) {
-            // C1-FIX: Set the flag here after a real draw completes while paused.
-            // This is the authoritative latch site — the early-exit guard reads this flag.
-            if (state.paused) fl.hasDrawnIdleFrame = true;
+        // OPT-3: If truly idle (paused + scroll settled + no layout dirty OR static Album Cover Mode), sleep
+        // before the next tick. This cuts CPU wakeups.
+        const isReallyIdle = (isIdle && !fl.userGlowEnabled && !isWaitingState) || isStaticAlbumMode;
+        if (isReallyIdle) {
+            if (state.paused || isStaticAlbumMode) fl.hasDrawnIdleFrame = true;
+            const throttleDelay = fl.albumCoverMode 
+                ? (fl.activePipType === 'video' ? 250 : 100) 
+                : 250;
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
             timerHost.setTimeout(() => {
                 fl.lastAnimationTimeMs = null; // Reset timing after waking up from sleep throttle
                 fl.queueNextFrame(fl.renderLoop);
-            }, 250);
+            }, throttleDelay);
         } else {
             // Not idle — clear the latch so next pause starts fresh.
             fl.hasDrawnIdleFrame = false;
