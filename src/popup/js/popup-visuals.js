@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fontStepToPx = popup.fontStepToPx;
     const spacingStepToActual = popup.spacingStepToActual;
     const darkStepToPct = popup.darkStepToPct;
+    const blurStepToPx = popup.blurStepToPx;
 
     // Local module state
     let currentlyLoadingFont = "";
@@ -388,11 +389,11 @@ document.addEventListener('DOMContentLoaded', () => {
     el.blurSlider.addEventListener('input', () => {
         const step = parseInt(el.blurSlider.value, 10);
         el.blurValue.textContent = step;
-        notifyTab({ bgBlur: step });
+        notifyTab({ bgBlur: blurStepToPx(step) });
     });
     el.blurSlider.addEventListener('change', () => {
         const step = parseInt(el.blurSlider.value, 10);
-        saveAndNotify({ bgBlur: step });
+        saveAndNotify({ bgBlur: blurStepToPx(step) });
     });
 
     el.darknessSlider.addEventListener('input', () => {
@@ -760,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pipDefaults = {
                 customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
                 coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
-                lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false,
+                lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false,
                 lastPipWidth: 200, lastPipHeight: 250
             };
 
@@ -773,17 +774,17 @@ document.addEventListener('DOMContentLoaded', () => {
             el.fontSizeValue.textContent = 5;
             el.glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
 
-            el.lineSpacingSlider.value = 2;
-            el.lineSpacingValue.textContent = 2;
+            el.lineSpacingSlider.value = 5;
+            el.lineSpacingValue.textContent = 5;
 
-            el.anchorSlider.value = 4;
-            el.anchorValue.textContent = 4;
+            el.anchorSlider.value = 5;
+            el.anchorValue.textContent = 5;
 
-            el.blurSlider.value = 2;
-            el.blurValue.textContent = 2;
+            el.blurSlider.value = 5;
+            el.blurValue.textContent = 5;
 
-            el.darknessSlider.value = 4;
-            el.darknessValue.textContent = 4;
+            el.darknessSlider.value = 5;
+            el.darknessValue.textContent = 5;
 
             document.querySelectorAll('.cover-mode-option').forEach(o => {
                 o.classList.toggle('selected', o.dataset.mode === 'default');

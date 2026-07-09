@@ -66,7 +66,7 @@ window.FLYING_LYRICS.popup = {
         lyricShadowEnabled:  true,
         lyricAlignment:      'center',
         lineSpacing:         4,
-        verticalAnchor:      4,
+        verticalAnchor:      5,
         albumCoverMode:      false,
         telemetryConsent:    true,
         pipMode:             'document',
@@ -112,13 +112,62 @@ window.FLYING_LYRICS.popup = {
     fontStepToPx: (step) => 18 + ((step - 1) * 2),
     fontPxToStep: (px)   => Math.round((px - 18) / 2) + 1,
 
-    /** Background darkness: UI step 0–10  ↔  actual percent 0–100 */
-    darkStepToPct: (step) => step * 10,
-    darkPctToStep: (pct)  => Math.round(pct / 10),
+    /** Background darkness: UI step 1–10  ↔  actual percent 0–100 */
+    darkStepToPct: (step) => {
+        const map = [0, 0, 8, 16, 24, 40, 52, 64, 76, 88, 100];
+        return map[Math.max(1, Math.min(10, step))] ?? 40;
+    },
+    darkPctToStep: (pct) => {
+        const map = [0, 0, 8, 16, 24, 40, 52, 64, 76, 88, 100];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - pct);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
 
-    /** Line spacing: UI step 1–10  ↔  actual vmin multiplier 3–12 */
-    spacingStepToActual: (step) => step + 2,
-    spacingActualToStep: (val)  => Math.round(val - 2),
+    /** Background blur: UI step 1–10  ↔  actual px 0–10px */
+    blurStepToPx: (step) => {
+        const map = [0, 0, 0.4, 0.8, 1.2, 2.0, 3.6, 5.2, 6.8, 8.4, 10.0];
+        return map[Math.max(1, Math.min(10, step))] ?? 2.0;
+    },
+    blurPxToStep: (px) => {
+        const map = [0, 0, 0.4, 0.8, 1.2, 2.0, 3.6, 5.2, 6.8, 8.4, 10.0];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - px);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
+
+    /** Line spacing: UI step 1–10  ↔  actual vmin multiplier 1–12 */
+    spacingStepToActual: (step) => {
+        const map = [0, 1.0, 1.8, 2.5, 3.2, 4.0, 5.5, 7.0, 8.5, 10.0, 12.0];
+        return map[Math.max(1, Math.min(10, step))] ?? 4.0;
+    },
+    spacingActualToStep: (val) => {
+        const map = [0, 1.0, 1.8, 2.5, 3.2, 4.0, 5.5, 7.0, 8.5, 10.0, 12.0];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - val);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
 
     // =========================================================
     //  BROWSER LANGUAGE DETECTION

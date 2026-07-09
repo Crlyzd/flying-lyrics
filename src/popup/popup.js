@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showTranslation: true, translationLang: popup.getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
-        lineSpacing: 4, verticalAnchor: 4, albumCoverMode: false, telemetryConsent: true,
+        lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
         lastPipWidth: 200, lastPipHeight: 250,
         
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el.fontSizeWarning) el.fontSizeWarning.style.display = fontStep >= 7 ? 'inline-block' : 'none';
 
         // Line Spacing (1-10 mapped to actual)
-        const spacingStep = Math.max(1, Math.min(10, popup.spacingActualToStep(items.lineSpacing ?? 3)));
+        const spacingStep = Math.max(1, Math.min(10, popup.spacingActualToStep(items.lineSpacing ?? 4)));
         if (el.lineSpacingSlider) el.lineSpacingSlider.value = spacingStep;
         if (el.lineSpacingValue) el.lineSpacingValue.textContent = spacingStep;
 
@@ -83,12 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el.anchorValue) el.anchorValue.textContent = anchorStep;
 
         // Blur (0-10px)
-        const blurStep = Math.max(0, Math.min(10, items.bgBlur));
+        const blurStep = Math.max(1, Math.min(10, popup.blurPxToStep(items.bgBlur)));
         if (el.blurSlider) el.blurSlider.value = blurStep;
         if (el.blurValue) el.blurValue.textContent = blurStep;
 
         // Darkness (0-10 mapped to %)
-        const darkStep = Math.max(0, Math.min(10, popup.darkPctToStep(items.bgDarkness)));
+        const darkStep = Math.max(1, Math.min(10, popup.darkPctToStep(items.bgDarkness)));
         if (el.darknessSlider) el.darknessSlider.value = darkStep;
         if (el.darknessValue) el.darknessValue.textContent = darkStep;
 

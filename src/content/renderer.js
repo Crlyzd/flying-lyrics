@@ -1091,7 +1091,7 @@
         const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !isGlowDynamic;
 
         const isWaitForItGlobal = fl.lyricLines.length === 1 && fl.lyricLines[0]?.text === "Wait for it...";
-        const anchorOffset = isWaitForItGlobal ? 0 : (((fl.userVerticalAnchor ?? 5) - 5) * vmin * 5);
+        const anchorOffset = isWaitForItGlobal ? 0 : (((fl.userVerticalAnchor ?? 5) - 6) * vmin * 5);
         const isWaiting = fl.isWaitingState;
 
         fl.ctx.save();

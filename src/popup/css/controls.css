@@ -131,6 +131,7 @@ select option[value="request_language"] {
     appearance: none;
     width: 16px;
     height: 16px;
+    margin-top: -6px;
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
@@ -139,6 +140,21 @@ select option[value="request_language"] {
 }
 
 .range-row input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.range-row input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--accent-glow);
+    transition: transform 0.15s;
+}
+
+.range-row input[type=range]::-moz-range-thumb:hover {
     transform: scale(1.15);
 }
 
