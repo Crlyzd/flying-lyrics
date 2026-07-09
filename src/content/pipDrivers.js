@@ -368,7 +368,7 @@
 
         // 3. Set up the canvas stream to the video if not already set
         if (!video.srcObject) {
-            const stream = canvas.captureStream(fl.ecoMode ? 20 : 30);
+            const stream = canvas.captureStream(fl.ecoMode ? 20 : 60);
             video.srcObject = stream;
         }
 
