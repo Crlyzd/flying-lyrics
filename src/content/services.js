@@ -270,6 +270,7 @@
                 fl.cachedLyrics.lines = fl.lyricLines;
                 fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
                 fl.cachedLyrics.translationLang = fl.translationLang;
+                fl.cachedLyrics.source = fl.activeLyricSource;
 
                 if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
@@ -358,6 +359,7 @@
                         fl.cachedLyrics.lines = fl.lyricLines;
                         fl.cachedLyrics.isSynced = fl.isCurrentLyricSynced;
                         fl.cachedLyrics.translationLang = fl.translationLang;
+                        fl.cachedLyrics.source = fl.activeLyricSource;
 
                         if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
@@ -434,6 +436,7 @@
                 fl.cachedLyrics.lines = entry.lines;
                 fl.cachedLyrics.isSynced = entry.isSynced;
                 fl.cachedLyrics.translationLang = fl.translationLang;
+                fl.cachedLyrics.source = entry.source || null;
 
                 if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
                 fl.activateLyrics();
@@ -507,6 +510,7 @@
         if (fl.cachedLyrics.key === key && fl.cachedLyrics.lines.length > 0) {
             fl.lyricLines = fl.cachedLyrics.lines;
             fl.isCurrentLyricSynced = fl.cachedLyrics.isSynced;
+            fl.activeLyricSource = fl.cachedLyrics.source || null;
 
             if (fl.cachedLyrics.translationLang !== fl.translationLang) {
                 fl.lyricLines.forEach(l => l.translation = "");

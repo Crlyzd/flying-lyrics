@@ -46,7 +46,7 @@
     fl.galaxyMode = fl.defaults.galaxyMode;
 
     // Cache State
-    fl.cachedLyrics = { key: "", lines: [], isSynced: false };
+    fl.cachedLyrics = { key: "", lines: [], isSynced: false, source: null };
 
     // Active Lyric Source
     fl.activeLyricSource = null;
@@ -345,6 +345,7 @@
                         FLYING_LYRICS.storage.set(updates, () => {
                             // Clear Tier 1 active memory
                             fl.cachedLyrics.key = "";
+                            fl.cachedLyrics.source = null;
                             // Trigger full fetch (Tier 3 Network check)
                             if (typeof fl.fetchLyrics === 'function') fl.fetchLyrics();
                         });

@@ -1314,8 +1314,10 @@
         let dotGlowBlur = 0;
         const isRetrying = fl.isRetrying || false;
 
-        if (fl.isMissingLyrics) {
-            if (isRetrying) {
+        const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
+
+        if (fl.isMissingLyrics || isEmpty) {
+            if (fl.isMissingLyrics && isRetrying) {
                 statusText  = 'SEARCHING';
                 borderColor = 'rgba(0, 210, 255, 0.35)';
                 textColor   = '#E0F7FA';

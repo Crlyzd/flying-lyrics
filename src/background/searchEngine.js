@@ -250,6 +250,11 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
 
 function normalizeLrcLib(item) {
     const hasLyrics = !!(item.syncedLyrics || item.plainLyrics);
+    const isEmpty = !hasLyrics || !!item.instrumental;
+    let rawLyric = item.syncedLyrics || item.plainLyrics || '';
+    if (isEmpty && !rawLyric) {
+        rawLyric = "[00:00.00] ♫ (Empty) ♫";
+    }
     return {
         source:     'lrclib',
         id:         item.id,
@@ -258,10 +263,10 @@ function normalizeLrcLib(item) {
         albumName:  item.albumName  || '',
         duration:   item.duration   || 0,
         // Pre-resolved: LRCLIB always returns the full lyric text in the search response
-        synced:     !!item.syncedLyrics,
-        rawLyric:   item.syncedLyrics || item.plainLyrics || '',
+        synced:     !!item.syncedLyrics || !!item.instrumental,
+        rawLyric:   rawLyric,
         instrumental: !!item.instrumental,
-        isEmpty:    !hasLyrics || !!item.instrumental
+        isEmpty:    isEmpty
     };
 }
 
@@ -502,7 +507,14 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
             if (!c.rawLyric) continue;
             resolvedPool.push({
                 rawLyric: c.rawLyric,
-                source:   { type: 'api', id: c.id, name: c.trackName, synced: c.synced },
+                source:   { 
+                    type: 'api', 
+                    id: c.id, 
+                    name: c.trackName, 
+                    synced: c.synced,
+                    isEmpty: c.isEmpty || false,
+                    instrumental: c.instrumental || false
+                },
                 synced:   c.synced,
                 score:    scoreCandidate(c, duration, queryMetadata),
             });
@@ -522,7 +534,14 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
                     const resolved = { ...c, synced: isSynced };
                     return {
                         rawLyric: raw,
-                        source:   { type: 'netease', id: c.id, name: c.trackName, synced: isSynced },
+                        source:   { 
+                            type: 'netease', 
+                            id: c.id, 
+                            name: c.trackName, 
+                            synced: isSynced,
+                            isEmpty: false,
+                            instrumental: false
+                        },
                         synced:   isSynced,
                         score:    scoreCandidate(resolved, duration, queryMetadata),
                     };
