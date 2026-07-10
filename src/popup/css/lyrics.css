@@ -57,7 +57,7 @@
 .search-results-container {
     max-height: 180px;
     overflow-y: auto;
-    background-color: rgba(11, 9, 20, 0.45);
+    background-color: var(--results-bg);
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
     border-radius: 4px;

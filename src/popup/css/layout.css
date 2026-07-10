@@ -67,7 +67,7 @@ body.loaded .popup-window-container {
 .popup-header-fixed {
     position: sticky;
     top: 0;
-    background-color: rgba(11, 9, 20, 0.65);
+    background-color: var(--header-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     z-index: 100;

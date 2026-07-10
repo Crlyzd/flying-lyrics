@@ -56,6 +56,8 @@
     --raw-accent-green: var(--raw-accent-3);
 
     --panel-bg: rgba(18, 18, 18, 0.55);
+    --header-bg: rgba(18, 18, 18, 0.65);
+    --results-bg: rgba(18, 18, 18, 0.45);
     --input-bg: #181818;
     --input-hover-bg: #222222;
     --bg-galaxy: #08080f;
