@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
-        pipMode: 'document', cloudSyncEnabled: true, ecoMode: true,
+        pipMode: 'document', cloudSyncEnabled: true, ecoMode: true, fluidScrolling: false,
         lastPipWidth: 200, lastPipHeight: 250,
         
         themeAccent: 'galaxy',
@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el.toggleAutolaunch) el.toggleAutolaunch.checked = items.autoLaunch;
         if (el.toggleBorderlessPip) el.toggleBorderlessPip.checked = items.pipMode === 'video';
         if (el.toggleEcoMode) el.toggleEcoMode.checked = items.ecoMode;
+        if (el.toggleFluidScrolling) el.toggleFluidScrolling.checked = items.fluidScrolling;
         if (el.toggleCloudSync) el.toggleCloudSync.checked = items.cloudSyncEnabled;
 
         // Handle custom fonts correctly on load

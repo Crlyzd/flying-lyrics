@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pipMode:             'string',
         cloudSyncEnabled:    'boolean',
         ecoMode:             'boolean',
+        fluidScrolling:      'boolean',
         lastPipWidth:        'number',
         lastPipHeight:       'number',
         themeAccent:         'string',

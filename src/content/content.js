@@ -22,6 +22,7 @@
     fl.lyricsOverrides = fl.defaults.lyricsOverrides;
     fl.pipMode = fl.defaults.pipMode;
     fl.ecoMode = fl.defaults.ecoMode;
+    fl.fluidScrolling = fl.defaults.fluidScrolling;
     fl.lastPipWidth = fl.defaults.lastPipWidth;
     fl.lastPipHeight = fl.defaults.lastPipHeight;
 
@@ -212,6 +213,7 @@
         fl.lyricsOverrides = items.lyricsOverrides;
         fl.pipMode = items.pipMode;
         fl.ecoMode = items.ecoMode;
+        fl.fluidScrolling = items.fluidScrolling;
         fl.lastPipWidth = items.lastPipWidth;
         fl.lastPipHeight = items.lastPipHeight;
 
@@ -441,6 +443,9 @@
             }
             if (p.ecoMode !== undefined) {
                 fl.ecoMode = p.ecoMode;
+            }
+            if (p.fluidScrolling !== undefined) {
+                fl.fluidScrolling = p.fluidScrolling;
             }
             reportPreferencesDebounced();
             if (typeof sendResponse === 'function') {

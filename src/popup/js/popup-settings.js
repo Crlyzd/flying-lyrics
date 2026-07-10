@@ -139,6 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (el.toggleFluidScrolling) {
+        el.toggleFluidScrolling.addEventListener('change', () => {
+            saveAndNotify({ fluidScrolling: el.toggleFluidScrolling.checked });
+        });
+    }
+
     if (el.toggleTrans) {
         el.toggleTrans.addEventListener('change', () => {
             saveAndNotify({ showTranslation: el.toggleTrans.checked });

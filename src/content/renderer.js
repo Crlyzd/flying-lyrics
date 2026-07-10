@@ -396,7 +396,7 @@
             return;
         }
 
-        const cacheMatches = 
+        const cacheMatches =
             fl.bgCacheCanvas &&
             fl.bgCacheW === w &&
             fl.bgCacheH === h &&
@@ -629,7 +629,7 @@
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
                 // Notify popup/background that track was cleared
-                chrome.runtime.sendMessage({ type: 'ACTIVE_TRACK_CHANGED', payload: null }).catch(() => {});
+                chrome.runtime.sendMessage({ type: 'ACTIVE_TRACK_CHANGED', payload: null }).catch(() => { });
             } else {
                 // --- INSTANT FLUSH: Clear old lyrics immediately ---
                 fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
@@ -663,7 +663,7 @@
                         primaryArtist: typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist,
                         duration: state.duration || 0
                     }
-                }).catch(() => {});
+                }).catch(() => { });
 
                 fl.fetchLyrics();
             }
@@ -916,8 +916,8 @@
 
         if ((_isLoopIdle && state.paused && !fl.isWaitingState) || isStaticAlbumMode) {
             if (fl.hasDrawnIdleFrame) {
-                const throttleDelay = fl.albumCoverMode 
-                    ? (fl.activePipType === 'video' ? 250 : 100) 
+                const throttleDelay = fl.albumCoverMode
+                    ? (fl.activePipType === 'video' ? 250 : 100)
                     : 250;
 
                 if (fl.ecoMode || fl.albumCoverMode) {
@@ -1080,19 +1080,23 @@
 
         const scrollDelta = fl.targetScroll - fl.scrollPos;
 
-        // --- OPTIMIZATION: Cinematic "Teleport and Glide" for Large Jumps ---
-        // If the user clicks the seeker bar and jumps 40 lines away, lerping across
-        // the entire history forces the GPU to render dozens of heavy text shadows per frame, causing massive lag.
-        // Instead of a hard, ugly instant snap, we teleport the scroll position to just slightly before 
-        // the destination (0.3x screen height), then let the normal easing smoothly slide it the rest of the way.
-        if (Math.abs(scrollDelta) > h * 0.8) {
-            fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 0.3));
-            fl.lastAnimationTimeMs = null; // Reset timing on teleport to keep subsequent glide smooth
+        if (!fl.fluidScrolling) {
+            fl.scrollPos = fl.targetScroll;
         } else {
-            // Easing constant (k = 6.0 yields a speed equivalent to the previous 0.1 factor at 60 FPS)
-            const k = fl.ecoMode ? 6.0 : 9.0;
-            const decay = 1 - Math.exp(-k * clippedDt);
-            fl.scrollPos += scrollDelta * Math.min(1, decay);
+            // --- OPTIMIZATION: Cinematic "Teleport and Glide" for Large Jumps ---
+            // If the user clicks the seeker bar and jumps 40 lines away, lerping across
+            // the entire history forces the GPU to render dozens of heavy text shadows per frame, causing massive lag.
+            // Instead of a hard, ugly instant snap, we teleport the scroll position to just slightly before 
+            // the destination (0.1x screen height), then let the normal easing smoothly slide it the rest of the way.
+            if (Math.abs(scrollDelta) > h * 0.8) {
+                fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 0.1));
+                fl.lastAnimationTimeMs = null; // Reset timing on teleport to keep subsequent glide smooth
+            } else {
+                // Easing constant (k = 15.0 yields a highly responsive, fast snap ease curve)
+                const k = fl.ecoMode ? 15.0 : 15.0;
+                const decay = 1 - Math.exp(-k * clippedDt);
+                fl.scrollPos += scrollDelta * Math.min(1, decay);
+            }
         }
 
         const isFastScroll = Math.abs(scrollDelta) > (h * 0.05);
@@ -1281,8 +1285,8 @@
         const isReallyIdle = (isIdle && !fl.userGlowEnabled && !isWaitingState) || isStaticAlbumMode;
         if (isReallyIdle) {
             if (state.paused || isStaticAlbumMode) fl.hasDrawnIdleFrame = true;
-            const throttleDelay = fl.albumCoverMode 
-                ? (fl.activePipType === 'video' ? 250 : 100) 
+            const throttleDelay = fl.albumCoverMode
+                ? (fl.activePipType === 'video' ? 250 : 100)
                 : 250;
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
             timerHost.setTimeout(() => {
@@ -1317,39 +1321,39 @@
         const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
 
         if (fl.isBackgroundSearchFailed && !isRetrying) {
-            statusText  = 'FAILED';
+            statusText = 'FAILED';
             borderColor = 'rgba(239, 68, 68, 0.35)';
-            textColor   = '#FEE2E2';
-            dotColor    = '#EF4444';
+            textColor = '#FEE2E2';
+            dotColor = '#EF4444';
             dotGlowColor = 'rgba(239, 68, 68, 0.5)';
-            dotGlowBlur  = 8;
+            dotGlowBlur = 8;
         } else if (fl.isMissingLyrics || isEmpty) {
             if (fl.isMissingLyrics && isRetrying) {
-                statusText  = 'SEARCHING';
+                statusText = 'SEARCHING';
                 borderColor = 'rgba(0, 210, 255, 0.35)';
-                textColor   = '#E0F7FA';
+                textColor = '#E0F7FA';
                 spinnerTrackColor = 'rgba(0, 210, 255, 0.2)';
-                spinnerHeadColor   = '#00D2FF';
+                spinnerHeadColor = '#00D2FF';
             } else {
-                statusText  = 'NO LYRICS';
-                dotColor    = '#F59E0B';
+                statusText = 'NO LYRICS';
+                dotColor = '#F59E0B';
                 borderColor = 'rgba(245, 158, 11, 0.25)';
-                textColor   = '#FEF3C7';
+                textColor = '#FEF3C7';
                 dotGlowColor = 'rgba(245, 158, 11, 0.4)';
-                dotGlowBlur  = 6;
+                dotGlowBlur = 6;
             }
         } else if (fl.isCurrentLyricSynced) {
-            statusText  = 'SYNCED';
-            dotColor    = '#10B981';
+            statusText = 'SYNCED';
+            dotColor = '#10B981';
             borderColor = 'rgba(16, 185, 129, 0.25)';
-            textColor   = '#E6F4EA';
+            textColor = '#E6F4EA';
             dotGlowColor = 'rgba(16, 185, 129, 0.5)';
-            dotGlowBlur  = 8;
+            dotGlowBlur = 8;
         } else {
-            statusText  = 'UNSYNCED';
-            dotColor    = '#94A3B8';
+            statusText = 'UNSYNCED';
+            dotColor = '#94A3B8';
             borderColor = 'rgba(255, 255, 255, 0.1)';
-            textColor   = 'rgba(255, 255, 255, 0.7)';
+            textColor = 'rgba(255, 255, 255, 0.7)';
         }
 
         fl.ctx.save();
@@ -1362,21 +1366,21 @@
         fl.ctx.scale(0.6, 0.6);
 
         // Raw values — identical to Doc PiP CSS (pre-scale)
-        const fontName    = "'Noto Sans', 'Segoe UI', sans-serif";
-        const fontSize    = 10;  // matches font-size: 10px
-        const paddingX    = 8;   // matches padding: 4px 8px
-        const paddingY    = 4;   // matches padding: 4px 8px
-        const gap         = 6;   // matches gap: 6px
-        const dotRadius   = 3;   // matches .sync-dot: width/height 6px → radius 3px
-        const cornerR     = 4;   // matches border-radius: 4px
+        const fontName = "'Noto Sans', 'Segoe UI', sans-serif";
+        const fontSize = 10;  // matches font-size: 10px
+        const paddingX = 8;   // matches padding: 4px 8px
+        const paddingY = 4;   // matches padding: 4px 8px
+        const gap = 6;   // matches gap: 6px
+        const dotRadius = 3;   // matches .sync-dot: width/height 6px → radius 3px
+        const cornerR = 4;   // matches border-radius: 4px
 
-        fl.ctx.font         = `700 ${fontSize}px ${fontName}`;
+        fl.ctx.font = `700 ${fontSize}px ${fontName}`;
         fl.ctx.textBaseline = 'middle';
-        fl.ctx.textAlign    = 'left';
+        fl.ctx.textAlign = 'left';
 
-        const textWidth   = fl.ctx.measureText(statusText).width;
+        const textWidth = fl.ctx.measureText(statusText).width;
         const badgeHeight = fontSize + paddingY * 2;
-        const badgeWidth  = paddingX * 2 + dotRadius * 2 + gap + textWidth;
+        const badgeWidth = paddingX * 2 + dotRadius * 2 + gap + textWidth;
 
         // Origin is at top-right; badge grows leftward (negative x)
         const bx = -badgeWidth;
@@ -1399,7 +1403,7 @@
 
         // Border stroke (lineWidth is also scaled by 0.6 — intentional)
         fl.ctx.strokeStyle = borderColor;
-        fl.ctx.lineWidth   = 1;
+        fl.ctx.lineWidth = 1;
         fl.ctx.stroke();
 
         const dotX = bx + paddingX + dotRadius;
@@ -1416,7 +1420,7 @@
             fl.ctx.beginPath();
             fl.ctx.arc(0, 0, dotRadius, 0, Math.PI * 2);
             fl.ctx.strokeStyle = spinnerTrackColor || 'rgba(0, 210, 255, 0.2)';
-            fl.ctx.lineWidth   = 1.5;
+            fl.ctx.lineWidth = 1.5;
             fl.ctx.stroke();
 
             // Spinner head
@@ -1444,7 +1448,7 @@
                 // Sync badge dot glow controlled by Lyric Shadow toggle.
                 if (dotGlowBlur > 0 && fl.userLyricShadowEnabled) {
                     fl.ctx.shadowColor = dotGlowColor;
-                    fl.ctx.shadowBlur  = dotGlowBlur;
+                    fl.ctx.shadowBlur = dotGlowBlur;
                 }
                 fl.ctx.fill();
                 fl.ctx.shadowBlur = 0;

@@ -30,7 +30,8 @@
             'popupColor1',
             'popupColor2',
             'popupColor3',
-            'galaxyMode'
+            'galaxyMode',
+            'fluidScrolling'
         ]),
 
         get(keys, callback) {
