@@ -449,7 +449,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         state.currentResults = finalResults;
                         storage.set({ lastSearch: { key: trackKey, query: query, results: finalResults } });
-                        renderSearchResults(finalResults, override);
+
+                        // Query storage for the latest lyricsOverrides to avoid using a stale closure variable
+                        storage.get({ lyricsOverrides: {} }, (newItems) => {
+                            if (state.activeSearchQuery !== query) return;
+                            const latestOverride = (newItems.lyricsOverrides || {})[trackKey] || null;
+                            renderSearchResults(finalResults, latestOverride);
+                        });
                     });
                 }
             });
@@ -687,7 +693,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
             state.activeSource = msg.payload;
-            el.resultsContainer.querySelectorAll('.sync-spinner').forEach(s => s.remove());
+            // Remove spinners from result items, but preserve the deep search indicator spinner
+            el.resultsContainer.querySelectorAll('.result-item:not(#deep-search-indicator) .sync-spinner').forEach(s => s.remove());
             el.resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
             el.resultsContainer.querySelectorAll('.result-item').forEach(d => d.classList.remove('active-lyric'));
 
