@@ -9,9 +9,9 @@ window.FLYING_LYRICS.colorPresets = {
     cosmic: [
         { name: 'Orion', colors: ['#ff007f', '#00b4d8', '#1DB954'] },
         { name: 'Andromeda', colors: ['#7209b7', '#ff007f', '#4cc9f0'] },
-        { name: 'Supernova', colors: ['#d90429', '#f77f00', '#fcbf49'] },
+        { name: 'Supernova', colors: ['#ff0055', '#7a00ff', '#00ffff'] },
         { name: 'Sunset', colors: ['#ff4d00', '#e0115f', '#5c00a3'] },
-        { name: 'Solar Flare', colors: ['#ff0000', '#ff8800', '#ffff00'] },
+        { name: 'Solar Flare', colors: ['#ffe600', '#ff6a00', '#b91c1c'] },
         { name: 'Nebula', colors: ['#8a2be2', '#da70d6', '#4b0082'] },
         { name: 'Deep Space', colors: ['#000033', '#000011', '#4b0082'] },
         { name: 'Eclipse', colors: ['#111122', '#ffaa00', '#444455'] }
@@ -35,13 +35,13 @@ window.FLYING_LYRICS.colorPresets = {
         { name: 'Arcade', colors: ['#ff0055', '#3a0ca3', '#4cc9f0'] }
     ],
     monochrome: [
-        { name: 'Void', colors: ['#333333', '#181818', '#050505'] },
-        { name: 'Ghost', colors: ['#f8f9fa', '#e9ecef', '#dee2e6'] },
-        { name: 'Obsidian', colors: ['#1c1c1e', '#2c2c2e', '#3a3a3c'] },
-        { name: 'Charcoal', colors: ['#374151', '#1f2937', '#111827'] },
-        { name: 'Platinum', colors: ['#e2e8f0', '#cbd5e1', '#94a3b8'] },
-        { name: 'Moonlight', colors: ['#4a5568', '#2d3748', '#1a202c'] },
-        { name: 'Ink', colors: ['#09090b', '#18181b', '#27272a'] },
-        { name: 'Glacier', colors: ['#ffffff', '#f1f5f9', '#cbd5e1'] }
+        { name: 'Void', colors: ['#03000a', '#0a0518', '#000000'] },
+        { name: 'Ghost', colors: ['#fdfaff', '#f3e8ff', '#d8b4fe'] },
+        { name: 'Obsidian', colors: ['#0d1511', '#14251c', '#080d0a'] },
+        { name: 'Charcoal', colors: ['#292524', '#44403c', '#1c1917'] },
+        { name: 'Platinum', colors: ['#f8fafc', '#cbd5e1', '#64748b'] },
+        { name: 'Moonlight', colors: ['#0f172a', '#334155', '#94a3b8'] },
+        { name: 'Ink', colors: ['#020617', '#0f172a', '#1e293b'] },
+        { name: 'Glacier', colors: ['#f0f9ff', '#bae6fd', '#38bdf8'] }
     ]
 };
