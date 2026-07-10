@@ -276,8 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 spinner.className = 'sync-spinner';
                 const dotContainer = item.querySelector('.dot-container');
                 if (dotContainer) {
-                    const existingDot = dotContainer.querySelector('.active-dot');
-                    if (existingDot) existingDot.remove();
+                    dotContainer.querySelectorAll('.active-dot, .failed-dot, .sync-spinner').forEach(el => el.remove());
                     dotContainer.appendChild(spinner);
                 }
                 return;
@@ -293,8 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 spinner.className = 'sync-spinner';
                 const dotContainer = item.querySelector('.dot-container');
                 if (dotContainer) {
-                    const existingDot = dotContainer.querySelector('.active-dot');
-                    if (existingDot) existingDot.remove();
+                    dotContainer.querySelectorAll('.active-dot, .failed-dot, .sync-spinner').forEach(el => el.remove());
                     dotContainer.appendChild(spinner);
                 }
             }
@@ -740,12 +738,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+        } else if (msg.type === 'LYRIC_FETCH_FAILED') {
+            const { override } = msg.payload;
+            if (override && override.type !== 'local') {
+                const failedItem = el.resultsContainer.querySelector(
+                    `[data-id="${override.id}"][data-source="${override.type}"]`
+                );
+                if (failedItem) {
+                    failedItem.querySelectorAll('.sync-spinner').forEach(s => s.remove());
+                    failedItem.querySelectorAll('.active-dot').forEach(d => d.remove());
+                    failedItem.querySelectorAll('.failed-dot').forEach(d => d.remove());
+
+                    const dotContainer = failedItem.querySelector('.dot-container');
+                    if (dotContainer) {
+                        const failedDot = document.createElement('div');
+                        failedDot.className = 'failed-dot';
+                        failedDot.innerHTML = '✕';
+                        dotContainer.appendChild(failedDot);
+                    }
+                }
+            }
         }
 
         if (msg.type === 'SETTINGS_UPDATE' ||
             msg.type === 'FONT_LOADED_IN_PIP' ||
             msg.type === 'ACTIVE_TRACK_CHANGED' ||
-            msg.type === 'ACTIVE_LYRIC_CHANGED') {
+            msg.type === 'ACTIVE_LYRIC_CHANGED' ||
+            msg.type === 'LYRIC_FETCH_FAILED') {
             if (typeof sendResponse === 'function') {
                 sendResponse({ success: true });
             }

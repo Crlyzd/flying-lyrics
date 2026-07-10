@@ -33,14 +33,14 @@
         let g = parseInt(hex.slice(3, 5), 16);
         let b = parseInt(hex.slice(5, 7), 16);
         let yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-        
+
         if (yiq < 90) {
             // Boost brightness for readability on dark backgrounds
             // Mix 30% of raw color with 70% white to boost lightness while preserving hue
             let brR = Math.min(255, Math.round(r * 0.3 + 255 * 0.7));
             let brG = Math.min(255, Math.round(g * 0.3 + 255 * 0.7));
             let brB = Math.min(255, Math.round(b * 0.3 + 255 * 0.7));
-            
+
             let outR = brR.toString(16).padStart(2, '0');
             let outG = brG.toString(16).padStart(2, '0');
             let outB = brB.toString(16).padStart(2, '0');
@@ -261,6 +261,24 @@
             box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
         }
 
+        /* 4. FAILED (Red theme - applied when 30s background retry search fails) */
+        #sync-indicator.is-failed {
+            color: #FEE2E2;
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        #sync-indicator.is-failed .sync-dot {
+            width: auto;
+            height: auto;
+            background-color: transparent;
+            border-radius: 0;
+            color: #EF4444;
+            font-size: 8px;
+            font-weight: 900;
+            line-height: 1;
+            box-shadow: none;
+            display: inline-block;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -392,6 +410,7 @@
         if (!fl.pipWin || fl.activePipType === 'video') return;
         const ind = fl.pipWin.document.getElementById('sync-indicator');
         const txt = fl.pipWin.document.getElementById('sync-text');
+        const dot = ind ? ind.querySelector('.sync-dot') : null;
         if (ind && txt) {
             // Apply retrying state based on global flag
             if (fl.isRetrying) {
@@ -400,32 +419,43 @@
                 ind.classList.remove('is-retrying');
             }
 
-            // Priority order: missing or empty > synced > unsynced
+            // Priority order: failed > missing or empty > synced > unsynced
             const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
 
-            if (fl.isMissingLyrics || isEmpty) {
-                ind.classList.remove('is-synced');
-                ind.classList.add('is-missing');
-                const isRetrying = ind.classList.contains('is-retrying');
-                if (fl.isMissingLyrics) {
-                    ind.title = isRetrying
-                        ? 'No lyrics found for this track (Retrying...)'
-                        : 'No lyrics found for this track';
-                    txt.textContent = isRetrying ? 'SEARCHING' : 'NO LYRICS';
-                } else {
-                    ind.title = 'This track is empty (no lyrics available)';
-                    txt.textContent = 'NO LYRICS';
-                }
+            if (fl.isBackgroundSearchFailed && !fl.isRetrying) {
+                ind.classList.remove('is-synced', 'is-missing');
+                ind.classList.add('is-failed');
+                ind.title = 'Lyrics search failed';
+                if (dot) dot.textContent = '✕';
+                txt.textContent = 'FAILED';
             } else {
-                if (fl.isCurrentLyricSynced) {
-                    ind.classList.remove('is-missing');
-                    ind.classList.add('is-synced');
-                    ind.title = 'These lyrics have timestamp data';
-                    txt.textContent = 'SYNCED';
+                ind.classList.remove('is-failed');
+                if (dot) dot.textContent = '';
+
+                if (fl.isMissingLyrics || isEmpty) {
+                    ind.classList.remove('is-synced');
+                    ind.classList.add('is-missing');
+                    const isRetrying = ind.classList.contains('is-retrying');
+                    if (fl.isMissingLyrics) {
+                        ind.title = isRetrying
+                            ? 'No lyrics found for this track (Retrying...)'
+                            : 'No lyrics found for this track';
+                        txt.textContent = isRetrying ? 'SEARCHING' : 'NO LYRICS';
+                    } else {
+                        ind.title = 'This track is empty (no lyrics available)';
+                        txt.textContent = 'NO LYRICS';
+                    }
                 } else {
-                    ind.classList.remove('is-synced', 'is-missing');
-                    ind.title = 'These lyrics are missing timestamps and are roughly estimated';
-                    txt.textContent = 'UNSYNCED';
+                    if (fl.isCurrentLyricSynced) {
+                        ind.classList.remove('is-missing');
+                        ind.classList.add('is-synced');
+                        ind.title = 'These lyrics have timestamp data';
+                        txt.textContent = 'SYNCED';
+                    } else {
+                        ind.classList.remove('is-synced', 'is-missing');
+                        ind.title = 'These lyrics are missing timestamps and are roughly estimated';
+                        txt.textContent = 'UNSYNCED';
+                    }
                 }
             }
         }
@@ -479,7 +509,7 @@
         targetDoc.documentElement.style.setProperty('--accent-1', f1);
         targetDoc.documentElement.style.setProperty('--accent-2', f2);
         targetDoc.documentElement.style.setProperty('--accent-3', f3);
-        
+
         targetDoc.documentElement.style.setProperty('--accent-1-contrast', contrast1);
         targetDoc.documentElement.style.setProperty('--accent-2-contrast', contrast2);
         targetDoc.documentElement.style.setProperty('--accent-3-contrast', contrast3);
@@ -500,7 +530,7 @@
         targetDoc.documentElement.style.setProperty('--raw-accent', raw1);
         targetDoc.documentElement.style.setProperty('--raw-accent-blue', raw2);
         targetDoc.documentElement.style.setProperty('--raw-accent-green', raw3);
-        
+
         targetDoc.documentElement.style.setProperty('--accent-bg', hexToRgba(f1, 0.08));
         targetDoc.documentElement.style.setProperty('--accent-glow', hexToRgba(f1, 0.45));
 
@@ -541,8 +571,8 @@
                     if (bgCover) bgCover.style.background = `linear-gradient(180deg, ${topBg} 0%, ${baseBg} 100%)`;
                 } else {
                     if (bgCover) {
-                        const isWaiting = fl.lyricLines && fl.lyricLines.length === 1 && 
-                                          (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
+                        const isWaiting = fl.lyricLines && fl.lyricLines.length === 1 &&
+                            (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder);
                         if (isWaiting) {
                             bgCover.style.background = '';
                         } else {
@@ -593,7 +623,7 @@
             fontLink.rel = 'stylesheet';
             fontLink.dataset.flFont = '1';
             fontLink.href = `https://fonts.googleapis.com/css2?family=${formattedFontName}:ital,wght@0,400;0,600;0,700;1,600&display=swap`;
-            
+
             fontLink.onload = () => {
                 // Yield one frame to ensure browser's CSSOM @font-face registry is fully updated
                 requestAnimationFrame(() => {
@@ -614,7 +644,7 @@
                     });
                 });
             };
-            
+
             fontLink.onerror = () => {
                 if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
                 fl.hasDrawnIdleFrame = false;
@@ -623,7 +653,7 @@
                     payload: { fontName: fontName, success: false }
                 });
             };
-            
+
             targetDoc.head.appendChild(fontLink);
         } else {
             chrome.runtime.sendMessage({
@@ -701,7 +731,7 @@
             if (mySessionId !== fl.pipSessionId) return; // Reject stale sessions
             // Re-evaluate: mode may have changed by the time the timeout fires
             if (!(fl.userCoverMode === 'centered' || fl.isMissingLyrics || fl.albumCoverMode)) return;
-            
+
             const bgCover = fl.pipWin.document.getElementById('bg-cover');
             if (bgCover) {
                 // Only apply palette-based gradient if there is actual art playing

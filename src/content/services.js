@@ -121,6 +121,7 @@
 
 
     fl.fetchLyrics = async function (retryCount = 0) {
+        fl.isBackgroundSearchFailed = false;
         const meta = navigator.mediaSession.metadata;
 
         if (!meta || !meta.title) {
@@ -185,8 +186,17 @@
             let raw = await fl.resolveManualOverride(key, abortSignal);
 
             if (!raw && fl.lyricsOverrides && fl.lyricsOverrides[key]) {
+                const failedOverride = fl.lyricsOverrides[key];
                 delete fl.lyricsOverrides[key];
                 FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
+
+                chrome.runtime.sendMessage({
+                    type: 'LYRIC_FETCH_FAILED',
+                    payload: {
+                        key: key,
+                        override: failedOverride
+                    }
+                }).catch(() => {});
             }
 
             // ─────────────────────────────────────────────────────────
@@ -374,10 +384,30 @@
                                     params: { status: 'failure', error_type: 'no_match_retry' }
                                 }
                             });
+                            fl.isBackgroundSearchFailed = true;
+                            setTimeout(() => {
+                                if (fl.isBackgroundSearchFailed) {
+                                    fl.isBackgroundSearchFailed = false;
+                                    if (typeof fl.updateSyncIndicator === 'function') {
+                                        fl.updateSyncIndicator();
+                                    }
+                                }
+                            }, 5000);
                         }
                     }
                 } catch (retryErr) {
                     console.warn("FL: Background retry error:", retryErr);
+                    if (!raw) {
+                        fl.isBackgroundSearchFailed = true;
+                        setTimeout(() => {
+                            if (fl.isBackgroundSearchFailed) {
+                                fl.isBackgroundSearchFailed = false;
+                                if (typeof fl.updateSyncIndicator === 'function') {
+                                    fl.updateSyncIndicator();
+                                }
+                            }
+                        }, 5000);
+                    }
                 } finally {
                     if (typeof fl.setIndicatorRetrying === 'function') {
                         fl.setIndicatorRetrying(false);

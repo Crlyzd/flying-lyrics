@@ -194,6 +194,53 @@
     animation: pulse-dot-empty 2s infinite !important;
 }
 
+.failed-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 9px;
+    height: 9px;
+    font-size: 8px;
+    font-weight: 900;
+    line-height: 1;
+    color: white;
+    background: #e74c3c;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4);
+    animation: pulse-dot-failed 2s infinite;
+}
+
+@keyframes pulse-dot-failed {
+    0% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 5px rgba(231, 76, 60, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+    }
+}
+
+/* Galaxy Mode overrides (Classic mode toggled OFF) */
+.popup-window-container:not(.theme-classic) .failed-dot {
+    background: #ff3366; /* Vibrant neon red */
+    box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.6);
+    animation: pulse-dot-failed-galaxy 2s infinite;
+}
+
+@keyframes pulse-dot-failed-galaxy {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 51, 102, 0.6);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(255, 51, 102, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 51, 102, 0);
+    }
+}
+
 @keyframes pulse-dot-empty {
     0% {
         box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.4);

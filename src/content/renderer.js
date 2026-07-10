@@ -1316,7 +1316,14 @@
 
         const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
 
-        if (fl.isMissingLyrics || isEmpty) {
+        if (fl.isBackgroundSearchFailed && !isRetrying) {
+            statusText  = 'FAILED';
+            borderColor = 'rgba(239, 68, 68, 0.35)';
+            textColor   = '#FEE2E2';
+            dotColor    = '#EF4444';
+            dotGlowColor = 'rgba(239, 68, 68, 0.5)';
+            dotGlowBlur  = 8;
+        } else if (fl.isMissingLyrics || isEmpty) {
             if (fl.isMissingLyrics && isRetrying) {
                 statusText  = 'SEARCHING';
                 borderColor = 'rgba(0, 210, 255, 0.35)';
@@ -1419,17 +1426,29 @@
             fl.ctx.stroke();
             fl.ctx.restore();
         } else {
-            // Static colored dot — matches box-shadow glow on .sync-dot
-            fl.ctx.beginPath();
-            fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
-            fl.ctx.fillStyle = dotColor;
-            // Sync badge dot glow controlled by Lyric Shadow toggle.
-            if (dotGlowBlur > 0 && fl.userLyricShadowEnabled) {
-                fl.ctx.shadowColor = dotGlowColor;
-                fl.ctx.shadowBlur  = dotGlowBlur;
+            if (fl.isBackgroundSearchFailed && !isRetrying) {
+                // Draw a red 'X' cross instead of a circular dot
+                fl.ctx.strokeStyle = '#EF4444';
+                fl.ctx.lineWidth = 1.5;
+                fl.ctx.beginPath();
+                fl.ctx.moveTo(dotX - 2.5, dotY - 2.5);
+                fl.ctx.lineTo(dotX + 2.5, dotY + 2.5);
+                fl.ctx.moveTo(dotX + 2.5, dotY - 2.5);
+                fl.ctx.lineTo(dotX - 2.5, dotY + 2.5);
+                fl.ctx.stroke();
+            } else {
+                // Static colored dot — matches box-shadow glow on .sync-dot
+                fl.ctx.beginPath();
+                fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
+                fl.ctx.fillStyle = dotColor;
+                // Sync badge dot glow controlled by Lyric Shadow toggle.
+                if (dotGlowBlur > 0 && fl.userLyricShadowEnabled) {
+                    fl.ctx.shadowColor = dotGlowColor;
+                    fl.ctx.shadowBlur  = dotGlowBlur;
+                }
+                fl.ctx.fill();
+                fl.ctx.shadowBlur = 0;
             }
-            fl.ctx.fill();
-            fl.ctx.shadowBlur = 0;
         }
 
         // Status text
