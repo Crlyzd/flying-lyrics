@@ -21,6 +21,16 @@ chrome.runtime.onInstalled.addListener((details) => {
         chrome.tabs.create({
             url: chrome.runtime.getURL('src/pages/update.html')
         });
+
+        // Reset review toast trigger logic so users can review the new update
+        FLYING_LYRICS.storage.set({
+            hasReviewed: false,
+            popupOpenCount: 0,
+            snoozeUntilCount: 0,
+            milestone7DayShown: false,
+            reviewToastPending: false,
+            reviewToastBaseTime: Date.now()
+        });
     }
 });
 

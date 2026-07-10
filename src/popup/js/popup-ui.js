@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Track popup opens; determine whether to show the toast on this open.
     storage.get(
         { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0,
-          firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false, reviewToastPending: false },
+          firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false, reviewToastPending: false,
+          reviewToastBaseTime: 0 },
         (data) => {
             const newCount = data.popupOpenCount + 1;
             storage.set({ popupOpenCount: newCount });
@@ -79,6 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 storage.set({ firstInstalledAt: Date.now() });
             }
 
+            // Also record the review toast base time if not set yet
+            if (!data.reviewToastBaseTime) {
+                storage.set({ reviewToastBaseTime: data.firstInstalledAt || Date.now() });
+            }
+
             if (data.hasReviewed) {
                 markAsRated(data.reviewRating);
                 return; // Already reviewed — never show toast again
@@ -86,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // installedAt hoisted here so the help-button logic below always has it in scope.
             const installedAt = data.firstInstalledAt || Date.now();
+            const reviewToastBaseTime = data.reviewToastBaseTime || installedAt;
 
             // --- Pending flag: toast was shown but popup closed before user acted on it ---
             // Re-surface immediately on next open until explicitly dismissed via ✕ or snooze.
@@ -104,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const is7DayMilestone =
                     !data.milestone7DayShown &&     // guard: only fire once
                     newCount > 3 &&                 // at least 3 opens (not a brand-new user)
-                    (Date.now() - installedAt) >= sevenDaysMs;
+                    (Date.now() - reviewToastBaseTime) >= sevenDaysMs;
 
                 if (isCountThreshold || isSnoozedThresholdReached || is7DayMilestone) {
                     if (is7DayMilestone) {
