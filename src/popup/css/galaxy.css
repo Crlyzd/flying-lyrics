@@ -470,6 +470,18 @@
     --raw-accent-1: #1DB954 !important;
     --raw-accent-2: #1DB954 !important;
     --raw-accent-3: #1DB954 !important;
+    --accent-foreground: #1DB954 !important;
+    --accent-1-foreground: #1DB954 !important;
+    --accent-2-foreground: #1DB954 !important;
+    --accent-3-foreground: #1DB954 !important;
+    --accent-blue-foreground: #1DB954 !important;
+    --accent-green-foreground: #1DB954 !important;
+    --accent-contrast: #ffffff !important;
+    --accent-1-contrast: #ffffff !important;
+    --accent-2-contrast: #ffffff !important;
+    --accent-3-contrast: #ffffff !important;
+    --accent-blue-contrast: #ffffff !important;
+    --accent-green-contrast: #ffffff !important;
     border-radius: 0;
     box-shadow: none;
 }
