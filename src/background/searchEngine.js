@@ -328,8 +328,7 @@ function fetchWithTimeout(url, timeoutMs) {
 function fetchNeteaseRaw(id, timeoutMs) {
     return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, timeoutMs || DEFAULT_TIMEOUT_MS)
         .then(r => r.json())
-        .then(data => data?.lrc?.lyric || '')
-        .catch(() => '');
+        .then(data => data?.lrc?.lyric || '');
 }
 
 /** Fetches the raw LRCLIB lyric data for a specific song ID. */
