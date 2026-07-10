@@ -65,7 +65,7 @@ select {
     border: 1px solid rgba(255, 255, 255, 0.12);
     /* Opaque dark background prevents the OS native popup from showing
        a washed-out white background on the option list. */
-    background-color: #1a1828;
+    background-color: var(--input-bg);
     color: white;
     /* color-scheme: dark instructs the browser/OS to use dark mode styles
        for the native <select> option popup. */
@@ -84,12 +84,12 @@ select {
 }
 
 select option {
-    background-color: #1a1828;
+    background-color: var(--input-bg);
     color: white;
 }
 
 select:hover {
-    background-color: #22203a;
+    background-color: var(--input-hover-bg);
     border-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -444,7 +444,7 @@ select option[value="request_language"] {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(30, 25, 45, 0.55);
+    background: var(--panel-bg);
     padding: 10px 12px;
     border-radius: 8px;
     margin-bottom: 15px;
