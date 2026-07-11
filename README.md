@@ -30,7 +30,7 @@
 * **Instant Translation:** Uses Google Translate to provide translations on the fly if none are available.
 * **Cinematic Feel:** The current line glows and stays in focus, while inactive lines fade out.
 * **Smart "Pseudo-Scroll":** For unsynced lyrics, the panel automatically scrolls based on song duration and line count.
-* **Sync Indicators:** Easily see whether you are viewing Synced, Unsynced, or No Lyrics with a color-coded status badge (Emerald Green for Synced, Slate Gray for Unsynced, Amber/Gold for No Lyrics) featuring text glows and spin animations. Works in both Document and Video PiP modes!
+* **Sync Indicators:** Easily see whether you are viewing Synced, Unsynced, or No Lyrics with a color-coded status badge (Emerald Green for Synced, Slate Gray for Unsynced, Amber/Gold for No Lyrics, or a red cross for Failed search errors) featuring text glows and animations. Works in both Document and Video PiP modes!
 
 <img width="138" height="135" alt="Sync Indicator" src="https://github.com/user-attachments/assets/db46a459-24a1-4b2e-a0ae-90d81ceb5c3a" />
 
@@ -62,14 +62,14 @@
 * **Smart Memory:** The extension remembers your timing fixes for every song so you only have to fix it once.
 * **Automatic Cloud Settings Sync:** Your visual settings, option preferences, and custom theme configs now automatically synchronize across all of your Chrome browsers/devices (with a simple toggle to use local storage instead).
 * **One-Click Music Launchers:** Open or jump straight to Spotify or YouTube Music player tabs using new quick-launch buttons directly in the control panel. If the tab is already open, it automatically switches to it!
-* **Settings Portability:** Easily **Export and Import** your configurations to keep your setup consistent across different devices.
+* **Settings Portability:** Easily **Export and Import** configurations via secure, XOR-scrambled `.fly` files to protect your custom timing baselines, with a modern native OS save dialog picker.
 * **Dynamic Help Button:** A handy "Help, how to use Flying Lyrics ??" button appears in the extension popup for quick access to setup and onboarding guides.
 
 <img width="674" height="647" alt="image" src="https://github.com/user-attachments/assets/b3367b4c-5c34-48d7-a0bb-c379354dcc79" />
 
 ### ⚡ Smarter Performance & Polished Experience
 * **Tiered Lyric Searching:** Smarter and faster lyric lookups! Dynamically adjusts search depth based on whether synced candidates exist (e.g. Netease vs LRCLIB) to reduce network waste and rate limiting.
-* **Silky Smooth Animations:** The lyrics scrolling engine is incredibly lightweight and uses **frame-rate independent scrolling (delta-time physics)** to deliver butter-smooth animation whether you're using a standard 30Hz/60Hz display or a high-refresh rate screen.
+* **Silky Smooth Animations & Fluid Motion Toggle:** Choose between frame-rate independent kinetic scrolling (Fluid Motion) for smooth animations, or disable it for instant snap scrolling. Snap scrolling puts the graphics engine to sleep immediately when static, conserving maximum device battery and CPU.
 * **Cinematic Scroll Easing:** Large timing jumps instantly teleport close to the destination line before smoothly easing in, eliminating lag spikes.
 * **Eco Mode (Reduce CPU):** Enable **Eco Mode** to restrict background processing (capping frames at 30 FPS for floating windows and 20 FPS for borderless overlay), limit dynamic background animations, reduce canvas resolutions to 480px, and dynamically pause updates when idle to keep battery drain to an absolute minimum.
 * **Battery Saver (Idle Throttle):** Redrawing pauses completely when lyrics are static or playback is paused (waking up just a few times a second under the hood) to reduce computer load to zero.
