@@ -30,3 +30,6 @@ yarn-error.log
 
 # Old or broken files
 test.html
+
+# Local Agents Customizations
+.agents/
