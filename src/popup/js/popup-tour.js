@@ -55,6 +55,31 @@
         // Reset state
         currentStepIdx = 0;
         
+        // Force Galaxy Mode OFF when starting the tour so the walkthrough demonstrates toggling it on
+        if (typeof popup.saveAndNotify === 'function') {
+            popup.saveAndNotify({ galaxyMode: false });
+        }
+        const el = popup.el;
+        if (el && el.toggleGalaxyMode) {
+            el.toggleGalaxyMode.checked = false;
+        }
+        if (typeof popup.applyGalaxyModeState === 'function') {
+            popup.applyGalaxyModeState(false);
+        }
+
+        // Programmatically collapse all accordion groups when starting the tour
+        document.querySelectorAll('.collapsible-group').forEach(group => {
+            group.classList.add('collapsed');
+            const header = group.querySelector('.collapsible-header');
+            if (header) {
+                header.setAttribute('aria-expanded', 'false');
+            }
+            if (group.id) {
+                const storageKey = `collapsed_${group.id}`;
+                storage.set({ [storageKey]: true });
+            }
+        });
+
         // Check if user is allowed to skip (installed >= 2 months / 60 days ago)
         storage.get({ firstInstalledAt: 0 }, (items) => {
             const installedAt = items.firstInstalledAt || 0;

@@ -856,7 +856,7 @@
                 const isBgLoading = fl.canvasBgImageUrl && !fl.canvasBgImage;
                 const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
                 const isAnimating = absScrollDelta >= 0.5;
-                const shouldPauseVideo = state.paused && !isWaitingState && !isBgLoading && !fl.needsLayoutUpdate && !isAnimating;
+                const shouldPauseVideo = state.paused && !isWaitingState && !isBgLoading && !fl.needsLayoutUpdate && !isAnimating && !fl.needsVideoFramePush;
 
                 if (gracePeriodOver && shouldPauseVideo !== video.paused) {
                     if (shouldPauseVideo) {
@@ -1278,6 +1278,11 @@
         // Draw video PiP sync status badge directly onto the canvas
         if (fl.activePipType === 'video') {
             fl.drawVideoPipSyncStatus(w, h);
+        }
+
+        // Clear the frame push flag now that we have drawn the updated content on the canvas
+        if (fl.needsVideoFramePush) {
+            fl.needsVideoFramePush = false;
         }
 
         // OPT-3: If truly idle (paused + scroll settled + no layout dirty OR static Album Cover Mode), sleep

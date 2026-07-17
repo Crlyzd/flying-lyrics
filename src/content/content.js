@@ -45,6 +45,7 @@
     fl.popupColor2 = fl.defaults.popupColor2;
     fl.popupColor3 = fl.defaults.popupColor3;
     fl.galaxyMode = fl.defaults.galaxyMode;
+    fl.needsVideoFramePush = false;
 
     // Cache State
     fl.cachedLyrics = { key: "", lines: [], isSynced: false, source: null };
@@ -447,6 +448,20 @@
             if (p.fluidScrolling !== undefined) {
                 fl.fluidScrolling = p.fluidScrolling;
             }
+            // If any visual settings were changed, trigger a single-frame redraw
+            // and force-push the frame to the video PiP window if it is currently paused.
+            const hasVisualUpdate = p.customFont !== undefined || p.fontSize !== undefined ||
+                p.bgBlur !== undefined || p.bgDarkness !== undefined || p.coverMode !== undefined ||
+                p.glowEnabled !== undefined || p.glowStyle !== undefined || p.spotlightEnabled !== undefined ||
+                p.lyricShadowEnabled !== undefined || p.lyricAlignment !== undefined ||
+                p.lineSpacing !== undefined || p.verticalAnchor !== undefined ||
+                p.albumCoverMode !== undefined;
+
+            if (hasVisualUpdate) {
+                fl.hasDrawnIdleFrame = false;
+                fl.needsVideoFramePush = true;
+            }
+
             reportPreferencesDebounced();
             if (typeof sendResponse === 'function') {
                 sendResponse({ success: true });
