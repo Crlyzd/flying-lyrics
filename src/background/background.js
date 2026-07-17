@@ -5,8 +5,12 @@ chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
 
     if (details.reason === 'install') {
-        // Initialize consent status to true (opt-out default)
-        FLYING_LYRICS.storage.set({ telemetryConsent: true }, () => {
+        // Initialize consent status to true, set onboarding tour trigger, and record install timestamp
+        FLYING_LYRICS.storage.set({ 
+            telemetryConsent: true,
+            needsOnboardingTour: true,
+            firstInstalledAt: Date.now()
+        }, () => {
             chrome.tabs.create({
                 url: chrome.runtime.getURL('src/pages/welcome.html')
             }, (tab) => {
@@ -16,14 +20,14 @@ chrome.runtime.onInstalled.addListener((details) => {
             });
         });
     } else if (details.reason === 'update') {
-        // Open the update notification page whenever the Web Store pushes an update.
-        // ("install" is skipped so first-time installs don't see the review prompt immediately.)
+        // Open the welcome page with update query parameters.
         chrome.tabs.create({
-            url: chrome.runtime.getURL('src/pages/update.html')
+            url: chrome.runtime.getURL('src/pages/welcome.html?reason=update')
         });
 
-        // Reset review toast trigger logic so users can review the new update
+        // Reset review toast trigger logic and enable onboarding tour trigger for the update.
         FLYING_LYRICS.storage.set({
+            needsOnboardingTour: true,
             hasReviewed: false,
             popupOpenCount: 0,
             snoozeUntilCount: 0,

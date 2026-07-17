@@ -543,10 +543,73 @@
             background: var(--primary-color);
             box-shadow: 0 8px 24px rgba(29, 185, 84, 0.5);
         }
+
+        /* Onboarding Bouncing Arrow pointing to Browser Toolbar Extensions Menu */
+        .onboarding-arrow-container {
+            position: fixed;
+            top: 15px;
+            right: 160px;
+            z-index: 100000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #1DB954;
+            font-family: 'Outfit', 'Segoe UI', sans-serif;
+            font-weight: 700;
+            pointer-events: none;
+            animation: bounceUpRight 1.5s ease-in-out infinite alternate;
+        }
+
+        .onboarding-arrow-text {
+            background: rgba(29, 185, 84, 0.12);
+            border: 1px solid rgba(29, 185, 84, 0.25);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13.5px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+            letter-spacing: -0.2px;
+        }
+
+        .onboarding-arrow-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulseGlow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes bounceUpRight {
+            0% {
+                transform: translate(0, 0);
+            }
+            100% {
+                transform: translate(6px, -6px);
+            }
+        }
+
+        @keyframes pulseGlow {
+            0% {
+                filter: drop-shadow(0 2px 4px rgba(29, 185, 84, 0.4));
+            }
+            100% {
+                filter: drop-shadow(0 6px 16px rgba(29, 185, 84, 0.85));
+            }
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- Floating Arrow pointing to Extension Icon in Browser Toolbar -->
+    <div class="onboarding-arrow-container">
+        <div class="onboarding-arrow-text">Pin &amp; Open Flying Lyrics here!</div>
+        <div class="onboarding-arrow-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+            </svg>
+        </div>
+    </div>
 
     <header>
         <div class="logo">

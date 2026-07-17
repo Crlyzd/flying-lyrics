@@ -195,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pane.classList.toggle('active', pane.id === `tab-${tabId}`);
         });
     }
+    popup.switchTab = switchTab;
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {

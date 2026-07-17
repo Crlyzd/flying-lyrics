@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true, fluidScrolling: false,
         lastPipWidth: 200, lastPipHeight: 250,
+        needsOnboardingTour: false,
         
         themeAccent: 'galaxy',
         popupBgAnimation: false,
@@ -161,6 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (popup.updateCustomColors) popup.updateCustomColors();
         if (popup.selectColorSlot) popup.selectColorSlot(1);
+
+        // Check if we should trigger the guided walkthrough tour
+        if (items.needsOnboardingTour) {
+            setTimeout(() => {
+                if (typeof popup.startTour === 'function') {
+                    popup.startTour();
+                }
+            }, 300);
+        }
 
         // Signal that the settings are fully loaded and applied, revealing the popup
         document.body.classList.add('loaded');
