@@ -41,7 +41,7 @@
             tab: "settings",
             element: "#toggle-eco-mode",
             title: "Eco Mode (ON by Default)",
-            desc: "Eco Mode is enabled by default to save battery and CPU (caps rate at 30 FPS). If the text looks slightly soft on your monitor, turn this <strong>OFF</strong> for ultra-sharp quality."
+            desc: "Eco Mode is enabled by default to save battery and CPU (caps rate at 30 FPS). If the text looks slightly soft on your monitor, turn this <strong>OFF</strong> for ultra-sharp quality and smoother scroll animations."
         }
     ];
 
