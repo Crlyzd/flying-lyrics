@@ -22,14 +22,14 @@
             subTab: "pip",
             element: "#visual-controls-wrapper",
             title: "Visual Customization",
-            desc: "Under this tab, you can customize fonts, font sizes, line spacing, background blur, and glowing text. Visual changes apply instantly to the floating window."
+            desc: "Expand these sections to customize fonts, sizes, spacing, background blur, and glowing text. Changes apply instantly to the floating window."
         },
         {
             tab: "visuals",
             subTab: "popup",
             element: "#galaxy-mode-toggle-card",
             title: "Galaxy Mode",
-            desc: "Toggle this to enable a beautiful, custom animated background inside the extension popup and customize its colors."
+            desc: "Enable a custom animated background inside the extension popup and customize its colors."
         },
         {
             tab: "settings",
@@ -42,6 +42,24 @@
             element: "#toggle-eco-mode",
             title: "Eco Mode (ON by Default)",
             desc: "Eco Mode is enabled by default to save battery and CPU (caps rate at 30 FPS). If the text looks slightly soft on your monitor, turn this <strong>OFF</strong> for ultra-sharp quality and smoother scroll animations."
+        },
+        {
+            tab: "settings",
+            element: "#toggle-translation",
+            title: "Lyric Translation",
+            desc: "Toggle this to automatically translate song lyrics into your preferred language using Google Translate."
+        },
+        {
+            tab: "settings",
+            element: "#lang-select",
+            title: "Translation Language",
+            desc: "Choose your preferred translation language. It matches your browser's language by default."
+        },
+        {
+            tab: "settings",
+            element: ".global-offset-row",
+            title: "Global Sync Offset",
+            desc: "Set a default timing offset (in milliseconds) that applies to all songs as a global fallback. This will not override any custom offsets you save for individual songs."
         }
     ];
 
@@ -169,6 +187,17 @@
                 return;
             }
 
+            // Snap scroll to bottom for elements at the bottom of the Settings tab, otherwise scroll nearest
+            const tabContent = document.querySelector('.tab-content');
+            const isBottomSetting = step.element === '#toggle-translation' || 
+                                    step.element === '#lang-select' || 
+                                    step.element === '.global-offset-row';
+            if (tabContent && isBottomSetting) {
+                tabContent.scrollTop = tabContent.scrollHeight;
+            } else {
+                targetEl.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+            }
+
             // Highlight target
             targetEl.classList.add('tour-highlight');
 
@@ -236,32 +265,35 @@
             // 3. Position the bubble with window bounds checking
             const rect = targetEl.getBoundingClientRect();
             const bubbleWidth = 280;
+
+            // Determine horizontal position first (center aligned, but clamp within window edges)
+            let left = rect.left + (rect.width - bubbleWidth) / 2;
+            left = Math.max(8, Math.min(window.innerWidth - bubbleWidth - 8, left));
+
+            // Assign horizontal positioning and class first to let the DOM settle width constraints before measuring height
+            bubbleEl.style.left = `${left}px`;
+            bubbleEl.className = `tour-bubble`;
+
+            // Force reflow and measure the true offsetHeight
             const bubbleHeight = bubbleEl.offsetHeight || 135;
 
             // Determine vertical position (default: below the element)
-            let top = rect.bottom + 8;
+            let top = rect.bottom + 14;
             let arrowClass = 'arrow-top';
 
             // If bubble overflows bottom screen limit, flip it to display above the element
             if (top + bubbleHeight > window.innerHeight) {
-                top = rect.top - bubbleHeight - 8;
+                top = rect.top - bubbleHeight - 14;
                 arrowClass = 'arrow-bottom';
             }
 
             // Clamp vertical position to prevent it from going off-screen (above the top or below the bottom)
             top = Math.max(8, Math.min(window.innerHeight - bubbleHeight - 8, top));
 
-            // Determine horizontal position (center aligned, but clamp within window edges)
-            let left = rect.left + (rect.width - bubbleWidth) / 2;
-            left = Math.max(8, Math.min(window.innerWidth - bubbleWidth - 8, left));
-
             bubbleEl.style.top = `${top}px`;
-            bubbleEl.style.left = `${left}px`;
             bubbleEl.className = `tour-bubble ${arrowClass}`;
             bubbleEl.style.opacity = '1'; // Fade in once positioned correctly
 
-            // 4. Smooth scroll target into view if overflowed
-            targetEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 120);
     }
 
