@@ -633,6 +633,16 @@
                         <button class="search-btn btn-backup" id="btn-import-settings">Import Backup</button>
                         <input type="file" id="import-file" accept=".fly">
                     </div>
+                    <div class="row" style="margin-top: 12px;">
+                        <label for="toggle-backup-cache" style="display: flex; flex-direction: column; gap: 4px; margin: 0; cursor: pointer;">
+                            <span style="font-size: 12px; font-weight: normal; opacity: 0.95;">Include cached lyrics in the backup</span>
+                            <span class="backup-warning-text">(increases backup size)</span>
+                        </label>
+                        <label class="tickbox-container">
+                            <input type="checkbox" id="toggle-backup-cache">
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- FOOTER INFO & SUPPORT LINKS -->

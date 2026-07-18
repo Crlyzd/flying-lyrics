@@ -75,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
         popupColor3:         'string',
         recentFonts:         'object',
         lyricsOverrides:     'object',
-        songOffsets:         'object'
+        songOffsets:         'object',
+        lyricsCache:         'object'
     };
 
     // Filter out unknown keys and enforce strict type validation
@@ -137,6 +138,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                             continue;
                         }
+
+                        // Validate lyricsCache (object format)
+                        if (key === 'lyricsCache') {
+                            if (typeof val === 'object' && val !== null) {
+                                const cleanCache = { order: [], entries: {} };
+                                let valid = true;
+                                if (Array.isArray(val.order) && typeof val.entries === 'object' && val.entries !== null) {
+                                    for (const trackKey of val.order) {
+                                        if (typeof trackKey === 'string') {
+                                            const entry = val.entries[trackKey];
+                                            if (entry && typeof entry === 'object') {
+                                                if (Array.isArray(entry.lines)) {
+                                                    cleanCache.order.push(trackKey);
+                                                    cleanCache.entries[trackKey] = entry;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    valid = false;
+                                }
+                                if (valid) {
+                                    cleanSettings[key] = cleanCache;
+                                } else {
+                                    console.warn("Invalid format for lyricsCache. Skipping.");
+                                }
+                            }
+                            continue;
+                        }
                     }
                     cleanSettings[key] = val;
                 } else {
@@ -153,8 +183,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.btnExportSettings) {
         el.btnExportSettings.addEventListener('click', () => {
             storage.get(null, async (items) => {
-                // Delete heavy transient cache data to keep backup size minimal
-                if (items.lyricsCache) {
+                // Delete heavy transient cache data to keep backup size minimal unless toggle checked
+                const includeCache = el.toggleBackupCache && el.toggleBackupCache.checked;
+                if (!includeCache && items.lyricsCache) {
                     delete items.lyricsCache;
                 }
                 if (items.welcomeTabId) {

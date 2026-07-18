@@ -275,6 +275,7 @@ select option[value="request_language"] {
     align-items: center;
     justify-content: center;
     gap: 10px;
+    padding: 6px 0;
 }
 
 #offset-display {
@@ -416,6 +417,7 @@ select option[value="request_language"] {
     align-items: center;
     justify-content: center;
     gap: 20px;
+    padding: 6px 0;
 }
 
 #global-offset-input {
@@ -1101,4 +1103,73 @@ select option[value="request_language"] {
 #visual-controls-wrapper.controls-disabled .collapsible-header {
     pointer-events: none;
     opacity: 0.5;
+}
+
+/* =========================================================
+ *  CUSTOM TICKBOX & BACKUP WARNING
+ * ========================================================= */
+.tickbox-container {
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+}
+
+.tickbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.tickbox-container:hover input ~ .checkmark {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.tickbox-container input:checked ~ .checkmark {
+    background-color: var(--accent);
+    border-color: transparent;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.tickbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.tickbox-container .checkmark:after {
+    left: 7px;
+    top: 3px;
+    width: 4px;
+    height: 9px;
+    border: solid var(--accent-contrast, white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.backup-warning-text {
+    color: #ffaa00;
+    font-size: 9px;
+    font-style: italic;
+    line-height: 1.2;
 }

@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnExportSettings:    document.getElementById('btn-export-settings'),
         btnImportSettings:    document.getElementById('btn-import-settings'),
         importFile:           document.getElementById('import-file'),
+        toggleBackupCache:    document.getElementById('toggle-backup-cache'),
 
         // ── Album cover mode ──────────────────────────────────
         toggleAlbumCoverMode: document.getElementById('toggle-album-cover-mode'),
