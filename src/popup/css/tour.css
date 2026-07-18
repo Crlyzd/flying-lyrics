@@ -89,7 +89,7 @@
 
 /* Walkthrough buttons */
 .tour-btn {
-    padding: 6px 14px;
+    padding: 5px 10px;
     border-radius: 6px;
     font-size: 11px;
     font-weight: 600;
@@ -117,7 +117,7 @@
 .tour-btn-prev {
     background: rgba(255, 255, 255, 0.07);
     color: #cccccc;
-    min-width: 50px;
+    min-width: 45px;
     text-align: center;
 }
 
@@ -129,7 +129,7 @@
 .tour-btn-next {
     background: #1DB954;
     color: #000000;
-    min-width: 60px;
+    min-width: 55px;
     text-align: center;
 }
 
@@ -155,12 +155,12 @@
 /* Dot indicators */
 .tour-step-dots {
     display: flex;
-    gap: 5px;
+    gap: 4px;
 }
 
 .tour-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.2);
     transition: background 0.2s ease, transform 0.2s ease;
@@ -168,7 +168,7 @@
 
 .tour-dot.active {
     background: #1DB954;
-    transform: scale(1.15);
+    transform: scale(1.25);
 }
 
 /* Tooltip bubble directional arrows */
