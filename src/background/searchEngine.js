@@ -287,6 +287,42 @@ function normalizeNetease(song) {
 // ─── Network helpers ──────────────────────────────────────────────────────────
 
 /**
+ * Normalises a raw URL into a fixed canonical endpoint identifier.
+ * Prevents high-cardinality explosion in telemetry (e.g. dynamic song IDs in paths).
+ * @param {string} url
+ * @returns {string}
+ */
+function getCanonicalEndpoint(url) {
+    if (!url) return 'unknown';
+    if (url.includes('lrclib.net/api/get')) return 'lrclib_get';
+    if (url.includes('lrclib.net/api/search')) return 'lrclib_search';
+    if (url.includes('music.163.com/api/song/lyric')) return 'netease_lyric';
+    if (url.includes('music.163.com/api/cloudsearch')) return 'netease_search';
+    if (url.includes('translate.googleapis.com')) return 'google_translate';
+
+    try {
+        const parsed = new URL(url);
+        return `${parsed.hostname}${parsed.pathname.split('/').slice(0, 3).join('/')}`;
+    } catch {
+        return url.split('?')[0];
+    }
+}
+
+/**
+ * Maps a numeric latency in milliseconds to a discrete range bucket.
+ * @param {number} ms
+ * @returns {string}
+ */
+function getLatencyRange(ms) {
+    if (ms <= 200) return 'under_200ms';
+    if (ms <= 500) return '200ms_500ms';
+    if (ms <= 1000) return '500ms_1s';
+    if (ms <= 2000) return '1s_2s';
+    if (ms <= 5000) return '2s_5s';
+    return 'over_5s';
+}
+
+/**
  * Wraps fetch() with a hard timeout using AbortController.
  * Caps request duration to prevent extension hanging when external API servers are slow.
  *
@@ -298,17 +334,23 @@ function fetchWithTimeout(url, timeoutMs) {
     const startTime = performance.now();
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
-    const cleanUrl = url.split('?')[0];
+    const endpoint = getCanonicalEndpoint(url);
 
     return fetch(url, { signal: controller.signal })
         .then(res => {
             clearTimeout(id);
             const latency = Math.round(performance.now() - startTime);
-            // Log api_latency event anonymously
+            const latencyRange = getLatencyRange(latency);
+            // Log api_latency event anonymously with discrete latency bucket and canonical endpoint
             if (typeof trackEvent === 'function') {
-                trackEvent('api_latency', { url: cleanUrl, latency_ms: latency, status: res.status });
+                trackEvent('api_latency', {
+                    endpoint: endpoint,
+                    latency_range: latencyRange,
+                    latency_ms: latency,
+                    status: res.status
+                });
                 if (res.status === 429) {
-                    trackEvent('rate_limited', { url: cleanUrl });
+                    trackEvent('rate_limited', { endpoint: endpoint });
                 }
             }
             return res;
@@ -316,9 +358,15 @@ function fetchWithTimeout(url, timeoutMs) {
         .catch(err => {
             clearTimeout(id);
             const latency = Math.round(performance.now() - startTime);
+            const latencyRange = getLatencyRange(latency);
             if (typeof trackEvent === 'function') {
                 const errName = err.name === 'AbortError' ? 'timeout' : (err.message || err.name || 'network_error');
-                trackEvent('api_latency', { url: cleanUrl, latency_ms: latency, error: errName });
+                trackEvent('api_latency', {
+                    endpoint: endpoint,
+                    latency_range: latencyRange,
+                    latency_ms: latency,
+                    error: errName
+                });
             }
             throw err;
         });
