@@ -73,11 +73,23 @@ document.addEventListener('DOMContentLoaded', () => {
         popupColor1:         'string',
         popupColor2:         'string',
         popupColor3:         'string',
+        backupIncludeCache:  'boolean',
         recentFonts:         'object',
         lyricsOverrides:     'object',
         songOffsets:         'object',
         lyricsCache:         'object'
     };
+
+    // Initialize the backup cache checkbox from storage & bind persistence
+    if (el.toggleBackupCache) {
+        storage.get({ backupIncludeCache: false }, (items) => {
+            el.toggleBackupCache.checked = !!items.backupIncludeCache;
+        });
+
+        el.toggleBackupCache.addEventListener('change', () => {
+            storage.set({ backupIncludeCache: el.toggleBackupCache.checked });
+        });
+    }
 
     // Filter out unknown keys and enforce strict type validation
     function validateAndSanitize(importedSettings) {

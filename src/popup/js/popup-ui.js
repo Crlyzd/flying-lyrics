@@ -42,21 +42,53 @@ document.addEventListener('DOMContentLoaded', () => {
     //  REVIEW TOAST — open-count tracking & toast visibility
     // =========================================================
 
-    /** Marks the UI to show the user has already reviewed. */
-    function markAsRated(rating) {
-        if (el.footerStarStrip) {
-            el.footerStarStrip.classList.add('rated');
-            el.footerStarStrip.dataset.rating = rating || 5;
-        }
-        if (el.starLabel) el.starLabel.textContent = 'Thanks!';
+    /** Returns the emotional feedback text corresponding to a rating and state. */
+    function getRatingEmotionText(rating, state = 'rated') {
+        const num = Math.max(1, Math.min(5, Number(rating) || 5));
+        const emotions = popup.RATING_EMOTIONS || {
+            1: { hover: 'Heartbroken... 😭', rated: 'Ouch... so sorry! 💔' },
+            2: { hover: 'So sad... 😢',      rated: "We'll try harder... 🌧️" },
+            3: { hover: "It's okay... 😐",   rated: "We'll do better! 🥺" },
+            4: { hover: 'Great to hear! 😊', rated: 'Thanks a lot! 👍' },
+            5: { hover: 'Loved it! 🥰',      rated: "You're awesome! 🎉" }
+        };
+        return emotions[num]?.[state] || (state === 'rated' ? 'Thanks!' : 'Rate us! ');
     }
 
-    /** Opens the correct Web Store review page and marks the user as having reviewed. */
-    function openReviewPage(rating = 5) {
-        storage.set({ hasReviewed: true, reviewRating: rating });
-        markAsRated(rating);
-        el.reviewToast.classList.remove('review-toast--visible');
-        chrome.tabs.create({ url: popup.getReviewUrl() });
+    /** Marks the UI to show the user has already reviewed. */
+    function markAsRated(rating) {
+        const num = Math.max(1, Math.min(5, Number(rating) || 5));
+        if (el.footerStarStrip) {
+            el.footerStarStrip.classList.add('rated');
+            el.footerStarStrip.dataset.rating = num;
+        }
+        if (el.starLabel) el.starLabel.textContent = getRatingEmotionText(num, 'rated');
+    }
+
+    /**
+     * Handles explicit rating from the footer star rating strip.
+     * - Ratings <= 3: saves local rating state, displays apologetic text, suppresses store URL, and DOES NOT block toast.
+     * - Ratings >= 4: saves local rating state, marks hasReviewed: true, displays happy text, and opens store review tab.
+     */
+    function handleStarRating(rating) {
+        const num = Math.max(1, Math.min(5, Number(rating) || 5));
+        const isHighRating = num > 3;
+
+        if (isHighRating) {
+            storage.set({ hasReviewed: true, reviewRating: num, reviewToastPending: false });
+        } else {
+            storage.set({ reviewRating: num });
+        }
+
+        markAsRated(num);
+
+        if (el.reviewToast) {
+            el.reviewToast.classList.remove('review-toast--visible');
+        }
+
+        if (isHighRating) {
+            chrome.tabs.create({ url: popup.getReviewUrl() });
+        }
     }
 
     /** Shows the review toast and persists a re-show flag. */
@@ -68,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Track popup opens; determine whether to show the toast on this open.
     storage.get(
-        { popupOpenCount: 0, hasReviewed: false, reviewRating: 5, snoozeUntilCount: 0,
+        { popupOpenCount: 0, hasReviewed: false, reviewRating: null, snoozeUntilCount: 0,
           firstInstalledAt: 0, helpClickCount: 0, milestone7DayShown: false, reviewToastPending: false,
           reviewToastBaseTime: 0 },
         (data) => {
@@ -85,9 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 storage.set({ reviewToastBaseTime: data.firstInstalledAt || Date.now() });
             }
 
-            if (data.hasReviewed) {
+            // Restore footer star state if previously rated via footer stars
+            if (data.reviewRating) {
                 markAsRated(data.reviewRating);
-                return; // Already reviewed — never show toast again
+            }
+
+            // If user previously completed a positive review or clicked toast, permanently suppress toast
+            if (data.hasReviewed) {
+                return;
             }
 
             // installedAt hoisted here so the help-button logic below always has it in scope.
@@ -133,8 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     );
 
-    // Clicking the toast text → open the store review page (defaults to 5 stars)
-    el.reviewToastText.addEventListener('click', () => openReviewPage(5));
+    // Clicking the toast text → open the store review page directly (does NOT touch or affect footer stars)
+    el.reviewToastText.addEventListener('click', () => {
+        storage.set({ hasReviewed: true, reviewToastPending: false });
+        el.reviewToast.classList.remove('review-toast--visible');
+        chrome.tabs.create({ url: popup.getReviewUrl() });
+    });
 
     // "Later" snooze → resurface after 10 more popup opens
     el.snoozeToastBtn.addEventListener('click', (e) => {
@@ -152,14 +193,34 @@ document.addEventListener('DOMContentLoaded', () => {
         el.reviewToast.classList.remove('review-toast--visible');
     });
 
-    // Footer star strip → record exact rating and open review
+    // Footer star strip → record exact rating, preview dynamic emotional text on hover, and open review
     if (el.footerStarStrip) {
         const stars = el.footerStarStrip.querySelectorAll('span');
         stars.forEach((star, index) => {
+            const starScore = index + 1;
+
+            // Hover preview: dynamically show sad/happy text according to hovered star count
+            star.addEventListener('mouseenter', () => {
+                if (el.starLabel) {
+                    el.starLabel.textContent = getRatingEmotionText(starScore, 'hover');
+                }
+            });
+
+            // Click: handle rating, sentiment gating, and feedback text
             star.addEventListener('click', (e) => {
                 e.stopPropagation();
-                openReviewPage(index + 1);
+                handleStarRating(starScore);
             });
+        });
+
+        // Mouse leaves strip: restore rated text or default prompt synchronously
+        el.footerStarStrip.addEventListener('mouseleave', () => {
+            if (el.footerStarStrip.classList.contains('rated')) {
+                const ratedScore = parseInt(el.footerStarStrip.dataset.rating, 10) || 5;
+                if (el.starLabel) el.starLabel.textContent = getRatingEmotionText(ratedScore, 'rated');
+            } else {
+                if (el.starLabel) el.starLabel.textContent = 'Rate us! ';
+            }
         });
     }
 

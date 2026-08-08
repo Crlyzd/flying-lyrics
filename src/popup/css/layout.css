@@ -331,65 +331,115 @@ label {
     margin-bottom: 10px;
 }
 
-/* Star strip */
+/* Star strip — 2-line stacked layout with unrated breathing pulse */
 .star-row {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    margin-bottom: 10px;
+    gap: 4px;
+    margin-bottom: 12px;
 }
 
 .star-label {
-    font-size: 11px;
-    color: #888;
-    transform: translateY(1.5px);
+    font-size: 12px;
+    font-weight: 500;
+    color: #a1a1aa;
+    text-align: center;
+    min-height: 18px;
+    line-height: 1.2;
+    transition: color 0.15s ease, opacity 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
 }
 
 .stars {
-    display: flex;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 2px;
     cursor: pointer;
+    line-height: 1;
+    user-select: none;
 }
 
 .stars span {
-    font-size: 17px;
-    color: #303030;
-    transition: color 0.1s, transform 0.1s;
+    font-size: 18px;
+    color: #4b5563;
+    padding: 2px 2px;
+    margin: 0;
+    transition: color 0.15s ease, text-shadow 0.15s ease, transform 0.15s ease;
     line-height: 1;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Hover: light up entire strip up to the hovered star */
+/* Unrated gentle golden breathing shimmer */
+@keyframes starPulse {
+    0%, 100% {
+        color: #4b5563;
+        text-shadow: 0 0 0 rgba(250, 204, 21, 0);
+        transform: scale(1);
+    }
+    50% {
+        color: #eab308;
+        text-shadow: 0 0 10px rgba(250, 204, 21, 0.55), 0 0 16px rgba(234, 179, 8, 0.3);
+        transform: scale(1.08);
+    }
+}
+
+.stars:not(.rated) span {
+    animation: starPulse 2.4s ease-in-out infinite;
+}
+
+.stars:not(.rated) span:nth-child(1) { animation-delay: 0.0s; }
+.stars:not(.rated) span:nth-child(2) { animation-delay: 0.12s; }
+.stars:not(.rated) span:nth-child(3) { animation-delay: 0.24s; }
+.stars:not(.rated) span:nth-child(4) { animation-delay: 0.36s; }
+.stars:not(.rated) span:nth-child(5) { animation-delay: 0.48s; }
+
+/* Hover: cancel pulse immediately and light up entire strip with crisp golden glow */
 .stars:hover span {
+    animation: none !important;
     color: #ffcc00 !important;
-    transform: scale(1.15);
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6) !important;
+    transform: scale(1.1) !important;
 }
 
 .stars span:hover~span {
-    color: #303030 !important;
+    animation: none !important;
+    color: #374151 !important;
+    text-shadow: none !important;
+    transform: scale(1) !important;
+}
+
+/* Rated state: disable animation permanently and lock golden yellow up to chosen rating */
+.stars.rated span {
+    animation: none !important;
+    color: #ffcc00;
+    text-shadow: 0 0 4px rgba(255, 204, 0, 0.25);
     transform: scale(1);
 }
 
-/* Rated state: saved yellow up to the chosen rating */
-.stars.rated span {
-    color: #ffcc00;
-}
-
 .stars.rated[data-rating="1"] span:nth-child(n+2) {
-    color: #303030;
+    color: #374151;
+    text-shadow: none;
 }
 
 .stars.rated[data-rating="2"] span:nth-child(n+3) {
-    color: #303030;
+    color: #374151;
+    text-shadow: none;
 }
 
 .stars.rated[data-rating="3"] span:nth-child(n+4) {
-    color: #303030;
+    color: #374151;
+    text-shadow: none;
 }
 
 .stars.rated[data-rating="4"] span:nth-child(n+5) {
-    color: #303030;
+    color: #374151;
+    text-shadow: none;
 }
 
 /* Row 3a: Credits & links */

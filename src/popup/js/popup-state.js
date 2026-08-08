@@ -79,7 +79,20 @@ window.FLYING_LYRICS.popup = {
         galaxyMode:          false,
         popupColor1:         '#ff007f',
         popupColor2:         '#00b4d8',
-        popupColor3:         '#1DB954'
+        popupColor3:         '#1DB954',
+        backupIncludeCache:  false
+    },
+
+    // =========================================================
+    //  RATING EMOTIONAL FEEDBACK DICTIONARY
+    //  Lesser stars yield sadder emotional feedback text.
+    // =========================================================
+    RATING_EMOTIONS: {
+        1: { hover: 'Heartbroken... 😭', rated: 'Ouch... so sorry! 💔' },
+        2: { hover: 'So sad... 😢',      rated: "We'll try harder... 🌧️" },
+        3: { hover: "It's okay... 😐",   rated: "We'll do better! 🥺" },
+        4: { hover: 'Great to hear! 😊', rated: 'Thanks a lot! 👍' },
+        5: { hover: 'Loved it! 🥰',      rated: "You're awesome! 🎉" }
     },
 
     // =========================================================
