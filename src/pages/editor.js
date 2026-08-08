@@ -153,6 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function updateSaveButtonState() {
+        saveBtn.disabled = (editor.value === lastSavedText);
+    }
+
+    // Set initial button state
+    updateSaveButtonState();
+
+    // Listen to changes in lyric editor
+    editor.addEventListener('input', updateSaveButtonState);
+
     // Retrieve active track and lyrics
     chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
         tabs.forEach(tab => {
@@ -177,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response && response.lrcText !== undefined) {
                     editor.value = response.lrcText;
                     lastSavedText = response.lrcText;
+                    updateSaveButtonState();
                 }
             });
         });
@@ -190,8 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function saveLyrics() {
+        if (editor.value === lastSavedText) return;
         const rawText = editor.value;
         lastSavedText = rawText;
+        updateSaveButtonState();
 
         // Send SETTINGS_UPDATE with lyricOverride to all active music tabs.
         // The content script will handle persisting it to lyricsOverrides for the current track key.
