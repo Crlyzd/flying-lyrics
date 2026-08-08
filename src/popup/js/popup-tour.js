@@ -69,20 +69,25 @@
     let cooldownTimer = null;
     let canSkip = false;
 
-    popup.startTour = function () {
-        // Reset state
-        currentStepIdx = 0;
+    popup.startTour = function (startStep = 0) {
+        // Validate starting step
+        const validStartStep = (typeof startStep === 'number' && startStep >= 0 && startStep < tourSteps.length)
+            ? Math.floor(startStep)
+            : 0;
+        currentStepIdx = validStartStep;
         
-        // Force Galaxy Mode OFF when starting the tour so the walkthrough demonstrates toggling it on
-        if (typeof popup.saveAndNotify === 'function') {
-            popup.saveAndNotify({ galaxyMode: false });
-        }
-        const el = popup.el;
-        if (el && el.toggleGalaxyMode) {
-            el.toggleGalaxyMode.checked = false;
-        }
-        if (typeof popup.applyGalaxyModeState === 'function') {
-            popup.applyGalaxyModeState(false);
+        // Force Galaxy Mode OFF when starting at or before the Galaxy Mode step (idx <= 3)
+        if (currentStepIdx <= 3) {
+            if (typeof popup.saveAndNotify === 'function') {
+                popup.saveAndNotify({ galaxyMode: false });
+            }
+            const el = popup.el;
+            if (el && el.toggleGalaxyMode) {
+                el.toggleGalaxyMode.checked = false;
+            }
+            if (typeof popup.applyGalaxyModeState === 'function') {
+                popup.applyGalaxyModeState(false);
+            }
         }
 
         // Programmatically collapse all accordion groups when starting the tour
@@ -105,7 +110,7 @@
             canSkip = installedAt > 0 && (Date.now() - installedAt >= sixtyDaysMs);
             
             createTourElements();
-            showStep(0);
+            showStep(currentStepIdx);
         });
     };
 
@@ -144,6 +149,9 @@
     }
 
     function showStep(idx) {
+        // Persist current step progress immediately to storage in case popup is dropped/closed
+        storage.set({ onboardingTourStep: idx });
+
         // Clear previous highlight classes
         document.querySelectorAll('.tour-highlight').forEach(el => {
             el.classList.remove('tour-highlight');
@@ -316,6 +324,19 @@
         }
     }
 
+    function handlePopupDismissal() {
+        if (overlayEl || document.getElementById('tour-overlay')) {
+            storage.set({ onboardingTourStep: currentStepIdx });
+        }
+    }
+
+    window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            handlePopupDismissal();
+        }
+    });
+    window.addEventListener('pagehide', handlePopupDismissal);
+
     function endTour() {
         if (cooldownTimer) clearTimeout(cooldownTimer);
         
@@ -334,7 +355,7 @@
             el.classList.remove('tour-highlight');
         });
 
-        // Set local storage flag so the tour does not auto-trigger on future openings
-        storage.set({ needsOnboardingTour: false });
+        // Set local storage flags so the tour does not auto-trigger on future openings
+        storage.set({ needsOnboardingTour: false, onboardingTourStep: 0 });
     }
 })();

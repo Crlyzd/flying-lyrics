@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true, fluidScrolling: false,
         lastPipWidth: 200, lastPipHeight: 250,
-        needsOnboardingTour: false,
+        needsOnboardingTour: false, onboardingTourStep: 0,
         
         themeAccent: 'galaxy',
         popupBgAnimation: false,
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items.needsOnboardingTour) {
             setTimeout(() => {
                 if (typeof popup.startTour === 'function') {
-                    popup.startTour();
+                    popup.startTour(items.onboardingTourStep || 0);
                 }
             }, 300);
         }

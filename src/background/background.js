@@ -9,6 +9,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         FLYING_LYRICS.storage.set({ 
             telemetryConsent: true,
             needsOnboardingTour: true,
+            onboardingTourStep: 0,
             firstInstalledAt: Date.now()
         }, () => {
             chrome.tabs.create({
@@ -28,6 +29,7 @@ chrome.runtime.onInstalled.addListener((details) => {
         // Reset review toast trigger logic and enable onboarding tour trigger for the update.
         FLYING_LYRICS.storage.set({
             needsOnboardingTour: true,
+            onboardingTourStep: 0,
             hasReviewed: false,
             popupOpenCount: 0,
             snoozeUntilCount: 0,
