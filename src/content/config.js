@@ -4,8 +4,9 @@ window.FLYING_LYRICS = window.FLYING_LYRICS || {};
 
 function getBrowserDefaultLanguage() {
     const supportedCodes = [
-        'en', 'zh-CN', 'zh-TW', 'es', 'fr', 'ar', 'ru', 'pt', 
-        'id', 'de', 'ja', 'tr', 'vi', 'ko', 'fa', 'it', 'th', 'ku'
+        'ar', 'be', 'bs', 'bg', 'zh-CN', 'zh-TW', 'hr', 'cs', 'en', 'fr',
+        'de', 'id', 'it', 'ja', 'ko', 'ku', 'mk', 'fa', 'pl', 'pt',
+        'ru', 'sr', 'sk', 'sl', 'es', 'th', 'tr', 'uk', 'vi'
     ];
     
     const preferences = [];

@@ -26,7 +26,7 @@
 ### 🌍 Read & Understand Everything
 * **Triple-Layer View:** See original lyrics, romanization (supporting **Japanese, Korean, or Mandarin**), and translations—all at the same time.
 * **Non-Blocking Translations:** Lyrics render immediately upon download; translation queries and local storage caching run asynchronously in the background so you never have to wait.
-* **Auto-Detected Translation:** Automatically matches your browser or operating system's language to select the default translation locale (supporting 18 languages).
+* **Auto-Detected Translation:** Automatically matches your browser or operating system's language to select the default translation locale (supporting 29 languages).
 * **Instant Translation:** Uses Google Translate to provide translations on the fly if none are available.
 * **Cinematic Feel:** The current line glows and stays in focus, while inactive lines fade out.
 * **Smart "Pseudo-Scroll":** For unsynced lyrics, the panel automatically scrolls based on song duration and line count.
