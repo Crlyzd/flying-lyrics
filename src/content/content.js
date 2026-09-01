@@ -469,19 +469,32 @@
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
         } else if (msg.type === 'GET_CURRENT_TRACK') {
-            const meta = navigator.mediaSession.metadata;
-            if (meta && meta.title && meta.artist) {
-                // Also expose the sanitized values so the popup can pre-fill a
-                // clean, API-friendly search query without any manual editing.
-                const cleanTitle     = typeof fl.cleanTitle === 'function'
-                    ? fl.cleanTitle(meta.title)
-                    : meta.title;
-                const primaryArtist  = typeof fl.extractPrimaryArtist === 'function'
-                    ? fl.extractPrimaryArtist(meta.artist)
-                    : meta.artist;
-                sendResponse({ artist: meta.artist, title: meta.title, cleanTitle, primaryArtist });
+            const trackMeta = typeof fl.getCurrentTrackMetadata === 'function'
+                ? fl.getCurrentTrackMetadata()
+                : null;
+            if (trackMeta && trackMeta.title && trackMeta.artist) {
+                sendResponse({
+                    artist: trackMeta.artist,
+                    title: trackMeta.title,
+                    cleanTitle: trackMeta.cleanTitle,
+                    primaryArtist: trackMeta.primaryArtist,
+                    duration: (fl.getPlayerState && typeof fl.getPlayerState === 'function') ? (fl.getPlayerState().duration || 0) : 0
+                });
             } else {
-                sendResponse({ error: 'No active track' });
+                const meta = navigator.mediaSession?.metadata;
+                if (meta && meta.title && meta.artist) {
+                    const cleanTitle = typeof fl.cleanTitle === 'function' ? fl.cleanTitle(meta.title) : meta.title;
+                    const primaryArtist = typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist;
+                    sendResponse({
+                        artist: meta.artist,
+                        title: meta.title,
+                        cleanTitle,
+                        primaryArtist,
+                        duration: (fl.getPlayerState && typeof fl.getPlayerState === 'function') ? (fl.getPlayerState().duration || 0) : 0
+                    });
+                } else {
+                    sendResponse({ error: 'No active track' });
+                }
             }
         } else if (msg.type === 'IS_PIP_OPEN') {
             const isOpen = !!(fl.pipWin && !fl.pipWin.closed) || (fl.activePipType === 'video' && !!document.pictureInPictureElement);

@@ -66,10 +66,14 @@ function titleSimilarity(a, b) {
 // ─── Metadata cleaning ───────────────────────────────────────────────────────
 
 function cleanTitle(title) {
+    if (!title) return '';
     const noiseTerms = [
         'official video', 'official audio', 'official music video', 'lyrics video',
         'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
         'hidden track', 'high res', 'hi-res', 'a cappella',
+        'from the first take', 'anime ver\\.?', 'tv size ver\\.?', 'tv size', 'tv ver\\.?',
+        'short ver\\.?', 'theme song', 'soundtrack', 'original soundtrack', 'ost',
+        '主題歌', '挿入歌', 'テーマソング', 'エンディング', 'オープニング', '劇中歌', '伴奏', '伴奏版',
         'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
         'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
         'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
@@ -77,14 +81,26 @@ function cleanTitle(title) {
         'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
     ].join('|');
 
+    // Pass 1: Extract song title if quoted in Japanese quotes with prefix e.g. 【推しの子】主題歌「アイドル」 -> アイドル
+    let clean = title;
+    const animeQuoteMatch = clean.match(/^[【『「《（［〔].*?[】』」》）］〕].*?[「『]([^」』]+)[」』]/);
+    if (animeQuoteMatch && animeQuoteMatch[1]) {
+        clean = animeQuoteMatch[1];
+    }
+
+    // Pass 2: Remove bracketed noise groups (including Asian full-width brackets)
     const bracketRegex = new RegExp(
-        `\\s*[([\\[](?:[^\\]()[\\]]*?(?:${noiseTerms})[^\\]()[\\]]*?)[)\\]]`,
+        '\\s*[({\\[【『「《（［〔](?:[^)}\\]】』」》）］〕]*?(?:' + noiseTerms + ')[^)}\\]】』」》）］〕]*?)[)}\\]】』」》）］〕]',
         'gi'
     );
-    let clean = title.replace(bracketRegex, '');
+    clean = clean.replace(bracketRegex, '');
 
-    const trailingRegex = new RegExp(`\\s*-\\s*(?:${noiseTerms}).*$`, 'gi');
+    // Pass 3: Remove trailing noise suffixes (- Remastered, - TV ver, etc.)
+    const trailingRegex = new RegExp('\\s*-\\s*(?:' + noiseTerms + ').*$', 'gi');
     clean = clean.replace(trailingRegex, '');
+
+    // Pass 4: Strip leading/trailing Japanese corner quotes e.g. 「アイドル」 -> アイドル
+    clean = clean.replace(/^[「『《〈](.+)[」』》〉]$/, '$1');
 
     return clean.trim();
 }
@@ -113,7 +129,45 @@ function extractShortTitle(title) {
     return title;
 }
 
-function getQueryMetadata(cleanQueryTitle, cleanQueryArtist) {
+// In-memory cache for transliteration: key -> transliterated string
+const transliterationCache = new Map();
+
+/**
+ * Asynchronously fetches romanized/phonetic transcription via Google Translate (dt=rm).
+ * Returns tone-stripped Latin string, or falls back to offline romanize().
+ */
+async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
+    if (!text || !isNonAscii(text)) return text || '';
+    const key = text.trim().toLowerCase();
+    if (transliterationCache.has(key)) {
+        return transliterationCache.get(key);
+    }
+
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
+        const res = await fetchWithTimeout(url, timeoutMs);
+        if (res && res.ok) {
+            const data = await res.json();
+            let romanized = '';
+            if (Array.isArray(data?.[0])) {
+                romanized = data[0].map(x => (Array.isArray(x) && x[3]) ? x[3] : (x?.[0] || '')).join('').trim();
+            }
+            if (romanized) {
+                const cleaned = (typeof stripDiacritics === 'function' ? stripDiacritics(romanized) : romanized).trim();
+                transliterationCache.set(key, cleaned);
+                return cleaned;
+            }
+        }
+    } catch (e) {
+        // Fallback gracefully on timeout/network error
+    }
+
+    const fallback = typeof romanize === 'function' ? romanize(text) : text;
+    transliterationCache.set(key, fallback);
+    return fallback;
+}
+
+function getQueryMetadata(cleanQueryTitle, cleanQueryArtist, extraRomajiTitle = '', extraRomajiArtist = '') {
     const titleLower = (cleanQueryTitle || '').toLowerCase();
     const titleShort = extractShortTitle(cleanQueryTitle || '').toLowerCase();
     
@@ -123,12 +177,12 @@ function getQueryMetadata(cleanQueryTitle, cleanQueryArtist) {
     return {
         titleLower,
         titleShort,
-        titleCleanRomaji: romanize(titleLower),
-        titleShortRomaji: romanize(titleShort),
+        titleCleanRomaji: (extraRomajiTitle || romanize(titleLower)).toLowerCase(),
+        titleShortRomaji: romanize(titleShort).toLowerCase(),
         artistLower,
-        artistFullRomaji: romanize(artistLower),
+        artistFullRomaji: (extraRomajiArtist || romanize(artistLower)).toLowerCase(),
         artistPrimary,
-        artistPrimaryRomaji: romanize(artistPrimary)
+        artistPrimaryRomaji: romanize(artistPrimary).toLowerCase()
     };
 }
 
@@ -224,21 +278,21 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
 
     // Gate: heavily penalise candidates whose title is clearly wrong.
     // BUT relax the penalty if:
-    //   1. The primary artist matches perfectly (artistSim >= 90%).
-    //   2. The title scripts differ (one contains non-ASCII and the other is pure ASCII).
-    // This protects non-ASCII (e.g. Mandarin, Cyrillic) synced lyrics from being penalized
-    // when searched with an English/Romaji query.
+    //   1. The primary artist matches closely (artistSim >= 85%).
+    //   2. The title or artist scripts differ (cross-script e.g. English vs CJK/Kanji/Cyrillic).
+    //   3. The track duration matches very closely (delta <= 3s) with partial title/artist similarity.
     let titleMismatchPenalty = 0;
     if (queryTitleText && titleSim < 40) {
-        const isQueryNonAscii = isNonAscii(queryTitleText);
-        const isCandidateNonAscii = isNonAscii(candidate.trackName || '');
+        const isQueryNonAscii = isNonAscii(queryTitleText) || isNonAscii(isMetadataObj ? (cleanQueryTitle.artistLower || '') : (cleanQueryArtist || ''));
+        const isCandidateNonAscii = isNonAscii(candidate.trackName || '') || isNonAscii(candidate.artistName || '');
         const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
+        const durationClose = actualDuration > 0 && Math.abs((candidate.duration || 0) - actualDuration) <= 3;
 
-        if (artistSim >= 90 && scriptMismatch) {
-            // Relaxed mismatch penalty — still negative to favor matching titles, but not severe enough to kill the candidate
+        if (artistSim >= 85 && scriptMismatch) {
             titleMismatchPenalty = -2000;
+        } else if (durationClose && scriptMismatch && (artistSim >= 40 || titleSim >= 20)) {
+            titleMismatchPenalty = -1500;
         } else {
-            // Standard severe penalty
             titleMismatchPenalty = -12000;
         }
     }
@@ -468,15 +522,11 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
  * the highest-quality (preferably synced) lyric automatically.
  *
  * Strategy:
- *   Pass 1 – "CleanArtist - CleanTitle"  (mirrors Manual Search pre-fill)
- *   Pass 2 – "CleanTitle only"           (fallback if Pass 1 yields nothing synced)
- *
- * Within each pass, candidates are walked top-to-bottom:
- *   - LRCLIB candidates have rawLyric already resolved → check synced flag directly.
- *   - Netease candidates need a lazy fetch to read the LRC string and detect timestamps.
- *
- * Returns the best result object: { rawLyric, source, synced }
- * Returns null if nothing is found.
+ *   Pass 1 – "PrimaryArtist - CleanTitle" (clean primary artist and noise-free title)
+ *   Pass 2 – "CleanTitle only"            (fallback)
+ *   Pass 3 – "Romanized Artist - Title"   (for CJK tracks via Google Translate / offline)
+ *   Pass 4 – "Title Aliases"              (for dual-script e.g. "좋은 날 (Good Day)")
+ *   Pass 5 – "FullArtist - CleanTitle"    (multi-artist composite fallback)
  *
  * @param {string} rawArtist    – Raw artist string from mediaSession
  * @param {string} rawTitle     – Raw title string from mediaSession
@@ -484,20 +534,54 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
  * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
  */
 async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
-    const cArtistFull = cleanArtist(rawArtist || '');
-    const cTitleFull  = cleanTitle(rawTitle || '');
-    const cTitleShort = extractShortTitle(cTitleFull);
+    const cPrimaryArtist = extractPrimaryArtist(rawArtist || '');
+    const cArtistFull    = cleanArtist(rawArtist || '');
+    const cTitleFull     = cleanTitle(rawTitle || '');
+    const cTitleShort    = extractShortTitle(cTitleFull);
+
+    // Concurrently fetch romanization via Google Translate (with 2s max timeout & in-memory cache) for non-ASCII tracks
+    let romajiTitle = '';
+    let romajiArtist = '';
+    if (isNonAscii(cTitleFull) || isNonAscii(cArtistFull)) {
+        const [rTitle, rArtist] = await Promise.all([
+            fetchRomanizedMetadata(cTitleShort, Math.min(2000, timeoutMs || 2000)),
+            fetchRomanizedMetadata(cPrimaryArtist, Math.min(2000, timeoutMs || 2000))
+        ]);
+        romajiTitle = rTitle || '';
+        romajiArtist = rArtist || '';
+    }
+
+    // Extract title aliases (e.g. "좋은 날 (Good Day)" -> ["좋은 날", "Good Day"])
+    const titleAliases = typeof extractTitleAliases === 'function' ? extractTitleAliases(cTitleFull) : [];
 
     const passes = [
-        `${cArtistFull} - ${cTitleShort}`.trim(),
+        `${cPrimaryArtist} - ${cTitleShort}`.trim(),
         cTitleShort,
-    ].filter(Boolean);
+    ];
 
-    // Deduplicate: if artist is empty the two passes would be identical
-    const uniquePasses = [...new Set(passes)];
+    if (romajiTitle && romajiArtist && (romajiTitle !== cTitleShort || romajiArtist !== cPrimaryArtist)) {
+        passes.push(`${romajiArtist} - ${romajiTitle}`.trim());
+        passes.push(romajiTitle.trim());
+    } else if (romajiTitle && romajiTitle !== cTitleShort) {
+        passes.push(romajiTitle.trim());
+    }
+
+    for (const alias of titleAliases) {
+        if (alias && alias !== cTitleShort) {
+            passes.push(`${cPrimaryArtist} - ${alias}`.trim());
+            passes.push(alias.trim());
+        }
+    }
+
+    if (cArtistFull && cArtistFull !== cPrimaryArtist) {
+        passes.push(`${cArtistFull} - ${cTitleShort}`.trim());
+    }
+
+    // Deduplicate unique query passes
+    const uniquePasses = [...new Set(passes.map(p => p.trim()).filter(Boolean))];
 
     // 1. Run all searches concurrently
-    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cArtistFull, timeoutMs));
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs));
     const results = await Promise.all(searchPromises);
 
     // 2. Combine and deduplicate candidates by source & id
@@ -523,7 +607,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     const neteaseToFetch = []; // array of candidates to lazy fetch
 
     // Pre-calculate query metadata once for the auto match loop
-    const queryMetadata = getQueryMetadata(cTitleFull, cArtistFull);
+    const queryMetadata = getQueryMetadata(cTitleFull, cPrimaryArtist, romajiTitle, romajiArtist);
 
     // 3. Early filtering and sorting
     for (const c of allCandidates) {
@@ -531,14 +615,15 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
 
         let isMatchPossible = true;
         if (titleSim < 40) {
-            // Protect multi-script tracks from early discard if artist matches perfectly
-            const isQueryNonAscii = isNonAscii(cTitleFull);
-            const isCandidateNonAscii = isNonAscii(c.trackName || '');
+            // Protect multi-script tracks from early discard if artist matches OR duration matches within 3s
+            const isQueryNonAscii = isNonAscii(cTitleFull) || isNonAscii(cPrimaryArtist);
+            const isCandidateNonAscii = isNonAscii(c.trackName || '') || isNonAscii(c.artistName || '');
             const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
 
             const artistSim = getArtistSimilarity(queryMetadata, c.artistName);
+            const durationMatches = duration > 0 && Math.abs((c.duration || 0) - duration) <= 3;
 
-            if (artistSim >= 90 && scriptMismatch) {
+            if ((artistSim >= 85 && scriptMismatch) || (durationMatches && scriptMismatch && (artistSim >= 40 || titleSim >= 20))) {
                 // Keep candidate: script-relaxed scoring will evaluate it
             } else {
                 isMatchPossible = false;

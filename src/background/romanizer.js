@@ -119,6 +119,32 @@ function isNonAscii(text) {
 }
 
 /**
+ * Strips combining diacritical marks and tone accents (e.g. Zhōujiélún -> Zhoujielun, Tōkyō -> Tokyo).
+ */
+function stripDiacritics(text) {
+    if (!text) return '';
+    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Extracts distinct title parts from dual-language parenthesized titles:
+ * e.g., "좋은 날 (Good Day)" -> ["좋은 날", "Good Day"]
+ * e.g., "Lemon (レモン)" -> ["Lemon", "レモン"]
+ */
+function extractTitleAliases(title) {
+    if (!title) return [];
+    const aliases = [];
+    const match = title.match(/^(.+?)\s*[([\\[【『「《（［〔]([^)\]】』」》）］〕]+)[)\]】』」》）］〕]\s*$/);
+    if (match) {
+        const part1 = match[1].trim();
+        const part2 = match[2].trim();
+        if (part1) aliases.push(part1);
+        if (part2) aliases.push(part2);
+    }
+    return aliases;
+}
+
+/**
  * Unified romanize function.
  * Converts Japanese Kana and Korean Hangul phonetically into Latin character counterparts.
  */
@@ -127,5 +153,5 @@ function romanize(text) {
     let result = text;
     result = kanaToRomaji(result);
     result = hangulToRomaji(result);
-    return result;
+    return stripDiacritics(result);
 }

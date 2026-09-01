@@ -120,6 +120,20 @@
                     });
                     spotifyProgressBar.dispatchEvent(pointerUp);
                 }
+            },
+            getDomMetadata: () => {
+                const titleEl = document.querySelector('[data-testid="context-item-info-title"], [data-testid="now-playing-widget"] [data-testid="track-info-title"], [data-testid="now-playing-widget"] a[data-testid="context-item-link"]');
+                const artistEls = Array.from(document.querySelectorAll('[data-testid="context-item-info-artist"] a, [data-testid="context-item-info-subtitles"] a, [data-testid="now-playing-widget"] [data-testid="track-info-artist"] a'));
+                const artistContainer = document.querySelector('[data-testid="context-item-info-artist"], [data-testid="context-item-info-subtitles"], [data-testid="now-playing-widget"] [data-testid="track-info-artist"]');
+
+                const title = titleEl ? titleEl.textContent.trim() : '';
+                let artist = '';
+                if (artistEls.length > 0) {
+                    artist = artistEls.map(a => a.textContent.trim()).filter(Boolean).join(', ');
+                } else if (artistContainer) {
+                    artist = artistContainer.textContent.trim();
+                }
+                return { title, artist };
             }
         },
         ytmusic: {
@@ -166,6 +180,20 @@
                 if (video && video.duration) {
                     video.currentTime = percent * video.duration;
                 }
+            },
+            getDomMetadata: () => {
+                const titleEl = document.querySelector('ytmusic-player-bar .title, .ytmusic-player-bar.title, yt-formatted-string.title.ytmusic-player-bar');
+                const artistEls = Array.from(document.querySelectorAll('ytmusic-player-bar .subtitle a, ytmusic-player-bar .byline a, .ytmusic-player-bar.subtitle a'));
+                const subtitleEl = document.querySelector('ytmusic-player-bar .subtitle, ytmusic-player-bar .byline, .ytmusic-player-bar.subtitle');
+
+                const title = titleEl ? titleEl.textContent.trim() : '';
+                let artist = '';
+                if (artistEls.length > 0) {
+                    artist = artistEls.map(a => a.textContent.trim()).filter(Boolean).join(', ');
+                } else if (subtitleEl) {
+                    artist = subtitleEl.textContent.split('•')[0].trim();
+                }
+                return { title, artist };
             }
         }
     };

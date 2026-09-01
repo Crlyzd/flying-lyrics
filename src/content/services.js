@@ -68,35 +68,42 @@
      * @returns {string} Cleaned title.
      */
     fl.cleanTitle = function (title) {
+        if (!title) return '';
         // Ordered list of noise terms (longer multi-word phrases first to avoid partial matches)
         const noiseTerms = [
             'official video', 'official audio', 'official music video', 'lyrics video',
             'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
             'hidden track', 'high res', 'hi-res', 'a cappella',
+            'from the first take', 'anime ver\\.?', 'tv size ver\\.?', 'tv size', 'tv ver\\.?',
+            'short ver\\.?', 'theme song', 'soundtrack', 'original soundtrack', 'ost',
+            '主題歌', '挿入歌', 'テーマソング', 'エンディング', 'オープニング', '劇中歌', '伴奏', '伴奏版',
             'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
             'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
             'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
             'anniversary', 'b-side', 'mv', '4k', '1080p', 'hq', 'hd',
-            'feat\.', 'ft\.', 'featuring', 'with', 'vs\.'
+            'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
         ].join('|');
 
-        // Pass 1: Remove entire parenthesised/bracketed groups that contain a noise keyword
-        //   e.g. "Song Name (2009 Remaster)" → "Song Name"
-        //        "Song Name [Official Video]" → "Song Name"
-        const bracketRegex = new RegExp(
-            `\\s*[([\\[](?:[^\\]()[\\]]*?(?:${noiseTerms})[^\\]()[\\]]*?)[)\\]]`,
-            'gi'
-        );
-        let clean = title.replace(bracketRegex, '');
+        // Pass 1: Extract song title if quoted in Japanese quotes with prefix e.g. 【推しの子】主題歌「アイドル」 -> アイドル
+        let clean = title;
+        const animeQuoteMatch = clean.match(/^[【『「《（［〔].*?[】』」》）］〕].*?[「『]([^」』]+)[」』]/);
+        if (animeQuoteMatch && animeQuoteMatch[1]) {
+            clean = animeQuoteMatch[1];
+        }
 
-        // Pass 2: Remove trailing " - <noise keyword>" suffixes (no brackets)
-        //   e.g. "Song Name - Remastered" → "Song Name"
-        //        "Song Name - Radio Edit" → "Song Name"
-        const trailingRegex = new RegExp(
-            `\\s*-\\s*(?:${noiseTerms}).*$`,
+        // Pass 2: Remove bracketed noise groups (including Asian full-width brackets)
+        const bracketRegex = new RegExp(
+            '\\s*[({\\[【『「《（［〔](?:[^)}\\]】』」》）］〕]*?(?:' + noiseTerms + ')[^)}\\]】』」》）］〕]*?)[)}\\]】』」》）］〕]',
             'gi'
         );
+        clean = clean.replace(bracketRegex, '');
+
+        // Pass 3: Remove trailing noise suffixes (- Remastered, - TV ver, etc.)
+        const trailingRegex = new RegExp('\\s*-\\s*(?:' + noiseTerms + ').*$', 'gi');
         clean = clean.replace(trailingRegex, '');
+
+        // Pass 4: Strip leading/trailing Japanese corner quotes e.g. 「アイドル」 -> アイドル
+        clean = clean.replace(/^[「『《〈](.+)[」』》〉]$/, '$1');
 
         return clean.trim();
     };
@@ -116,15 +123,61 @@
         return primary;
     };
 
-    // generateSearchPasses removed — search is now handled by the background
-    // engine via UNIFIED_AUTO_SEARCH. See src/background/searchEngine.js.
+    /**
+     * Retrieves the current track metadata combining MediaSession API with on-screen DOM fallback.
+     * Preserves native CJK / dual-language titles when MediaSession is stripped/romanized.
+     *
+     * @returns {{ artist: string, title: string, cleanTitle: string, primaryArtist: string, rawTitle: string, rawArtist: string }}
+     */
+    fl.getCurrentTrackMetadata = function () {
+        const meta = navigator.mediaSession?.metadata;
+        let rawTitle = meta?.title || '';
+        let rawArtist = meta?.artist || '';
 
+        // Check active platform adapter for richer DOM metadata
+        const adapter = typeof fl.getActiveAdapter === 'function' ? fl.getActiveAdapter() : null;
+        if (adapter && typeof adapter.getDomMetadata === 'function') {
+            const dom = adapter.getDomMetadata();
+            if (dom && dom.title) {
+                const isDomNonAscii = /[^\x00-\x7F]/.test(dom.title);
+                const isMetaNonAscii = /[^\x00-\x7F]/.test(rawTitle);
+
+                // If DOM title has CJK/non-ASCII or is a richer dual-title string while MediaSession was only Latin/short,
+                // adopt the richer DOM title
+                if (!rawTitle || (isDomNonAscii && !isMetaNonAscii) || dom.title.length > rawTitle.length) {
+                    rawTitle = dom.title;
+                }
+            }
+            if (dom && dom.artist) {
+                const isDomArtistNonAscii = /[^\x00-\x7F]/.test(dom.artist);
+                const isMetaArtistNonAscii = /[^\x00-\x7F]/.test(rawArtist);
+
+                if (!rawArtist || (isDomArtistNonAscii && !isMetaArtistNonAscii)) {
+                    rawArtist = dom.artist;
+                }
+            }
+        }
+
+        const cleanTitle = typeof fl.cleanTitle === 'function' ? fl.cleanTitle(rawTitle) : rawTitle;
+        const primaryArtist = typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(rawArtist) : rawArtist;
+
+        return {
+            title: rawTitle,
+            artist: rawArtist,
+            cleanTitle,
+            primaryArtist,
+            rawTitle,
+            rawArtist
+        };
+    };
 
     fl.fetchLyrics = async function (retryCount = 0) {
         fl.isBackgroundSearchFailed = false;
-        const meta = navigator.mediaSession.metadata;
+        const currentMeta = typeof fl.getCurrentTrackMetadata === 'function'
+            ? fl.getCurrentTrackMetadata()
+            : { title: navigator.mediaSession?.metadata?.title || '', artist: navigator.mediaSession?.metadata?.artist || '' };
 
-        if (!meta || !meta.title) {
+        if (!currentMeta || !currentMeta.title) {
             if (retryCount < 5) {
                 setTimeout(() => fl.fetchLyrics(retryCount + 1), 1000);
             } else if (retryCount === 5) {
@@ -146,7 +199,7 @@
         const abortSignal = fl._currentFetchController.signal;
 
         try {
-            const key = `${meta.artist} - ${meta.title}`;
+            const key = `${currentMeta.artist} - ${currentMeta.title}`;
             fl.applySavedSyncOffset(key);
 
             // Tier 1: in-memory cache (instant, same session)
@@ -227,9 +280,9 @@
                     chrome.runtime.sendMessage({
                         type: 'UNIFIED_AUTO_SEARCH',
                         payload: {
-                            rawArtist: meta.artist || '',
-                            rawTitle:  meta.title  || '',
-                            duration:  duration    || 0,
+                            rawArtist: currentMeta.artist || '',
+                            rawTitle:  currentMeta.title  || '',
+                            duration:  duration           || 0,
                             timeoutMs: 5000 // Strict 5-second initial timeout
                         }
                     }, resolve)
@@ -314,9 +367,9 @@
                         chrome.runtime.sendMessage({
                             type: 'UNIFIED_AUTO_SEARCH',
                             payload: {
-                                rawArtist: meta.artist || '',
-                                rawTitle:  meta.title  || '',
-                                duration:  duration    || 0,
+                                rawArtist: currentMeta.artist || '',
+                                rawTitle:  currentMeta.title  || '',
+                                duration:  duration           || 0,
                                 timeoutMs: 30000 // 30-second timeout for background retry
                             }
                         }, resolve)

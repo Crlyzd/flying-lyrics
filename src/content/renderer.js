@@ -603,13 +603,18 @@
         }
         fl.lastKnownValidDuration = state.duration;
 
-        const meta = navigator.mediaSession.metadata;
-        const nowTitle = meta?.title || "";
-        if (nowTitle !== fl.currentTrack) {
-            fl.currentTrack = nowTitle;
+        const trackMeta = typeof fl.getCurrentTrackMetadata === 'function'
+            ? fl.getCurrentTrackMetadata()
+            : null;
+        const nowTitle = trackMeta?.title || navigator.mediaSession?.metadata?.title || "";
+        const nowArtist = trackMeta?.artist || navigator.mediaSession?.metadata?.artist || "";
+        const trackKey = `${nowArtist} - ${nowTitle}`.trim();
+
+        if (trackKey !== fl.currentTrack) {
+            fl.currentTrack = trackKey;
             fl.hasTriggeredAutoNext = false; // Reset YouTube Music auto-skip latch on track change
 
-            if (nowTitle === "") {
+            if (!nowTitle) {
                 fl.lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];
                 fl.lyricLines[0].isWaitingPlaceholder = true;
                 fl.isCurrentLyricSynced = false;
@@ -657,10 +662,10 @@
                 chrome.runtime.sendMessage({
                     type: 'ACTIVE_TRACK_CHANGED',
                     payload: {
-                        artist: meta.artist,
-                        title: meta.title,
-                        cleanTitle: typeof fl.cleanTitle === 'function' ? fl.cleanTitle(meta.title) : meta.title,
-                        primaryArtist: typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist,
+                        artist: nowArtist,
+                        title: nowTitle,
+                        cleanTitle: trackMeta?.cleanTitle || (typeof fl.cleanTitle === 'function' ? fl.cleanTitle(nowTitle) : nowTitle),
+                        primaryArtist: trackMeta?.primaryArtist || (typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(nowArtist) : nowArtist),
                         duration: state.duration || 0
                     }
                 }).catch(() => { });
