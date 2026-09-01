@@ -28,7 +28,8 @@ export async function getPlaylistTracks(playlist, forceRefresh = false, requeste
         }
     }
 
-    console.log(`[Fetcher] Fetching playlist metadata for ${playlist.name} (target: ${isDeepCjk ? 500 : 50} tracks)...`);
+    const displayName = isDeepCjk ? playlist.name.replace(/Top 50/i, `Top 500`) : playlist.name;
+    console.log(`[Fetcher] Fetching playlist metadata for ${displayName}...`);
 
     // Strategy 0: Kworb Totals for localized CJK deep benchmark
     if (isDeepCjk) {

@@ -82,8 +82,9 @@ async function main() {
         targets = [found];
         const isCjk = found.id === 'jp' || found.id === 'kr';
         defaultLimit = options.limit !== null ? options.limit : (isCjk ? 500 : 50);
+        const displayName = defaultLimit > 50 ? found.name.replace(/Top 50/i, `Top ${defaultLimit}`) : found.name;
         if (isCjk) {
-            console.log(`\n🗾 LOCALIZED CJK BENCHMARK: ${found.name} (target: ${defaultLimit} tracks)`);
+            console.log(`\n🗾 LOCALIZED CJK BENCHMARK: ${displayName} (target: ${defaultLimit} tracks)`);
         }
     } else {
         // Default to Global Top 50 if nothing specified
@@ -96,13 +97,19 @@ async function main() {
 
     for (const playlist of targets) {
         const targetLimit = isWideMode ? Math.min(defaultLimit, 50) : defaultLimit;
-        console.log(`\n🎧 Benchmarking: ${playlist.name} (Limit: ${targetLimit})...`);
+        const isCjkTarget = playlist.id === 'jp' || playlist.id === 'kr';
+        const displayName = (isCjkTarget && !isWideMode)
+            ? playlist.name.replace(/Top 50/i, 'Top 500')
+            : (targetLimit !== 50 ? playlist.name.replace(/Top 50/i, `Top ${targetLimit}`) : playlist.name);
+
+        console.log(`\n🎧 Benchmarking: ${displayName}...`);
+
 
         let tracks = [];
         try {
             tracks = await getPlaylistTracks(playlist, options.refresh, targetLimit);
         } catch (e) {
-            console.error(`⚠️  Failed to fetch ${playlist.name}: ${e.message}`);
+            console.error(`⚠️  Failed to fetch ${displayName}: ${e.message}`);
             continue;
         }
 
@@ -157,7 +164,7 @@ async function main() {
 
         benchmarkResults.push({
             id: playlist.id,
-            name: playlist.name,
+            name: displayName,
             successRate,
             success,
             noMatch,
@@ -169,6 +176,7 @@ async function main() {
             neteaseCount
         });
     }
+
 
     if (benchmarkResults.length > 0) {
         printConsoleReport(benchmarkResults);
