@@ -1,0 +1,122 @@
+[
+  {
+    "id": "global",
+    "name": "Global Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMDoHDwVN2tF",
+    "region": "GLOBAL"
+  },
+  {
+    "id": "us",
+    "name": "USA Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLRQDuF5jeBp",
+    "region": "US"
+  },
+  {
+    "id": "uk",
+    "name": "UK Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLnolsZ8PSNw",
+    "region": "GB"
+  },
+  {
+    "id": "jp",
+    "name": "Japan Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKXQ4mDTEBXq",
+    "region": "JP"
+  },
+  {
+    "id": "kr",
+    "name": "South Korea Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbNxXF4SkHj9F",
+    "region": "KR"
+  },
+  {
+    "id": "id",
+    "name": "Indonesia Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbObFQZqJLc9Q",
+    "region": "ID"
+  },
+  {
+    "id": "br",
+    "name": "Brazil Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMXbN3NL8MVU",
+    "region": "BR"
+  },
+  {
+    "id": "de",
+    "name": "Germany Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJiZcmkrIHGU",
+    "region": "DE"
+  },
+  {
+    "id": "fr",
+    "name": "France Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbIPWwFssbupI",
+    "region": "FR"
+  },
+  {
+    "id": "es",
+    "name": "Spain Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbNFJfN1Vw8d9",
+    "region": "ES"
+  },
+  {
+    "id": "au",
+    "name": "Australia Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJPcfkR90wJ0",
+    "region": "AU"
+  },
+  {
+    "id": "ca",
+    "name": "Canada Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKj23U1GF4IR",
+    "region": "CA"
+  },
+  {
+    "id": "ar",
+    "name": "Argentina Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMMy2roB9myp",
+    "region": "AR"
+  },
+  {
+    "id": "mx",
+    "name": "Mexico Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbO3qyFxbkOE1",
+    "region": "MX"
+  },
+  {
+    "id": "it",
+    "name": "Italy Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbIQYiO5vV9F7",
+    "region": "IT"
+  },
+  {
+    "id": "in",
+    "name": "India Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLZ52XmnySJg",
+    "region": "IN"
+  },
+  {
+    "id": "ph",
+    "name": "Philippines Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbNBz99F4vIIP",
+    "region": "PH"
+  },
+  {
+    "id": "th",
+    "name": "Thailand Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMnEtjUmA9hd",
+    "region": "TH"
+  },
+  {
+    "id": "vn",
+    "name": "Vietnam Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLdGJwVimuQU",
+    "region": "VN"
+  },
+  {
+    "id": "tw",
+    "name": "Taiwan Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMnZEatlMSiu",
+    "region": "TW"
+  }
+]

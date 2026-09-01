@@ -34,3 +34,7 @@ test.html
 # Local Agents Customizations
 .agents/
 scratch/
+
+# Benchmark Tool Cache & Reports
+tools/benchmark/data/cache/
+tools/benchmark/reports/

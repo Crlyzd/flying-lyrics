@@ -1,0 +1,25 @@
+{
+  "name": "flying-lyrics-benchmark",
+  "version": "1.0.0",
+  "description": "Automated lyrics matching and accuracy benchmark runner for Flying Lyrics",
+  "type": "module",
+  "main": "src/cli.js",
+  "bin": {
+    "lyrics-benchmark": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "benchmark": "node src/cli.js --all",
+    "benchmark:sample": "node src/cli.js --playlist global --limit 10",
+    "clear-cache": "node src/cli.js --clear-cache"
+  },
+  "keywords": [
+    "lyrics",
+    "benchmark",
+    "spotify",
+    "lrclib",
+    "netease"
+  ],
+  "author": "",
+  "license": "MIT"
+}
