@@ -1,3 +1,5 @@
+import { isNonAscii, romanize } from './romanizer.js';
+
 /**
  * Levenshtein distance and matching algorithm.
  */
@@ -53,27 +55,52 @@ export function titleSimilarity(a, b) {
 }
 
 export function scoreCandidate(candidate, trackTitle, trackArtist, trackDuration) {
-    const titleScore = titleSimilarity(candidate.trackName, trackTitle);
+    let titleScore = titleSimilarity(candidate.trackName, trackTitle);
     const artistScore = titleSimilarity(candidate.artistName, trackArtist);
 
+    // Cross-script phonetic similarity check for CJK
+    if (titleScore < 65 && (isNonAscii(trackTitle) || isNonAscii(candidate.trackName))) {
+        const romTrack = romanize(trackTitle);
+        const romCand = romanize(candidate.trackName);
+        const romScore = titleSimilarity(romCand, romTrack);
+        if (romScore > titleScore) {
+            titleScore = romScore;
+        }
+    }
+
     let durationScore = 100;
+    let diff = null;
     if (trackDuration > 0 && candidate.duration > 0) {
-        const diff = Math.abs(candidate.duration - trackDuration);
+        diff = Math.abs(candidate.duration - trackDuration);
         if (diff <= 2) durationScore = 100;
         else if (diff <= 4) durationScore = 80;
-        else if (diff <= 8) durationScore = 50;
-        else if (diff <= 15) durationScore = 20;
+        else if (diff <= 6) durationScore = 60;
+        else if (diff <= 10) durationScore = 30;
         else durationScore = 0;
     }
 
+    // Synced lyric bonus (+10 if candidate is known synced)
+    const syncedBonus = candidate.synced ? 10 : 0;
+    // Source preference (+2 for LRCLIB as tie-breaker)
+    const sourceBonus = candidate.source === 'lrclib' ? 2 : 0;
+
     // Weighted aggregate score
-    const totalScore = (titleScore * 0.5) + (artistScore * 0.3) + (durationScore * 0.2);
+    let totalScore = (titleScore * 0.5) + (artistScore * 0.3) + (durationScore * 0.2) + syncedBonus + sourceBonus;
+    totalScore = Math.min(100, Math.round(totalScore));
+
+    // Cross-script relaxation: If artist matches strongly and duration is within 3s, allow title match
+    const isScriptMismatch = isNonAscii(trackTitle) !== isNonAscii(candidate.trackName);
+    if (isScriptMismatch && artistScore >= 80 && diff !== null && diff <= 3 && titleScore < 60) {
+        titleScore = 65; // Relax title score
+        totalScore = Math.max(totalScore, 65);
+    }
 
     return {
         score: totalScore,
         titleScore,
         artistScore,
         durationScore,
-        durationDiff: trackDuration > 0 && candidate.duration > 0 ? Math.abs(candidate.duration - trackDuration) : null
+        durationDiff: diff
     };
 }
+

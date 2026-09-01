@@ -118,5 +118,156 @@
     "name": "Taiwan Top 50",
     "spotifyPlaylistId": "37i9dQZEVXbMnZEatlMSiu",
     "region": "TW"
+  },
+  {
+    "id": "nl",
+    "name": "Netherlands Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKCF6dqVpDkS",
+    "region": "NL"
+  },
+  {
+    "id": "se",
+    "name": "Sweden Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLoATJ81JYXz",
+    "region": "SE"
+  },
+  {
+    "id": "no",
+    "name": "Norway Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJvDQmtHalfl",
+    "region": "NO"
+  },
+  {
+    "id": "dk",
+    "name": "Denmark Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbL3J0k32lWnN",
+    "region": "DK"
+  },
+  {
+    "id": "fi",
+    "name": "Finland Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMx56Rdq5lwQ",
+    "region": "FI"
+  },
+  {
+    "id": "be",
+    "name": "Belgium Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJNSeehuACcQ",
+    "region": "BE"
+  },
+  {
+    "id": "ch",
+    "name": "Switzerland Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJiyhoAPEfMK",
+    "region": "CH"
+  },
+  {
+    "id": "at",
+    "name": "Austria Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKNHh6NIXbe9",
+    "region": "AT"
+  },
+  {
+    "id": "ie",
+    "name": "Ireland Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKM8962byqwG",
+    "region": "IE"
+  },
+  {
+    "id": "pt",
+    "name": "Portugal Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKyJS5621ygD",
+    "region": "PT"
+  },
+  {
+    "id": "pl",
+    "name": "Poland Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbN6itdnaPaN8",
+    "region": "PL"
+  },
+  {
+    "id": "ua",
+    "name": "Ukraine Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKkidEfMC27Y",
+    "region": "UA"
+  },
+  {
+    "id": "cz",
+    "name": "Czech Republic Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbIP3c3fqVrbt",
+    "region": "CZ"
+  },
+  {
+    "id": "tr",
+    "name": "Turkey Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbIVYVBNw9D5K",
+    "region": "TR"
+  },
+  {
+    "id": "co",
+    "name": "Colombia Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbOa2lmxNORXQ",
+    "region": "CO"
+  },
+  {
+    "id": "cl",
+    "name": "Chile Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbL0GavI2Ay8Q",
+    "region": "CL"
+  },
+  {
+    "id": "pe",
+    "name": "Peru Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJfdy5b0KP7W",
+    "region": "PE"
+  },
+  {
+    "id": "my",
+    "name": "Malaysia Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbJlfUljuZExa",
+    "region": "MY"
+  },
+  {
+    "id": "sg",
+    "name": "Singapore Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbK4GJvYPtFv7",
+    "region": "SG"
+  },
+  {
+    "id": "hk",
+    "name": "Hong Kong Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbLwpFZOOqV4d",
+    "region": "HK"
+  },
+  {
+    "id": "sa",
+    "name": "Saudi Arabia Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbM4KlAUUk6b3",
+    "region": "SA"
+  },
+  {
+    "id": "ae",
+    "name": "UAE Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbM4ucZjqxmE9",
+    "region": "AE"
+  },
+  {
+    "id": "nz",
+    "name": "New Zealand Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbM8SIrkVU1IO",
+    "region": "NZ"
+  },
+  {
+    "id": "za",
+    "name": "South Africa Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbMH2jvi6jvjk",
+    "region": "ZA"
+  },
+  {
+    "id": "ng",
+    "name": "Nigeria Top 50",
+    "spotifyPlaylistId": "37i9dQZEVXbKY7HgOq9fVH",
+    "region": "NG"
   }
 ]
+

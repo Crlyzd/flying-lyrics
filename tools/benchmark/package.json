@@ -10,9 +10,14 @@
   "scripts": {
     "start": "node src/cli.js",
     "benchmark": "node src/cli.js --all",
+    "benchmark:wide": "node src/cli.js --wide",
+    "benchmark:cjk": "node src/cli.js --cjk",
+    "benchmark:jp": "node src/cli.js --playlist jp",
+    "benchmark:kr": "node src/cli.js --playlist kr",
     "benchmark:sample": "node src/cli.js --playlist global --limit 10",
     "clear-cache": "node src/cli.js --clear-cache"
   },
+
   "keywords": [
     "lyrics",
     "benchmark",

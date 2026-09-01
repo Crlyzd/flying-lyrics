@@ -10,6 +10,16 @@ if (!fs.existsSync(REPORTS_DIR)) {
     fs.mkdirSync(REPORTS_DIR, { recursive: true });
 }
 
+function formatDuration(sec) {
+    if (!sec || sec < 0) return '0s';
+    if (sec >= 60) {
+        const mins = Math.floor(sec / 60);
+        const remSec = Math.round(sec % 60);
+        return `${mins}m ${remSec}s`;
+    }
+    return `${sec}s`;
+}
+
 /**
  * Generates a formatted Markdown table matching the benchmark report format.
  */
@@ -24,11 +34,13 @@ export function generateMarkdownReport(results, metadata = {}) {
 
     let md = `# Match Success Rate\n\n`;
     md += `Spotify, ${version}, ${dateStr}\n\n`;
-    md += `| Playlist Name | Success rate | Success | No Match | No Lyrics |\n`;
-    md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+    md += `| Playlist Name | Success rate | Success | No Match | No Lyrics | Avg Latency | Total Time | LRCLIB / NetEase |\n`;
+    md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
     for (const r of results) {
-        md += `| ${r.name} | ${r.successRate}% | ${r.success} | ${r.noMatch} | ${r.noLyrics} |\n`;
+        const timeStr = formatDuration(r.playlistDurationSec);
+        const lrcNetRatio = `${r.lrclibCount || 0} / ${r.neteaseCount || 0}`;
+        md += `| ${r.name} | ${r.successRate}% | ${r.success} | ${r.noMatch} | ${r.noLyrics} | ${r.avgLatencyMs || 0}ms | ${timeStr} | ${lrcNetRatio} |\n`;
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -57,12 +69,20 @@ export function printConsoleReport(results, metadata = {}) {
         'Success': r.success,
         'No Match': r.noMatch,
         'No Lyrics': r.noLyrics,
+        'Avg Latency': `${r.avgLatencyMs || 0}ms`,
+        'Total Time': formatDuration(r.playlistDurationSec),
+        'LRC / NetEase': `${r.lrclibCount || 0} / ${r.neteaseCount || 0}`,
         'Total': r.total
     })));
 
     const totalTracks = results.reduce((sum, r) => sum + r.total, 0);
     const totalSuccess = results.reduce((sum, r) => sum + r.success, 0);
+    const totalLrc = results.reduce((sum, r) => sum + (r.lrclibCount || 0), 0);
+    const totalNet = results.reduce((sum, r) => sum + (r.neteaseCount || 0), 0);
     const overallRate = totalTracks > 0 ? Math.round((totalSuccess / totalTracks) * 100) : 0;
+    const avgLatency = totalTracks > 0 ? Math.round(results.reduce((sum, r) => sum + ((r.avgLatencyMs || 0) * r.total), 0) / totalTracks) : 0;
 
-    console.log(`\n✨ Overall Success Rate: ${overallRate}% (${totalSuccess}/${totalTracks} songs)\n`);
+    console.log(`\n✨ Overall Success Rate: ${overallRate}% (${totalSuccess}/${totalTracks} songs)`);
+    console.log(`⚡ Mean Fetch Latency: ${avgLatency}ms | Total Sources: ${totalLrc} LRCLIB, ${totalNet} NetEase\n`);
 }
+
