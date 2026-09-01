@@ -884,10 +884,16 @@
 
                 if (fl.lastHostMutedState === undefined) {
                     fl.lastHostMutedState = isMuted;
-                    video.muted = isMuted;
+                    if (video.muted !== isMuted) {
+                        fl.ignoreVideoVolumeEvent = true;
+                        video.muted = isMuted;
+                    }
                 } else if (isMuted !== fl.lastHostMutedState) {
                     fl.lastHostMutedState = isMuted;
-                    video.muted = isMuted;
+                    if (video.muted !== isMuted) {
+                        fl.ignoreVideoVolumeEvent = true;
+                        video.muted = isMuted;
+                    }
                 }
             }
         }

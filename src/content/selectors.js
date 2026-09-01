@@ -13,7 +13,9 @@
 
     let cachedMedia = null;
     const getSpotifyMedia = () => {
-        const medias = fl.queryMediaAll('video, audio');
+        // Query audio elements specifically to avoid canvas/artist loop video elements
+        const audioEls = Array.from(document.querySelectorAll('audio'));
+        const medias = audioEls.length > 0 ? audioEls : fl.queryMediaAll('video, audio');
         const uiDuration = fl.adapters?.spotify?.getDuration ? fl.adapters.spotify.getDuration() : null;
         if (uiDuration && uiDuration > 1) {
             const match = medias.find(m => m.duration && Math.abs(m.duration - uiDuration) < 2);
@@ -77,9 +79,6 @@
                 document.querySelector('[data-testid="volume-bar-toggle-mute-button"]')?.click();
             },
             isMuted: () => {
-                const media = getSpotifyMedia();
-                if (media) return media.muted || media.volume === 0;
-
                 const volumeInput = document.querySelector('[data-testid="volume-bar"] input') || 
                                     document.querySelector('input[aria-label="Change volume"]') ||
                                     document.querySelector('[data-testid="volume-bar"] [role="slider"]');
@@ -91,7 +90,16 @@
                 }
 
                 const muteToggleBtn = document.querySelector('[data-testid="volume-bar-toggle-mute-button"]');
-                return muteToggleBtn ? muteToggleBtn.getAttribute('aria-label') === 'Unmute' : false;
+                if (muteToggleBtn) {
+                    const label = muteToggleBtn.getAttribute('aria-label') || '';
+                    if (label.toLowerCase().includes('unmute')) return true;
+                    if (label.toLowerCase().includes('mute')) return false;
+                }
+
+                const media = getSpotifyMedia();
+                if (media && media.tagName === 'AUDIO') return media.muted || media.volume === 0;
+
+                return false;
             },
             seek: (percent) => {
                 const spotifyProgressBar = document.querySelector('[data-testid="progress-bar"]');

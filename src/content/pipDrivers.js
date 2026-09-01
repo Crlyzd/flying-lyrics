@@ -218,6 +218,10 @@
                 }
             };
             const onVolumeChange = () => {
+                if (fl.ignoreVideoVolumeEvent) {
+                    fl.ignoreVideoVolumeEvent = false;
+                    return;
+                }
                 const adapter = fl.getActiveAdapter?.();
                 let isCurrentlyMuted = false;
                 if (adapter) {
