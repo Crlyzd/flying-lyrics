@@ -70,8 +70,6 @@
       "resources": [
         "src/content/styles.css",
         "src/content/inject.js",
-        "src/pages/update.html",
-        "src/pages/update.js",
         "assets/icons/icon.png"
       ],
       "matches": [
