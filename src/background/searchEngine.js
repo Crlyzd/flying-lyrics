@@ -143,6 +143,7 @@ async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
         return transliterationCache.get(key);
     }
 
+    // Tier 1 (Primary): client=gtx (fast for single-line title/artist strings)
     try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
         const res = await fetchWithTimeout(url, timeoutMs);
@@ -159,9 +160,30 @@ async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
             }
         }
     } catch (e) {
-        // Fallback gracefully on timeout/network error
+        // Fallback to Tier 2 on network error/timeout
     }
 
+    // Tier 2 (Network Fallback): client=dict-chrome-ex
+    try {
+        const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
+        const res2 = await fetchWithTimeout(fallbackUrl, timeoutMs);
+        if (res2 && res2.ok) {
+            const data2 = await res2.json();
+            let romanized2 = '';
+            if (Array.isArray(data2?.[0])) {
+                romanized2 = data2[0].map(x => (Array.isArray(x) && x[3]) ? x[3] : (x?.[0] || '')).join('').trim();
+            }
+            if (romanized2) {
+                const cleaned2 = (typeof stripDiacritics === 'function' ? stripDiacritics(romanized2) : romanized2).trim();
+                transliterationCache.set(key, cleaned2);
+                return cleaned2;
+            }
+        }
+    } catch (e2) {
+        // Fallback to Tier 3 on failure
+    }
+
+    // Tier 3 (Offline Safety Net): local rule-based romanization
     const fallback = typeof romanize === 'function' ? romanize(text) : text;
     transliterationCache.set(key, fallback);
     return fallback;
@@ -426,11 +448,16 @@ function fetchWithTimeout(url, timeoutMs) {
         });
 }
 
-/** Fetches the raw Netease lyric text for a specific song ID. */
+/** Fetches the raw Netease lyric data (main lrc, tlyric, romalrc) for a specific song ID. */
 function fetchNeteaseRaw(id, timeoutMs) {
     return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, timeoutMs || DEFAULT_TIMEOUT_MS)
         .then(r => r.json())
-        .then(data => data?.lrc?.lyric || '');
+        .then(data => ({
+            lyric: data?.lrc?.lyric || '',
+            tlyric: data?.tlyric?.lyric || '',
+            romalrc: data?.romalrc?.lyric || ''
+        }))
+        .catch(() => ({ lyric: '', tlyric: '', romalrc: '' }));
 }
 
 /** Fetches the raw LRCLIB lyric data for a specific song ID. */
@@ -660,7 +687,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     const fetchNeteaseCandidates = async (candidatesList) => {
         const promises = candidatesList.map(async (c) => {
             try {
-                const raw = await fetchNeteaseRaw(c.id, timeoutMs);
+                const resObj = await fetchNeteaseRaw(c.id, timeoutMs);
+                const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
                 if (raw && raw.trim().length >= 5) {
                     const isSynced = LRC_TIMESTAMP_RE.test(raw);
                     const resolved = { ...c, synced: isSynced };
@@ -672,7 +700,9 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
                             name: c.trackName, 
                             synced: isSynced,
                             isEmpty: false,
-                            instrumental: false
+                            instrumental: false,
+                            tlyric: resObj?.tlyric || '',
+                            romalrc: resObj?.romalrc || ''
                         },
                         synced:   isSynced,
                         score:    scoreCandidate(resolved, duration, queryMetadata),

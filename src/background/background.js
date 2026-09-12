@@ -67,7 +67,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!id) { sendResponse(null); return false; }
 
         fetchNeteaseRaw(id, timeoutMs)
-            .then(lyric => sendResponse({ lyric, id }))
+            .then(res => {
+                const lyric = typeof res === 'string' ? res : (res?.lyric || '');
+                const tlyric = typeof res === 'object' ? (res?.tlyric || '') : '';
+                const romalrc = typeof res === 'object' ? (res?.romalrc || '') : '';
+                sendResponse({ lyric, tlyric, romalrc, id });
+            })
             .catch(() => sendResponse(null));
         return true;
     }

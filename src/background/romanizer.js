@@ -155,3 +155,11 @@ function romanize(text) {
     result = hangulToRomaji(result);
     return stripDiacritics(result);
 }
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.romanize = romanize;
+    globalThis.kanaToRomaji = kanaToRomaji;
+    globalThis.hangulToRomaji = hangulToRomaji;
+    globalThis.stripDiacritics = stripDiacritics;
+    globalThis.extractTitleAliases = extractTitleAliases;
+}

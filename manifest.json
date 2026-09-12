@@ -23,7 +23,8 @@
     "https://i.scdn.co/*",
     "https://music.163.com/*",
     "https://*.spotifycdn.com/*",
-    "https://www.google-analytics.com/*"
+    "https://www.google-analytics.com/*",
+    "https://api.mymemory.translated.net/*"
   ],
   "content_scripts": [
     {
@@ -44,6 +45,7 @@
       ],
       "js": [
         "src/background/storage.js",
+        "src/background/romanizer.js",
         "src/content/config.js",
         "src/content/content.js",
         "src/content/selectors.js",

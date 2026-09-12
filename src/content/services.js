@@ -660,7 +660,9 @@
                 type: 'netease', 
                 id: resMsg.id || override.id, 
                 name: resMsg.name || key,
-                isEmpty: isEmpty
+                isEmpty: isEmpty,
+                tlyric: resMsg.tlyric || '',
+                romalrc: resMsg.romalrc || ''
             };
             return raw;
         }
@@ -916,72 +918,211 @@
      * A 150ms staggered start per chunk is used so requests don't all hit the
      * API at exactly the same millisecond, reducing the chance of a 429.
      */
+    fl.extractLrcTimestampMap = function (lrcText) {
+        if (!lrcText) return null;
+        const map = new Map();
+        const lines = lrcText.split('\n');
+        for (const line of lines) {
+            const match = line.match(/^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]\s*(.*)$/);
+            if (match) {
+                const min = parseInt(match[1], 10);
+                const sec = parseInt(match[2], 10);
+                const msStr = match[3] || "0";
+                const ms = msStr.length === 2 ? parseInt(msStr, 10) * 10 : parseInt(msStr, 10);
+                const totalSec = Math.round((min * 60 + sec + ms / 1000) * 10) / 10;
+                const text = match[4]?.trim();
+                if (text) map.set(totalSec, text);
+            }
+        }
+        return map;
+    };
+
+    fl.findClosestLrcMatch = function (lrcMap, targetSec, toleranceSec = 1.0) {
+        if (!lrcMap || lrcMap.size === 0) return null;
+        const target = Math.round(targetSec * 10) / 10;
+        if (lrcMap.has(target)) return lrcMap.get(target);
+
+        let bestMatch = null;
+        let minDiff = toleranceSec;
+        for (const [time, text] of lrcMap.entries()) {
+            const diff = Math.abs(time - target);
+            if (diff < minDiff) {
+                minDiff = diff;
+                bestMatch = text;
+            }
+        }
+        return bestMatch;
+    };
+
+    /**
+     * Resilient 3-tier batch translation & romanization:
+     * - Tier 1 (Primary): Google Translate (client=dict-chrome-ex)
+     * - Tier 2 (Network Fallbacks): Google token cascade (gtrans) -> MyMemory API -> NetEase community tlyric/romalrc
+     * - Tier 3 (Local Safety Net): 100% offline rule-based romanizer.js for Japanese/Korean lyrics
+     */
     fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
         const CHUNK_SIZE = 15;
-        // Romaji (dt=rm) uses '|||': its flat phonetic token-stream doesn't preserve \n,
-        // but ASCII pipe characters pass through verbatim in the token output.
-        // Translation (dt=t) uses '\n': Google's NLP engine treats it as a sentence boundary
-        // and always preserves it, making splits reliable and immune to NLP mangling.
         const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
 
-        // Build all chunks up-front so we can dispatch them all in parallel.
+        // Pre-parse NetEase community fallbacks if available on active track
+        let neteaseLrcMap = null;
+        const extraSource = fl.activeLyricSource;
+        const neteaseRawLrc = (dtMode === 't') ? extraSource?.tlyric : extraSource?.romalrc;
+        if (neteaseRawLrc && typeof fl.extractLrcTimestampMap === 'function') {
+            neteaseLrcMap = fl.extractLrcTimestampMap(neteaseRawLrc);
+        }
+
         const chunks = [];
         for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
             chunks.push(queue.slice(i, i + CHUNK_SIZE));
         }
 
-        // Fire all chunks concurrently with a small ramp-up stagger.
+        // Fire all chunks concurrently with a 150ms ramp-up stagger
         await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
             setTimeout(async () => {
                 const combinedText = chunk.map(q => q.text).join(DELIMITER);
+                let translatedCombo = "";
+
+                // ─────────────────────────────────────────────────────────────
+                // TIER 1 (PRIMARY): Google Translate (client=dict-chrome-ex)
+                // ─────────────────────────────────────────────────────────────
                 try {
-                    const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`);
-                    if (res.status === 429) {
+                    const primaryUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`;
+                    const res = await fetch(primaryUrl);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (dtMode === 'rm') {
+                            translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
+                        } else if (dtMode === 't' && data && data[0]) {
+                            translatedCombo = data[0].map(x => x[0] || "").join('');
+                        }
+                    } else if (res.status === 429) {
                         chrome.runtime.sendMessage({
                             type: 'TRACK_EVENT',
                             payload: {
                                 eventName: 'rate_limited',
-                                params: { url: 'https://translate.googleapis.com/translate_a/single' }
+                                params: { url: 'https://translate.googleapis.com/translate_a/single', client: 'dict-chrome-ex' }
                             }
-                        });
+                        }).catch(() => {});
                     }
-                    if (!res.ok) return resolve();
+                } catch (e) {
+                    console.log("Tier 1 Google translation error:", e);
+                }
 
-                    const data = await res.json();
-
-                    let translatedCombo = "";
-                    if (dtMode === 'rm') {
-                        // Romaji format: punctuation tokens return null for x[3], fall back to x[0].
-                        translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
-                    } else if (dtMode === 't' && data && data[0]) {
-                        // Standard translation: sentences may be split across multiple sub-arrays.
-                        translatedCombo = data[0].map(x => x[0] || "").join('');
+                // ─────────────────────────────────────────────────────────────
+                // TIER 2 (NETWORK FALLBACKS): Sequential Waterfall
+                // ─────────────────────────────────────────────────────────────
+                // Tier 2A: Google token cascade (client=gtrans) for dt=t
+                if (!translatedCombo && dtMode === 't') {
+                    try {
+                        const cascadeUrl = `https://translate.googleapis.com/translate_a/single?client=gtrans&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(combinedText)}`;
+                        const resCascade = await fetch(cascadeUrl);
+                        if (resCascade.ok) {
+                            const dataCascade = await resCascade.json();
+                            if (dataCascade?.[0]) {
+                                translatedCombo = dataCascade[0].map(x => x[0] || "").join('');
+                            }
+                        }
+                    } catch (e) {
+                        // Cascade failed
                     }
+                }
 
-                    if (!translatedCombo) return resolve();
+                // Tier 2B: External Translation Fallback via MyMemory Translated API
+                if (!translatedCombo && dtMode === 't') {
+                    try {
+                        // MyMemory requires a real ISO source code (does not support 'auto').
+                        // 1. First attempt: built-in Chromium ML language classifier (supports 100+ languages)
+                        let srcLang = 'en';
+                        if (typeof chrome !== 'undefined' && chrome.i18n && typeof chrome.i18n.detectLanguage === 'function') {
+                            try {
+                                const detected = await new Promise(res => chrome.i18n.detectLanguage(combinedText, res));
+                                if (detected?.languages?.length > 0) {
+                                    const top = detected.languages[0].language;
+                                    if (top && top !== 'und') {
+                                        srcLang = top.split('-')[0].toLowerCase();
+                                    }
+                                }
+                            } catch (err) {}
+                        }
 
-                    // Split back using the mode-appropriate delimiter.
-                    const translatedLines = (dtMode === 'rm')
-                        ? translatedCombo.split(/\s*\|\s*\|\s*\|\s*/)
-                        : translatedCombo.split('\n');
+                        // 2. Script-based fallback if ML detection was undetermined ('und' or 'en' for non-Latin)
+                        if (srcLang === 'en' || srcLang === 'und') {
+                            if (/[぀-ゟ゠-ヿ]/.test(combinedText)) srcLang = 'ja';
+                            else if (/[가-힣]/.test(combinedText)) srcLang = 'ko';
+                            else if (/[一-鿿]/.test(combinedText)) srcLang = 'zh';
+                            else if (/[а-яА-ЯёЁ]/.test(combinedText)) srcLang = 'ru';
+                            else if (/[\u0E00-\u0E7F]/.test(combinedText)) srcLang = 'th';
+                            else if (/[\u0600-\u06FF]/.test(combinedText)) srcLang = 'ar';
+                            else if (/[\u0900-\u097F]/.test(combinedText)) srcLang = 'hi';
+                            else if (/[\u0370-\u03FF]/.test(combinedText)) srcLang = 'el';
+                            else if (/[\u0590-\u05FF]/.test(combinedText)) srcLang = 'he';
+                        }
 
+                        if (srcLang !== targetLang) {
+                            const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(combinedText)}&langpair=${srcLang}|${targetLang}`;
+                            const resMM = await fetch(mmUrl);
+                            if (resMM.ok) {
+                                const mmData = await resMM.json();
+                                if (mmData?.responseData?.translatedText && mmData.responseStatus !== 403 && mmData.responseStatus !== "403") {
+                                    translatedCombo = mmData.responseData.translatedText;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // MyMemory failed
+                    }
+                }
+
+                // Tier 2C: NetEase Community Lyrics Fallback (0 network calls)
+                if (!translatedCombo && neteaseLrcMap && neteaseLrcMap.size > 0) {
+                    for (let j = 0; j < chunk.length; j++) {
+                        const itemIndex = chunk[j].index;
+                        const itemTime = fl.lyricLines[itemIndex]?.time || 0;
+                        const matched = fl.findClosestLrcMatch(neteaseLrcMap, itemTime);
+                        if (matched) {
+                            applyCallback(itemIndex, matched.trim());
+                        }
+                    }
+                }
+
+                // ─────────────────────────────────────────────────────────────
+                // TIER 3 (OFFLINE LOCAL SAFETY NET): Local romanizer.js
+                // ─────────────────────────────────────────────────────────────
+                if (dtMode === 'rm') {
+                    if (translatedCombo) {
+                        const translatedLines = translatedCombo.split(/\s*\|\s*\|\s*\|\s*/);
+                        for (let j = 0; j < chunk.length; j++) {
+                            if (translatedLines[j]) {
+                                applyCallback(chunk[j].index, translatedLines[j].trim());
+                            } else if (typeof romanize === 'function') {
+                                const localRom = romanize(chunk[j].text);
+                                if (localRom) applyCallback(chunk[j].index, localRom.trim());
+                            }
+                        }
+                    } else if (typeof romanize === 'function') {
+                        // Whole chunk fallback when all network tiers failed
+                        for (let j = 0; j < chunk.length; j++) {
+                            const localRom = romanize(chunk[j].text);
+                            if (localRom) applyCallback(chunk[j].index, localRom.trim());
+                        }
+                    }
+                } else if (dtMode === 't' && translatedCombo) {
+                    const translatedLines = translatedCombo.split('\n');
                     for (let j = 0; j < chunk.length; j++) {
                         if (translatedLines[j]) {
                             applyCallback(chunk[j].index, translatedLines[j].trim());
                         }
                     }
+                }
 
-                    // Trigger a layout refresh so the canvas allocates space for
-                    // the newly arrived translations immediately.
-                    if (typeof fl.needsLayoutUpdate !== 'undefined') {
-                        fl.needsLayoutUpdate = true;
-                    }
-                } catch (e) {
-                    console.log("Batch translation failed:", e);
+                // Trigger a layout refresh so the canvas allocates space immediately
+                if (typeof fl.needsLayoutUpdate !== 'undefined') {
+                    fl.needsLayoutUpdate = true;
                 }
                 resolve();
-            }, chunkIdx * 150); // 150ms stagger per chunk to be kind to the rate limiter
+            }, chunkIdx * 150);
         })));
-    }
+    };
 
 })();
