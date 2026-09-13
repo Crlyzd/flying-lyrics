@@ -237,6 +237,11 @@
         fl.popupColor2 = items.popupColor2;
         fl.popupColor3 = items.popupColor3;
         fl.galaxyMode = items.galaxyMode ?? false;
+        fl.devBypassCache = items.devBypassCache ?? false;
+        fl.devDisableTranslation = items.devDisableTranslation ?? false;
+        fl.devTranslateStagger = items.devTranslateStagger || 150;
+        fl.devSimulateSearch = items.devSimulateSearch || 'none';
+        fl.devSimulateTrans = items.devSimulateTrans || 'none';
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -448,6 +453,21 @@
             if (p.fluidScrolling !== undefined) {
                 fl.fluidScrolling = p.fluidScrolling;
             }
+            if (p.devBypassCache !== undefined) {
+                fl.devBypassCache = p.devBypassCache;
+            }
+            if (p.devDisableTranslation !== undefined) {
+                fl.devDisableTranslation = p.devDisableTranslation;
+            }
+            if (p.devTranslateStagger !== undefined) {
+                fl.devTranslateStagger = p.devTranslateStagger;
+            }
+            if (p.devSimulateSearch !== undefined) {
+                fl.devSimulateSearch = p.devSimulateSearch;
+            }
+            if (p.devSimulateTrans !== undefined) {
+                fl.devSimulateTrans = p.devSimulateTrans;
+            }
             // If any visual settings were changed, trigger a single-frame redraw
             // and force-push the frame to the video PiP window if it is currently paused.
             const hasVisualUpdate = p.customFont !== undefined || p.fontSize !== undefined ||
@@ -466,35 +486,68 @@
             if (typeof sendResponse === 'function') {
                 sendResponse({ success: true });
             }
+        } else if (msg.type === 'PURGE_LYRICS_CACHE') {
+            fl.cachedLyrics = { key: "", lines: [], isSynced: false, translationLang: "", source: null };
+            console.log('[Flying Lyrics:Dev] In-memory lyric cache purged');
+            if (typeof sendResponse === 'function') sendResponse({ success: true });
+        } else if (msg.type === 'FORCE_REFETCH_CURRENT') {
+            const meta = typeof fl.getCurrentTrackMetadata === 'function'
+                ? fl.getCurrentTrackMetadata()
+                : navigator.mediaSession?.metadata;
+            if (meta && meta.artist && meta.title) {
+                const key = `${meta.artist} - ${meta.title}`;
+                fl.cachedLyrics = { key: "", lines: [], isSynced: false, translationLang: "", source: null };
+                fl.activeLyricSource = null;
+                fl.activeTranslationTier = fl.devDisableTranslation ? 'Disabled (Dev)' : 'None';
+                FLYING_LYRICS.storage.get('lyricsCache', async ({ lyricsCache }) => {
+                    if (lyricsCache?.entries?.[key]) {
+                        delete lyricsCache.entries[key];
+                        lyricsCache.order = (lyricsCache.order || []).filter(k => k !== key);
+                        FLYING_LYRICS.storage.set({ lyricsCache });
+                    }
+                    if (typeof fl.fetchLyrics === 'function') {
+                        try {
+                            await fl.fetchLyrics(0, { bypassCache: true });
+                        } catch (e) {}
+                    }
+                    if (typeof sendResponse === 'function') sendResponse({ success: true });
+                });
+                return true;
+            } else {
+                if (typeof sendResponse === 'function') sendResponse({ success: false, error: 'No active track' });
+            }
         } else if (msg.type === 'GET_SYNC_OFFSET') {
             sendResponse({ syncOffset: fl.syncOffset });
         } else if (msg.type === 'GET_CURRENT_TRACK') {
             const trackMeta = typeof fl.getCurrentTrackMetadata === 'function'
                 ? fl.getCurrentTrackMetadata()
                 : null;
-            if (trackMeta && trackMeta.title && trackMeta.artist) {
+            const meta = trackMeta || navigator.mediaSession?.metadata;
+            if (meta && meta.title && meta.artist) {
+                const cleanTitle = typeof fl.cleanTitle === 'function' ? fl.cleanTitle(meta.title) : meta.title;
+                const primaryArtist = typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist;
+                const key = `${meta.artist} - ${meta.title}`;
+                let lyricSourceStr = 'None';
+                if (typeof fl.activeLyricSource === 'string') {
+                    lyricSourceStr = fl.activeLyricSource;
+                } else if (fl.activeLyricSource && typeof fl.activeLyricSource === 'object') {
+                    lyricSourceStr = fl.activeLyricSource.provider || fl.activeLyricSource.type || fl.activeLyricSource.name || 'Unknown';
+                }
+
                 sendResponse({
-                    artist: trackMeta.artist,
-                    title: trackMeta.title,
-                    cleanTitle: trackMeta.cleanTitle,
-                    primaryArtist: trackMeta.primaryArtist,
-                    duration: (fl.getPlayerState && typeof fl.getPlayerState === 'function') ? (fl.getPlayerState().duration || 0) : 0
+                    artist: meta.artist,
+                    title: meta.title,
+                    cleanTitle,
+                    primaryArtist,
+                    duration: (fl.getPlayerState && typeof fl.getPlayerState === 'function') ? (fl.getPlayerState().duration || 0) : 0,
+                    lyricSource: lyricSourceStr,
+                    isSynced: fl.isCurrentLyricSynced || false,
+                    isCached: !!(fl.cachedLyrics && fl.cachedLyrics.key === key && fl.cachedLyrics.lines?.length),
+                    lineCount: Array.isArray(fl.lyricLines) ? fl.lyricLines.length : 0,
+                    translationTier: fl.activeTranslationTier || 'None'
                 });
             } else {
-                const meta = navigator.mediaSession?.metadata;
-                if (meta && meta.title && meta.artist) {
-                    const cleanTitle = typeof fl.cleanTitle === 'function' ? fl.cleanTitle(meta.title) : meta.title;
-                    const primaryArtist = typeof fl.extractPrimaryArtist === 'function' ? fl.extractPrimaryArtist(meta.artist) : meta.artist;
-                    sendResponse({
-                        artist: meta.artist,
-                        title: meta.title,
-                        cleanTitle,
-                        primaryArtist,
-                        duration: (fl.getPlayerState && typeof fl.getPlayerState === 'function') ? (fl.getPlayerState().duration || 0) : 0
-                    });
-                } else {
-                    sendResponse({ error: 'No active track' });
-                }
+                sendResponse({ error: 'No active track' });
             }
         } else if (msg.type === 'IS_PIP_OPEN') {
             const isOpen = !!(fl.pipWin && !fl.pipWin.closed) || (fl.activePipType === 'video' && !!document.pictureInPictureElement);

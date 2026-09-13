@@ -488,14 +488,19 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
  * @param {string} cleanArtist     – Primary artist for scoring
  * @returns {Promise<object[]>}    – Sorted candidate array
  */
-async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs) {
+async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs, sim) {
     const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
 
     let lrcTimedOut = false;
     let neteaseTimedOut = false;
 
+    const skipLrc = (sim === 'force_lrclib_down');
+    const lrcPromise = skipLrc
+        ? Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+        : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
+
     const [lrcRes, neteaseRes] = await Promise.allSettled([
-        fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout)
+        lrcPromise
             .then(r => r.ok ? r.json() : [])
             .catch((err) => {
                 if (err.name === 'AbortError' || err.message?.includes('timeout')) {
@@ -560,7 +565,7 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
  * @param {number} duration     – Player duration in seconds
  * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
  */
-async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
+async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
     const cPrimaryArtist = extractPrimaryArtist(rawArtist || '');
     const cArtistFull    = cleanArtist(rawArtist || '');
     const cTitleFull     = cleanTitle(rawTitle || '');
@@ -608,7 +613,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
     const uniquePasses = [...new Set(passes.map(p => p.trim()).filter(Boolean))];
 
     // 1. Run all searches concurrently
-    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs));
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs, sim));
     const results = await Promise.all(searchPromises);
 
     // 2. Combine and deduplicate candidates by source & id
@@ -792,8 +797,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs) {
  * @param {string} cleanTitleStr – Noise-stripped title for scoring (may be empty)
  * @returns {Promise<object[]>}  – UI-ready candidate list
  */
-async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs) {
-    const { candidates, hasTimeout } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs);
+async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs, sim) {
+    const { candidates, hasTimeout } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, sim);
 
     // Map to a UI-friendly format (popup.js will render this directly)
     const results = candidates.map(c => ({

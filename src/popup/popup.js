@@ -179,5 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             document.body.classList.remove('preload');
         }, 50);
+
+        // Dynamically inject Developer Tools only when running unpacked (zero footprint in Web Store builds)
+        if (!('update_url' in chrome.runtime.getManifest())) {
+            const devScript = document.createElement('script');
+            devScript.src = 'js/popup-dev.js';
+            document.body.appendChild(devScript);
+        }
     });
 });

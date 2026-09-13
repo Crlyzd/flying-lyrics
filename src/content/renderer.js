@@ -613,6 +613,8 @@
         if (trackKey !== fl.currentTrack) {
             fl.currentTrack = trackKey;
             fl.hasTriggeredAutoNext = false; // Reset YouTube Music auto-skip latch on track change
+            fl.activeLyricSource = null;
+            fl.activeTranslationTier = 'None';
 
             if (!nowTitle) {
                 fl.lyricLines = [{ time: 0, text: "Waiting for music...", romaji: "", translation: "" }];

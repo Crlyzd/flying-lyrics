@@ -1,43 +1,55 @@
 // Import telemetry module, unified search engine, and romanizer helper
 importScripts('storage.js', 'analytics.js', 'romanizer.js', 'searchEngine.js');
 
+// Detect unpacked developer environment (!update_url in manifest)
+const IS_DEV_MODE = !('update_url' in chrome.runtime.getManifest());
+
 chrome.runtime.onInstalled.addListener((details) => {
     chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
 
-    if (details.reason === 'install') {
-        // Initialize consent status to true, set onboarding tour trigger, and record install timestamp
-        FLYING_LYRICS.storage.set({ 
-            telemetryConsent: true,
-            needsOnboardingTour: true,
-            onboardingTourStep: 0,
-            firstInstalledAt: Date.now()
-        }, () => {
-            chrome.tabs.create({
-                url: chrome.runtime.getURL('src/pages/welcome.html')
-            }, (tab) => {
-                if (tab && tab.id) {
-                    FLYING_LYRICS.storage.set({ welcomeTabId: tab.id });
+    FLYING_LYRICS.storage.get({ devSuppressOnboarding: true }, (items) => {
+        const shouldSuppress = IS_DEV_MODE && items.devSuppressOnboarding !== false;
+
+        if (details.reason === 'install') {
+            FLYING_LYRICS.storage.set({ 
+                telemetryConsent: true,
+                needsOnboardingTour: !shouldSuppress,
+                onboardingTourStep: 0,
+                firstInstalledAt: Date.now()
+            }, () => {
+                if (!shouldSuppress) {
+                    chrome.tabs.create({
+                        url: chrome.runtime.getURL('src/pages/welcome.html')
+                    }, (tab) => {
+                        if (tab && tab.id) {
+                            FLYING_LYRICS.storage.set({ welcomeTabId: tab.id });
+                        }
+                    });
+                } else {
+                    console.log('[Flying Lyrics:Dev] Clean install detected — Welcome tab and auto-tour suppressed.');
                 }
             });
-        });
-    } else if (details.reason === 'update') {
-        // Open the welcome page with update query parameters.
-        chrome.tabs.create({
-            url: chrome.runtime.getURL('src/pages/welcome.html?reason=update')
-        });
+        } else if (details.reason === 'update') {
+            if (!shouldSuppress) {
+                chrome.tabs.create({
+                    url: chrome.runtime.getURL('src/pages/welcome.html?reason=update')
+                });
+            } else {
+                console.log('[Flying Lyrics:Dev] Extension reload/update detected — Welcome tab and auto-tour suppressed.');
+            }
 
-        // Reset review toast trigger logic and enable onboarding tour trigger for the update.
-        FLYING_LYRICS.storage.set({
-            needsOnboardingTour: true,
-            onboardingTourStep: 0,
-            hasReviewed: false,
-            popupOpenCount: 0,
-            snoozeUntilCount: 0,
-            milestone7DayShown: false,
-            reviewToastPending: false,
-            reviewToastBaseTime: Date.now()
-        });
-    }
+            FLYING_LYRICS.storage.set({
+                needsOnboardingTour: !shouldSuppress,
+                onboardingTourStep: 0,
+                hasReviewed: false,
+                popupOpenCount: 0,
+                snoozeUntilCount: 0,
+                milestone7DayShown: false,
+                reviewToastPending: false,
+                reviewToastBaseTime: Date.now()
+            });
+        }
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,18 +103,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // ── Unified Manual Search (called by popup.js) ────────────────────────────
     if (message.type === 'UNIFIED_SEARCH') {
         const { query, duration, cleanArtist, cleanTitle, timeoutMs } = message.payload;
-        manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs)
-            .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
-            .catch(() => sendResponse({ results: [], hasTimeout: false }));
+        if (!IS_DEV_MODE) {
+            manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs)
+                .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
+                .catch(() => sendResponse({ results: [], hasTimeout: false }));
+            return true;
+        }
+        chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
+            const sim = items.devSimulateSearch || 'none';
+            if (sim === 'force_all_down') {
+                sendResponse({ results: [], hasTimeout: false });
+                return;
+            }
+            const delay = (sim === 'simulate_latency') ? 5000 : 0;
+            setTimeout(() => {
+                manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs, sim)
+                    .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
+                    .catch(() => sendResponse({ results: [], hasTimeout: false }));
+            }, delay);
+        });
         return true;
     }
 
     // ── Unified Auto Search (called by services.js) ───────────────────────────
     if (message.type === 'UNIFIED_AUTO_SEARCH') {
         const { rawArtist, rawTitle, duration, timeoutMs } = message.payload;
-        getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs)
-            .then(result => sendResponse({ result }))
-            .catch(() => sendResponse({ result: null }));
+        if (!IS_DEV_MODE) {
+            getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs)
+                .then(result => sendResponse({ result }))
+                .catch(() => sendResponse({ result: null }));
+            return true;
+        }
+        chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
+            const sim = items.devSimulateSearch || 'none';
+            if (sim === 'force_all_down') {
+                sendResponse({ result: null });
+                return;
+            }
+            const delay = (sim === 'simulate_latency') ? 5000 : 0;
+            setTimeout(() => {
+                getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs, sim)
+                    .then(result => sendResponse({ result }))
+                    .catch(() => sendResponse({ result: null }));
+            }, delay);
+        });
         return true;
     }
 });

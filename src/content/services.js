@@ -171,7 +171,11 @@
         };
     };
 
-    fl.fetchLyrics = async function (retryCount = 0) {
+    fl.fetchLyrics = async function (retryCount = 0, options = {}) {
+        if (typeof retryCount === 'object' && retryCount !== null) {
+            options = retryCount;
+            retryCount = 0;
+        }
         fl.isBackgroundSearchFailed = false;
         const currentMeta = typeof fl.getCurrentTrackMetadata === 'function'
             ? fl.getCurrentTrackMetadata()
@@ -179,7 +183,7 @@
 
         if (!currentMeta || !currentMeta.title) {
             if (retryCount < 5) {
-                setTimeout(() => fl.fetchLyrics(retryCount + 1), 1000);
+                setTimeout(() => fl.fetchLyrics(retryCount + 1, options), 1000);
             } else if (retryCount === 5) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
@@ -202,8 +206,13 @@
             const key = `${currentMeta.artist} - ${currentMeta.title}`;
             fl.applySavedSyncOffset(key);
 
+            const isBypassingCache = !!(options?.bypassCache || fl.devBypassCache);
+            if (isBypassingCache) {
+                console.log(`[Flying Lyrics:Dev] Bypassing cache (Tier 1 & 2) for: "${key}"`);
+            }
+
             // Tier 1: in-memory cache (instant, same session)
-            if (fl.checkLyricsCache(key)) {
+            if (!isBypassingCache && fl.checkLyricsCache(key)) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
                     payload: {
@@ -215,7 +224,7 @@
             }
 
             // Tier 2: chrome.storage.local (survives tab refreshes and browser restarts)
-            if (await fl.loadFromPersistentCache(key)) {
+            if (!isBypassingCache && await fl.loadFromPersistentCache(key)) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
                     payload: {
@@ -339,7 +348,9 @@
 
                 // Fire-and-forget translation and cache saving
                 fl.translateExistingLyrics().then(() => {
-                    fl.saveToPersistentCache(key);
+                    if (!isBypassingCache) {
+                        fl.saveToPersistentCache(key);
+                    }
                 });
             }
 
@@ -427,9 +438,13 @@
                         if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
                         await fl.translateExistingLyrics();
-                        fl.saveToPersistentCache(key);
+                        if (!isBypassingCache) {
+                            fl.saveToPersistentCache(key);
+                        }
                     } else {
                         if (!raw) {
+                            fl.activeLyricSource = null;
+                            fl.activeTranslationTier = 'None';
                             chrome.runtime.sendMessage({
                                 type: 'TRACK_EVENT',
                                 payload: {
@@ -451,6 +466,8 @@
                 } catch (retryErr) {
                     console.warn("FL: Background retry error:", retryErr);
                     if (!raw) {
+                        fl.activeLyricSource = null;
+                        fl.activeTranslationTier = 'None';
                         fl.isBackgroundSearchFailed = true;
                         setTimeout(() => {
                             if (fl.isBackgroundSearchFailed) {
@@ -696,6 +713,7 @@
 
     fl.handleMissingLyrics = function () {
         fl.activeLyricSource = null;
+        fl.activeTranslationTier = 'None';
         // Clear lyricLines entirely so the canvas draws nothing (Cover Album Mode)
         fl.lyricLines = [];
         fl.isCurrentLyricSynced = false;
@@ -904,8 +922,16 @@
         }
 
         if (tasks.length > 0) {
+            if (!fl.devDisableTranslation) {
+                fl.activeTranslationTier = 'Translating...';
+            }
             await Promise.all(tasks);
+            if (fl.activeTranslationTier === 'Translating...') {
+                fl.activeTranslationTier = 'None';
+            }
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+        } else {
+            fl.activeTranslationTier = 'None';
         }
     }
 
@@ -961,8 +987,24 @@
      * - Tier 3 (Local Safety Net): 100% offline rule-based romanizer.js for Japanese/Korean lyrics
      */
     fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
+        if (fl.devDisableTranslation) {
+            console.log(`[Flying Lyrics:Dev] Translation (${dtMode}) skipped by Dev Limiter`);
+            fl.activeTranslationTier = 'Disabled (Dev)';
+            if (dtMode === 'rm') {
+                queue.forEach(q => {
+                    const localRom = typeof romanize === 'function' ? romanize(q.text) : q.text;
+                    applyCallback(q.index, (localRom || q.text).trim());
+                });
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+            }
+            return;
+        }
+
         const CHUNK_SIZE = 15;
         const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
+        const staggerMs = fl.devTranslateStagger || 150;
+        const skipGoogle = (fl.devSimulateTrans === 'force_gtrans_down' || fl.devSimulateTrans === 'force_all_trans_down');
+        const skipAllNetwork = (fl.devSimulateTrans === 'force_all_trans_down');
 
         // Pre-parse NetEase community fallbacks if available on active track
         let neteaseLrcMap = null;
@@ -977,7 +1019,7 @@
             chunks.push(queue.slice(i, i + CHUNK_SIZE));
         }
 
-        // Fire all chunks concurrently with a 150ms ramp-up stagger
+        // Fire all chunks concurrently with a configurable ramp-up stagger
         await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
             setTimeout(async () => {
                 const combinedText = chunk.map(q => q.text).join(DELIMITER);
@@ -986,34 +1028,41 @@
                 // ─────────────────────────────────────────────────────────────
                 // TIER 1 (PRIMARY): Google Translate (client=dict-chrome-ex)
                 // ─────────────────────────────────────────────────────────────
-                try {
-                    const primaryUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`;
-                    const res = await fetch(primaryUrl);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (dtMode === 'rm') {
-                            translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
-                        } else if (dtMode === 't' && data && data[0]) {
-                            translatedCombo = data[0].map(x => x[0] || "").join('');
-                        }
-                    } else if (res.status === 429) {
-                        chrome.runtime.sendMessage({
-                            type: 'TRACK_EVENT',
-                            payload: {
-                                eventName: 'rate_limited',
-                                params: { url: 'https://translate.googleapis.com/translate_a/single', client: 'dict-chrome-ex' }
+                if (!skipGoogle) {
+                    try {
+                        const primaryUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`;
+                        const res = await fetch(primaryUrl);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (dtMode === 'rm') {
+                                translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
+                            } else if (dtMode === 't' && data && data[0]) {
+                                translatedCombo = data[0].map(x => x[0] || "").join('');
                             }
-                        }).catch(() => {});
+                            if (translatedCombo) {
+                                fl.activeTranslationTier = 'Tier 1 (Google)';
+                            }
+                        } else if (res.status === 429) {
+                            chrome.runtime.sendMessage({
+                                type: 'TRACK_EVENT',
+                                payload: {
+                                    eventName: 'rate_limited',
+                                    params: { url: 'https://translate.googleapis.com/translate_a/single', client: 'dict-chrome-ex' }
+                                }
+                            }).catch(() => {});
+                        }
+                    } catch (e) {
+                        console.log("Tier 1 Google translation error:", e);
                     }
-                } catch (e) {
-                    console.log("Tier 1 Google translation error:", e);
+                } else {
+                    console.log(`[Flying Lyrics:Dev] Simulating Google Translate failure (${dtMode})`);
                 }
 
                 // ─────────────────────────────────────────────────────────────
                 // TIER 2 (NETWORK FALLBACKS): Sequential Waterfall
                 // ─────────────────────────────────────────────────────────────
                 // Tier 2A: Google token cascade (client=gtrans) for dt=t
-                if (!translatedCombo && dtMode === 't') {
+                if (!translatedCombo && dtMode === 't' && !skipGoogle) {
                     try {
                         const cascadeUrl = `https://translate.googleapis.com/translate_a/single?client=gtrans&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(combinedText)}`;
                         const resCascade = await fetch(cascadeUrl);
@@ -1021,6 +1070,9 @@
                             const dataCascade = await resCascade.json();
                             if (dataCascade?.[0]) {
                                 translatedCombo = dataCascade[0].map(x => x[0] || "").join('');
+                                if (translatedCombo) {
+                                    fl.activeTranslationTier = 'Tier 2A (Cascade)';
+                                }
                             }
                         }
                     } catch (e) {
@@ -1029,7 +1081,7 @@
                 }
 
                 // Tier 2B: External Translation Fallback via MyMemory Translated API
-                if (!translatedCombo && dtMode === 't') {
+                if (!translatedCombo && dtMode === 't' && !skipAllNetwork) {
                     try {
                         // MyMemory requires a real ISO source code (does not support 'auto').
                         // 1. First attempt: built-in Chromium ML language classifier (supports 100+ languages)
@@ -1066,6 +1118,9 @@
                                 const mmData = await resMM.json();
                                 if (mmData?.responseData?.translatedText && mmData.responseStatus !== 403 && mmData.responseStatus !== "403") {
                                     translatedCombo = mmData.responseData.translatedText;
+                                    if (translatedCombo) {
+                                        fl.activeTranslationTier = 'Tier 2B (MyMemory)';
+                                    }
                                 }
                             }
                         }
@@ -1076,13 +1131,18 @@
 
                 // Tier 2C: NetEase Community Lyrics Fallback (0 network calls)
                 if (!translatedCombo && neteaseLrcMap && neteaseLrcMap.size > 0) {
+                    let neteaseMatchedAny = false;
                     for (let j = 0; j < chunk.length; j++) {
                         const itemIndex = chunk[j].index;
                         const itemTime = fl.lyricLines[itemIndex]?.time || 0;
                         const matched = fl.findClosestLrcMatch(neteaseLrcMap, itemTime);
                         if (matched) {
                             applyCallback(itemIndex, matched.trim());
+                            neteaseMatchedAny = true;
                         }
+                    }
+                    if (neteaseMatchedAny) {
+                        fl.activeTranslationTier = 'Tier 2C (NetEase)';
                     }
                 }
 
@@ -1106,6 +1166,7 @@
                             const localRom = romanize(chunk[j].text);
                             if (localRom) applyCallback(chunk[j].index, localRom.trim());
                         }
+                        fl.activeTranslationTier = 'Tier 3 (Offline Romaji)';
                     }
                 } else if (dtMode === 't' && translatedCombo) {
                     const translatedLines = translatedCombo.split('\n');
@@ -1121,7 +1182,7 @@
                     fl.needsLayoutUpdate = true;
                 }
                 resolve();
-            }, chunkIdx * 150);
+            }, chunkIdx * staggerMs);
         })));
     };
 
