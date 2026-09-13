@@ -12,11 +12,17 @@
   A lightweight floating window for Spotify and YouTube Music that shows synchronized lyrics, romanization (Romaji, Romaja, Pinyin), and translations so you can sing along while gaming, working, or studying without ever switching tabs!
 </p>
 
+<p align="center">
+  <a href="https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Web Store" /></a>
+  &nbsp;
+  <a href="https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa"><img src="https://img.shields.io/badge/Edge_Add--ons-Install-0078D7?style=for-the-badge&logo=microsoftedge&logoColor=white" alt="Microsoft Edge Add-ons" /></a>
+</p>
+
 ---
 
 ## ⚡ Quick Start (Ready in 10 Seconds!)
 
-1. **Install the Extension** from the Chrome Web Store.
+1. **Install the Extension** from the **[Chrome Web Store](https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd)** or **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa)**.
 2. **Open [Spotify Web Player](https://open.spotify.com/)** or **[YouTube Music](https://music.youtube.com/)** and hit play on any track.
 3. **Click the green `♫ FLYING LYRICS` button**:
    * **Spotify:** Bottom-right corner on the player bar (next to the volume and queue icons).
@@ -170,8 +176,8 @@ Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) are notorious for breakin
 
 Made with 💖 by **Kaleksanan Bagus**
 
-If you enjoy Flying Lyrics, consider buying me a coffee to support development:
-* ☕ [Saweria](https://saweria.co/curlyzed)
-* ☕ [PayPal](https://paypal.me/BagusMassani)
+If you enjoy Flying Lyrics, consider buying me a coffee ☕ to support development:
+* [Saweria](https://saweria.co/curlyzed)
+* [PayPal](https://paypal.me/BagusMassani)
 
 ---
