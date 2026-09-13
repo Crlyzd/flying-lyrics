@@ -445,22 +445,37 @@
                         if (!raw) {
                             fl.activeLyricSource = null;
                             fl.activeTranslationTier = 'None';
-                            chrome.runtime.sendMessage({
-                                type: 'TRACK_EVENT',
-                                payload: {
-                                    eventName: 'lyrics_fetch_result',
-                                    params: { status: 'failure', error_type: 'no_match_retry' }
-                                }
-                            });
-                            fl.isBackgroundSearchFailed = true;
-                            setTimeout(() => {
-                                if (fl.isBackgroundSearchFailed) {
-                                    fl.isBackgroundSearchFailed = false;
-                                    if (typeof fl.updateSyncIndicator === 'function') {
-                                        fl.updateSyncIndicator();
+                            const isNetworkError = !retryResult || !retryResult.result || !!retryResult.result.isNetworkError;
+                            if (isNetworkError) {
+                                chrome.runtime.sendMessage({
+                                    type: 'TRACK_EVENT',
+                                    payload: {
+                                        eventName: 'lyrics_fetch_result',
+                                        params: { status: 'failure', error_type: 'network_error_retry' }
                                     }
+                                });
+                                fl.isBackgroundSearchFailed = true;
+                                setTimeout(() => {
+                                    if (fl.isBackgroundSearchFailed) {
+                                        fl.isBackgroundSearchFailed = false;
+                                        if (typeof fl.updateSyncIndicator === 'function') {
+                                            fl.updateSyncIndicator();
+                                        }
+                                    }
+                                }, 5000);
+                            } else {
+                                chrome.runtime.sendMessage({
+                                    type: 'TRACK_EVENT',
+                                    payload: {
+                                        eventName: 'lyrics_fetch_result',
+                                        params: { status: 'not_found', error_type: 'no_match_retry' }
+                                    }
+                                });
+                                fl.isBackgroundSearchFailed = false;
+                                if (typeof fl.updateSyncIndicator === 'function') {
+                                    fl.updateSyncIndicator();
                                 }
-                            }, 5000);
+                            }
                         }
                     }
                 } catch (retryErr) {

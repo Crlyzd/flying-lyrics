@@ -105,21 +105,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { query, duration, cleanArtist, cleanTitle, timeoutMs } = message.payload;
         if (!IS_DEV_MODE) {
             manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs)
-                .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
-                .catch(() => sendResponse({ results: [], hasTimeout: false }));
+                .then(({ results, hasTimeout, isNetworkError }) => sendResponse({ results, hasTimeout, isNetworkError }))
+                .catch(() => sendResponse({ results: [], hasTimeout: false, isNetworkError: true }));
             return true;
         }
         chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
             const sim = items.devSimulateSearch || 'none';
             if (sim === 'force_all_down') {
-                sendResponse({ results: [], hasTimeout: false });
+                sendResponse({ results: [], hasTimeout: false, isNetworkError: true });
                 return;
             }
             const delay = (sim === 'simulate_latency') ? 5000 : 0;
             setTimeout(() => {
                 manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs, sim)
-                    .then(({ results, hasTimeout }) => sendResponse({ results, hasTimeout }))
-                    .catch(() => sendResponse({ results: [], hasTimeout: false }));
+                    .then(({ results, hasTimeout, isNetworkError }) => sendResponse({ results, hasTimeout, isNetworkError }))
+                    .catch(() => sendResponse({ results: [], hasTimeout: false, isNetworkError: true }));
             }, delay);
         });
         return true;
@@ -131,20 +131,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!IS_DEV_MODE) {
             getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs)
                 .then(result => sendResponse({ result }))
-                .catch(() => sendResponse({ result: null }));
+                .catch(() => sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } }));
             return true;
         }
         chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
             const sim = items.devSimulateSearch || 'none';
             if (sim === 'force_all_down') {
-                sendResponse({ result: null });
+                sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } });
                 return;
             }
             const delay = (sim === 'simulate_latency') ? 5000 : 0;
             setTimeout(() => {
                 getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs, sim)
                     .then(result => sendResponse({ result }))
-                    .catch(() => sendResponse({ result: null }));
+                    .catch(() => sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } }));
             }, delay);
         });
         return true;

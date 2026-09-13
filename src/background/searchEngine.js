@@ -493,15 +493,23 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
 
     let lrcTimedOut = false;
     let neteaseTimedOut = false;
+    let lrcOk = false;
+    let neteaseOk = false;
 
     const skipLrc = (sim === 'force_lrclib_down');
     const lrcPromise = skipLrc
-        ? Promise.resolve({ ok: true, json: () => Promise.resolve([]) })
+        ? Promise.resolve({ ok: false, json: () => Promise.resolve([]) })
         : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
 
     const [lrcRes, neteaseRes] = await Promise.allSettled([
         lrcPromise
-            .then(r => r.ok ? r.json() : [])
+            .then(r => {
+                if (r.ok) {
+                    lrcOk = true;
+                    return r.json();
+                }
+                return [];
+            })
             .catch((err) => {
                 if (err.name === 'AbortError' || err.message?.includes('timeout')) {
                     lrcTimedOut = true;
@@ -510,7 +518,13 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
             }),
 
         fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout)
-            .then(r => r.json())
+            .then(r => {
+                if (r.ok) {
+                    neteaseOk = true;
+                    return r.json();
+                }
+                return { result: { songs: [] } };
+            })
             .then(data => data?.result?.songs || [])
             .catch((err) => {
                 if (err.name === 'AbortError' || err.message?.includes('timeout')) {
@@ -542,7 +556,9 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
     // Score and sort best-first
     candidates.sort((a, b) => b._score - a._score);
 
-    return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut };
+    const isNetworkError = !lrcOk && !neteaseOk;
+
+    return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut, isNetworkError };
 }
 
 // ─── Auto Search ─────────────────────────────────────────────────────────────
@@ -760,12 +776,15 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
         }
     }
 
+    const isNetworkError = results.length > 0 && results.every(res => res?.isNetworkError);
+
     if (resolvedPool.length === 0) {
         return {
             rawLyric: null,
             source:   null,
             synced:   false,
-            hasTimeout
+            hasTimeout,
+            isNetworkError
         };
     }
 
@@ -777,7 +796,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
         rawLyric:   winner.rawLyric,
         source:     winner.source,
         synced:     winner.synced,
-        hasTimeout
+        hasTimeout,
+        isNetworkError: false
     };
 }
 
@@ -798,7 +818,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
  * @returns {Promise<object[]>}  – UI-ready candidate list
  */
 async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs, sim) {
-    const { candidates, hasTimeout } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, sim);
+    const { candidates, hasTimeout, isNetworkError } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, sim);
 
     // Map to a UI-friendly format (popup.js will render this directly)
     const results = candidates.map(c => ({
@@ -816,5 +836,5 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeout
         instrumental: c.instrumental || false
     }));
 
-    return { results, hasTimeout };
+    return { results, hasTimeout, isNetworkError: !!isNetworkError };
 }
