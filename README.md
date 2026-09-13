@@ -115,25 +115,25 @@ Results from automated runs across major Spotify Top 50 country charts:
 
 | Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | LRCLIB / NetEase |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| 🌐 Global Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
-| 🇺🇸 USA Top 50 | **100%** | 50 | 0 | 0 | 446ms | 50 / 0 |
-| 🇬🇧 UK Top 50 | **100%** | 50 | 0 | 0 | 474ms | 50 / 0 |
-| 🇯🇵 Japan Top 50 | **100%** | 50 | 0 | 0 | 618ms | 44 / 6 |
-| 🇰🇷 South Korea Top 50 | **100%** | 50 | 0 | 0 | 531ms | 50 / 0 |
-| 🇩🇪 Germany Top 50 | **100%** | 50 | 0 | 0 | 533ms | 49 / 1 |
-| 🇫🇷 France Top 50 | **100%** | 50 | 0 | 0 | 524ms | 50 / 0 |
-| 🇪🇸 Spain Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
-| 🇦🇺 Australia Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
-| 🇨🇦 Canada Top 50 | **100%** | 50 | 0 | 0 | 452ms | 50 / 0 |
-| 🇮🇹 Italy Top 50 | **100%** | 50 | 0 | 0 | 563ms | 50 / 0 |
-| 🇲🇽 Mexico Top 50 | **100%** | 50 | 0 | 0 | 516ms | 50 / 0 |
-| 🇮🇩 Indonesia Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
-| 🇳🇱 Netherlands Top 50 | **98%** | 49 | 1 | 0 | 596ms | 45 / 4 |
-| 🇮🇳 India Top 50 | **98%** | 49 | 1 | 0 | 605ms | 48 / 1 |
-| 🇹🇼 Taiwan Top 50 | **98%** | 49 | 1 | 0 | 575ms | 49 / 0 |
-| 🇧🇷 Brazil Top 50 | **96%** | 48 | 1 | 1 | 713ms | 47 / 1 |
-| 🇳🇴 Norway Top 50 | **96%** | 48 | 2 | 0 | 713ms | 48 / 0 |
-| 🇭🇰 Hong Kong Top 50 | **94%** | 47 | 3 | 0 | 800ms | 43 / 4 |
+| Global Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
+| USA Top 50 | **100%** | 50 | 0 | 0 | 446ms | 50 / 0 |
+| UK Top 50 | **100%** | 50 | 0 | 0 | 474ms | 50 / 0 |
+| Japan Top 50 | **100%** | 50 | 0 | 0 | 618ms | 44 / 6 |
+| South Korea Top 50 | **100%** | 50 | 0 | 0 | 531ms | 50 / 0 |
+| Germany Top 50 | **100%** | 50 | 0 | 0 | 533ms | 49 / 1 |
+| France Top 50 | **100%** | 50 | 0 | 0 | 524ms | 50 / 0 |
+| Spain Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
+| Australia Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
+| Canada Top 50 | **100%** | 50 | 0 | 0 | 452ms | 50 / 0 |
+| Italy Top 50 | **100%** | 50 | 0 | 0 | 563ms | 50 / 0 |
+| Mexico Top 50 | **100%** | 50 | 0 | 0 | 516ms | 50 / 0 |
+| Indonesia Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
+| Netherlands Top 50 | **98%** | 49 | 1 | 0 | 596ms | 45 / 4 |
+| India Top 50 | **98%** | 49 | 1 | 0 | 605ms | 48 / 1 |
+| Taiwan Top 50 | **98%** | 49 | 1 | 0 | 575ms | 49 / 0 |
+| Brazil Top 50 | **96%** | 48 | 1 | 1 | 713ms | 47 / 1 |
+| Norway Top 50 | **96%** | 48 | 2 | 0 | 713ms | 48 / 0 |
+| Hong Kong Top 50 | **94%** | 47 | 3 | 0 | 800ms | 43 / 4 |
 
 > [!NOTE]
 > **Understanding the Benchmark Metrics:**
@@ -149,8 +149,8 @@ Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) are notorious for breakin
 
 | Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | Providers (LRCLIB / NetEase) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| 🇯🇵 Japan All-Time Top 500 | **99.0%** | 495 | 5 | 0 | 693ms | 452 / 43 |
-| 🇰🇷 South Korea All-Time Top 500 | **98.4%** | 492 | 8 | 0 | 632ms | 485 / 7 |
+| Japan All-Time Top 500 | **99.0%** | 495 | 5 | 0 | 693ms | 452 / 43 |
+| South Korea All-Time Top 500 | **98.4%** | 492 | 8 | 0 | 632ms | 485 / 7 |
 | **Total CJK Deep Benchmark** | **98.7%** | **987** | **13** | **0** | **~660ms** | **937 / 50** |
 
 > [!NOTE]
