@@ -172,6 +172,17 @@ Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) are notorious for breakin
 
 ---
 
+## 🙏 Credits & Acknowledgements
+
+Flying Lyrics is made possible thanks to these open services and APIs:
+
+* **[LRCLIB](https://lrclib.net/)** — Free, community-driven synchronized lyrics database.
+* **[NetEase Cloud Music](https://music.163.com/)** — Auxiliary synchronized lyric search & community timestamps.
+* **[MyMemory](https://translated.net/)** & **Google Translate** — Multi-language lyric translation waterfall.
+* **[Google Fonts](https://fonts.google.com/)** — Typography engine (featuring *Fredoka*).
+
+---
+
 ## 💖 Support the Project
 
 Made with 💖 by **Kaleksanan Bagus**
