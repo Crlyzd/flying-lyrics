@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fallbacks if config.js somehow isn't loaded yet into the background context
     const fallbackDefaults = {
         showTranslation: true, translationLang: popup.getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
-        customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
+        customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
         coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true, fluidScrolling: false,
@@ -45,9 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Handle custom fonts correctly on load
         if (el.fontFamilySelect) {
-            const matchedOption = Array.from(el.fontFamilySelect.options).find(opt => opt.value === items.customFont);
+            const cleanFont = (val) => (val || '').replace(/['"]/g, '').trim().toLowerCase();
+            const matchedOption = Array.from(el.fontFamilySelect.options).find(opt => cleanFont(opt.value) === cleanFont(items.customFont));
             if (matchedOption) {
-                el.fontFamilySelect.value = items.customFont;
+                el.fontFamilySelect.value = matchedOption.value;
                 if (el.customFontContainer) el.customFontContainer.style.display = 'none';
                 popup.currentlyAppliedFont = items.customFont; // Let popup-visuals pick it up if needed
             } else {

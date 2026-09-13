@@ -59,7 +59,7 @@ window.FLYING_LYRICS.defaults = {
     fluidScrolling: false,
 
     // Visual Settings
-    customFont: "'Noto Sans', 'Segoe UI', sans-serif",
+    customFont: "'Fredoka', sans-serif",
     fontSize: 26,
     bgBlur: 2,
     bgDarkness: 40,

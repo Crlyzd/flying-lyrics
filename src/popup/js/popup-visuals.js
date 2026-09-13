@@ -109,9 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentlyAppliedFont = fontName;
             } else {
                 if (el.fontFamilySelect) {
-                    const matchedOption = Array.from(el.fontFamilySelect.options).find(opt => opt.value === currentlyAppliedFont);
+                    const cleanFont = (val) => (val || '').replace(/['"]/g, '').trim().toLowerCase();
+                    const matchedOption = Array.from(el.fontFamilySelect.options).find(opt => cleanFont(opt.value) === cleanFont(currentlyAppliedFont));
                     if (matchedOption) {
-                        el.fontFamilySelect.value = currentlyAppliedFont;
+                        el.fontFamilySelect.value = matchedOption.value;
                     } else {
                         el.fontFamilySelect.value = 'custom';
                         el.customFontInput.value = currentlyAppliedFont;
@@ -826,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm('Reset Floating Window visual settings to default?')) return;
 
             const pipDefaults = {
-                customFont: "'Noto Sans', 'Segoe UI', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
+                customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
                 coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
                 lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false,
                 lastPipWidth: 200, lastPipHeight: 250

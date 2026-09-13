@@ -66,7 +66,7 @@ window.FLYING_LYRICS.popup = {
         translationLang:     'en',           // overridden at runtime by getBrowserDefaultLanguage()
         globalSyncOffset:    1000,
         autoLaunch:          false,
-        customFont:          "'Noto Sans', 'Segoe UI', sans-serif",
+        customFont:          "'Fredoka', sans-serif",
         fontSize:            26,
         bgBlur:              2,
         bgDarkness:          40,
