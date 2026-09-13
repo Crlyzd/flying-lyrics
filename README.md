@@ -100,39 +100,46 @@ That's it! Your lyrics window will pop up and stay on top of all your other apps
 
 ## 📊 Battle-Tested Accuracy: Real Numbers, No Gimmicks
 
-Most lyric extensions claim to work until you play a non-English song, a new release, or an international chart-topper and end up with a blank window. Flying Lyrics is backed by an **automated global benchmark testing suite** ([`tools/benchmark`](./tools/benchmark)) with 100% search algorithm parity that measures accuracy across Spotify Top 50 charts worldwide.
+Most lyric extensions claim to work until you play a non-English song, a new release, or an international chart-topper and end up with a blank window. Flying Lyrics is backed by an **automated global benchmark testing suite** ([`tools/benchmark`](./tools/benchmark)) with 100% search algorithm parity that measures accuracy directly across official Spotify Top 50 charts and catalog streaming totals.
 
 > [!TIP]
 > **Benchmark Highlights at a Glance:**
-> * 🎯 **100% Match Rate** across Spotify Top 50 charts in **26 major music markets** (1,300 / 1,300 songs matched!).
-> * ⚡ **~490ms Average Latency** — instantaneous, lightning-fast lyrics retrieval.
-> * 🗾 **Up to 99% CJK Accuracy** across **1,000 all-time top Japanese & Korean tracks** (Kanji, Kana, Hangul, Romaji, and dual-language titles).
+> * 🎯 **98.4% Overall Match Rate** across 42 international music markets (2,067 / 2,100 tracks matched).
+> * ⚡ **~500ms Average Latency** — instantaneous, lightning-fast lyrics retrieval.
+> * 🗾 **98.7% CJK Accuracy** across **1,000 all-time top Japanese & Korean tracks** (Kanji, Kana, Hangul, Romaji, and dual-language titles).
 > * 🛡️ **Zero Guesswork**: Multi-pass tiered search (**LRCLIB** $\to$ **NetEase CloudSearch** $\to$ **Romanized Pass**) with duration-invariant verification ($\Delta t \le 6\text{s}$) so you always get the right track.
 
-### 🌍 Global Top 50 Benchmark (100% Flawless Markets)
+### 🌍 Global Top 50 Benchmark Results
 
-In automated tests running against official Spotify charts, Flying Lyrics scored a **perfect 100% match rate** across the world's largest music markets:
+Results from automated runs across major Spotify Top 50 country charts:
 
-| Market / Region | Playlist | Match Success Rate | Success / Total | Avg Latency | Primary Provider |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| 🌐 **Global** | Top 50 Global | **100%** | 50 / 50 | 469ms | LRCLIB (100%) |
-| 🇺🇸 **United States** | Top 50 USA | **100%** | 50 / 50 | 446ms | LRCLIB (100%) |
-| 🇬🇧 **United Kingdom** | Top 50 UK | **100%** | 50 / 50 | 474ms | LRCLIB (100%) |
-| 🇯🇵 **Japan** | Top 50 Japan | **100%** | 50 / 50 | 618ms | LRCLIB (88%) / NetEase (12%) |
-| 🇰🇷 **South Korea** | Top 50 South Korea | **100%** | 50 / 50 | 531ms | LRCLIB (100%) |
-| 🇩🇪 **Germany** | Top 50 Germany | **100%** | 50 / 50 | 533ms | LRCLIB (98%) / NetEase (2%) |
-| 🇫🇷 **France** | Top 50 France | **100%** | 50 / 50 | 524ms | LRCLIB (100%) |
-| 🇪🇸 **Spain** | Top 50 Spain | **100%** | 50 / 50 | 533ms | LRCLIB (100%) |
-| 🇦🇺 **Australia** | Top 50 Australia | **100%** | 50 / 50 | 469ms | LRCLIB (100%) |
-| 🇨🇦 **Canada** | Top 50 Canada | **100%** | 50 / 50 | 452ms | LRCLIB (100%) |
-| 🇮🇹 **Italy** | Top 50 Italy | **100%** | 50 / 50 | 563ms | LRCLIB (100%) |
-| 🇲🇽 **Mexico** | Top 50 Mexico | **100%** | 50 / 50 | 516ms | LRCLIB (100%) |
-| 🇮🇩 **Indonesia** | Top 50 Indonesia | **100%** | 50 / 50 | 533ms | LRCLIB (100%) |
-| 🇦🇷 **Argentina** | Top 50 Argentina | **100%** | 50 / 50 | 539ms | LRCLIB (100%) |
-| 🇻🇳 **Vietnam** | Top 50 Vietnam | **100%** | 50 / 50 | 585ms | LRCLIB (98%) / NetEase (2%) |
-| 🇵🇱 **Poland** | Top 50 Poland | **100%** | 50 / 50 | 632ms | LRCLIB (96%) / NetEase (4%) |
-| 🇸🇬 **Singapore** | Top 50 Singapore | **100%** | 50 / 50 | 486ms | LRCLIB (100%) |
-| **26 Major Markets Combined** | **1,300 tracks** | **100%** | **1,300 / 1,300** | **~490ms** | **LRCLIB (98%) / NetEase (2%)** |
+| Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | LRCLIB / NetEase |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 🌐 Global Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
+| 🇺🇸 USA Top 50 | **100%** | 50 | 0 | 0 | 446ms | 50 / 0 |
+| 🇬🇧 UK Top 50 | **100%** | 50 | 0 | 0 | 474ms | 50 / 0 |
+| 🇯🇵 Japan Top 50 | **100%** | 50 | 0 | 0 | 618ms | 44 / 6 |
+| 🇰🇷 South Korea Top 50 | **100%** | 50 | 0 | 0 | 531ms | 50 / 0 |
+| 🇩🇪 Germany Top 50 | **100%** | 50 | 0 | 0 | 533ms | 49 / 1 |
+| 🇫🇷 France Top 50 | **100%** | 50 | 0 | 0 | 524ms | 50 / 0 |
+| 🇪🇸 Spain Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
+| 🇦🇺 Australia Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 |
+| 🇨🇦 Canada Top 50 | **100%** | 50 | 0 | 0 | 452ms | 50 / 0 |
+| 🇮🇹 Italy Top 50 | **100%** | 50 | 0 | 0 | 563ms | 50 / 0 |
+| 🇲🇽 Mexico Top 50 | **100%** | 50 | 0 | 0 | 516ms | 50 / 0 |
+| 🇮🇩 Indonesia Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 |
+| 🇳🇱 Netherlands Top 50 | **98%** | 49 | 1 | 0 | 596ms | 45 / 4 |
+| 🇮🇳 India Top 50 | **98%** | 49 | 1 | 0 | 605ms | 48 / 1 |
+| 🇹🇼 Taiwan Top 50 | **98%** | 49 | 1 | 0 | 575ms | 49 / 0 |
+| 🇧🇷 Brazil Top 50 | **96%** | 48 | 1 | 1 | 713ms | 47 / 1 |
+| 🇳🇴 Norway Top 50 | **96%** | 48 | 2 | 0 | 713ms | 48 / 0 |
+| 🇭🇰 Hong Kong Top 50 | **94%** | 47 | 3 | 0 | 800ms | 43 / 4 |
+
+> [!NOTE]
+> **Understanding the Benchmark Metrics:**
+> * **`Success`**: Lyrics were found, retrieved, and matched within duration tolerance ($\Delta t \le 6\text{s}$) with high fuzzy similarity.
+> * **`* No Match`**: Search candidates were returned by the lyric provider databases, but none passed strict verification (e.g. duration discrepancy $> 6\text{s}$, alternate remixes, live cuts, or instrumental version mismatch).
+> * **`** No Lyrics`**: Neither LRCLIB nor NetEase had any synchronized lyric entry in their database for the song (0 database candidates).
 
 ---
 
@@ -140,11 +147,11 @@ In automated tests running against official Spotify charts, Flying Lyrics scored
 
 Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) are notorious for breaking lyric finders because metadata is often formatted with mixed scripts, romanization, or OST/anime tags. We ran a deep **1,000-track stress test** against all-time streaming totals in Japan and South Korea:
 
-| Region | Sample Size | Success Rate | Matched | Fallback Provider Breakdown |
-| :--- | :---: | :---: | :---: | :--- |
-| 🇯🇵 **Japan All-Time Top 500** | 500 songs | **99.0%** | 495 / 500 | 452 LRCLIB / 43 NetEase |
-| 🇰🇷 **South Korea All-Time Top 500** | 500 songs | **98.4%** | 492 / 500 | 485 LRCLIB / 7 NetEase |
-| **Total CJK Deep Benchmark** | **1,000 songs** | **98.7%** | **987 / 1,000** | **937 LRCLIB / 50 NetEase** |
+| Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | Providers (LRCLIB / NetEase) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| 🇯🇵 Japan All-Time Top 500 | **99.0%** | 495 | 5 | 0 | 693ms | 452 / 43 |
+| 🇰🇷 South Korea All-Time Top 500 | **98.4%** | 492 | 8 | 0 | 632ms | 485 / 7 |
+| **Total CJK Deep Benchmark** | **98.7%** | **987** | **13** | **0** | **~660ms** | **937 / 50** |
 
 > [!NOTE]
 > **Want to verify the numbers yourself?** The benchmark runner is open-source and included in this repository. Run `npm run benchmark` or `npm run benchmark:cjk` inside [`tools/benchmark`](./tools/benchmark) to execute the test suite live on your machine.
