@@ -271,7 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (item.id === 'auto-match-card') {
-                saveAndNotify({ lyricOverride: null });
+                const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
+                    ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+                    : null;
+                saveAndNotify({ trackKey: trackKey, lyricOverride: null });
                 const spinner = document.createElement('div');
                 spinner.className = 'sync-spinner';
                 const dotContainer = item.querySelector('.dot-container');
@@ -287,7 +290,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const id     = item.dataset.id;
 
             if (source && id) {
-                saveAndNotify({ lyricOverride: { type: source, id: id } });
+                const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
+                    ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+                    : null;
+                saveAndNotify({ 
+                    trackKey: trackKey,
+                    lyricOverride: { type: source, id: id } 
+                });
                 const spinner = document.createElement('div');
                 spinner.className = 'sync-spinner';
                 const dotContainer = item.querySelector('.dot-container');
@@ -484,7 +493,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const reader = new FileReader();
         reader.onload = (ev) => {
             const rawText = ev.target.result;
-            saveAndNotify({ lyricOverride: { type: 'local', data: rawText } });
+            const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
+                ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+                : null;
+            saveAndNotify({ trackKey: trackKey, lyricOverride: { type: 'local', data: rawText } });
             renderSearchResults(state.currentResults, { type: 'local' });
         };
         reader.readAsText(file);
@@ -538,7 +550,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function adjustOffset(delta) {
         const newOffset = state.currentEffectiveOffset + delta;
         updateOffsetDisplay(newOffset);
-        saveAndNotify({ syncOffset: newOffset });
+        const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
+            ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+            : null;
+        saveAndNotify({ trackKey: trackKey, syncOffset: newOffset });
     }
 
     /**

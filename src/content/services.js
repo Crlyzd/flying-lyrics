@@ -316,6 +316,8 @@
                     }
                 });
 
+                fl.activateLyrics();
+
                 const lines = raw.split('\n');
                 fl.parseLrcOrGeneratePseudoSync(lines, raw);
 
@@ -647,7 +649,14 @@
     }
 
     fl.resolveManualOverride = async function (key, abortSignal) {
-        const override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
+        let override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
+        if (!override && fl.lyricsOverrides) {
+            const meta = navigator.mediaSession?.metadata;
+            if (meta?.artist && meta?.title) {
+                const mediaKey = `${meta.artist} - ${meta.title}`;
+                override = fl.lyricsOverrides[mediaKey] || null;
+            }
+        }
         if (!override) return "";
 
         if (override.type === 'local') {
@@ -674,6 +683,7 @@
                 synced: !!resData.syncedLyrics || !!resData.instrumental,
                 isEmpty: isEmpty
             };
+            fl.activateLyrics();
             return raw;
         } else if (override.type === 'netease' && override.id) {
             const resMsg = await new Promise(resolve => {
@@ -696,6 +706,7 @@
                 tlyric: resMsg.tlyric || '',
                 romalrc: resMsg.romalrc || ''
             };
+            fl.activateLyrics();
             return raw;
         }
         return "";
@@ -717,7 +728,8 @@
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
         chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: fl.activeLyricSource }).catch(() => {});
 
-        const meta = navigator.mediaSession.metadata;
+        const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
+        const meta = currentMeta || navigator.mediaSession?.metadata;
         if (meta && meta.title && meta.artist) {
             const key = `${meta.artist} - ${meta.title}`;
             if (typeof fl.incrementStatsTrack === 'function') {

@@ -303,9 +303,10 @@
             }
             if (p.globalSyncOffset !== undefined) {
                 fl.globalSyncOffset = p.globalSyncOffset;
-                const meta = navigator.mediaSession.metadata;
+                const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
+                const meta = currentMeta || navigator.mediaSession?.metadata;
                 if (meta && meta.title && meta.artist) {
-                    const key = `${meta.artist} - ${meta.title}`;
+                    const key = p.trackKey || `${meta.artist} - ${meta.title}`;
                     if (fl.songOffsets[key] === undefined) {
                         fl.syncOffset = fl.globalSyncOffset;
                     }
@@ -313,26 +314,36 @@
             }
             if (p.syncOffset !== undefined) {
                 fl.syncOffset = p.syncOffset;
-                const meta = navigator.mediaSession.metadata;
-                if (meta && meta.title && meta.artist) {
-                    const key = `${meta.artist} - ${meta.title}`;
+                const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
+                const meta = currentMeta || navigator.mediaSession?.metadata;
+                if ((meta && meta.title && meta.artist) || p.trackKey) {
+                    const primaryKey = p.trackKey || `${meta.artist} - ${meta.title}`;
+                    const fallbackKey = (meta && meta.title && meta.artist) ? `${meta.artist} - ${meta.title}` : primaryKey;
                     FLYING_LYRICS.storage.get({ songOffsets: {} }, (items) => {
                         const latestOffsets = items.songOffsets || {};
-                        latestOffsets[key] = fl.syncOffset;
+                        latestOffsets[primaryKey] = fl.syncOffset;
+                        if (fallbackKey !== primaryKey) {
+                            latestOffsets[fallbackKey] = fl.syncOffset;
+                        }
                         fl.songOffsets = latestOffsets;
                         FLYING_LYRICS.storage.set({ songOffsets: latestOffsets });
                     });
                 }
             }
             if (p.lyricOverride !== undefined) {
-                const meta = navigator.mediaSession.metadata;
-                if (meta && meta.title && meta.artist) {
-                    const key = `${meta.artist} - ${meta.title}`;
+                const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
+                const meta = currentMeta || navigator.mediaSession?.metadata;
+                if ((meta && meta.title && meta.artist) || p.trackKey) {
+                    const primaryKey = p.trackKey || `${meta.artist} - ${meta.title}`;
+                    const fallbackKey = (meta && meta.title && meta.artist) ? `${meta.artist} - ${meta.title}` : primaryKey;
 
                     // Retrieve BOTH overrides and the persistence cache
                     FLYING_LYRICS.storage.get(['lyricsOverrides', 'lyricsCache'], (items) => {
                         const latestOverrides = items.lyricsOverrides || {};
-                        latestOverrides[key] = p.lyricOverride;
+                        latestOverrides[primaryKey] = p.lyricOverride;
+                        if (fallbackKey !== primaryKey) {
+                            latestOverrides[fallbackKey] = p.lyricOverride;
+                        }
                         fl.lyricsOverrides = latestOverrides;
 
                         const updates = { lyricsOverrides: latestOverrides };
@@ -340,12 +351,21 @@
                         // If the old wrong lyrics are in Tier 2 cache, obliterate them
                         if (items.lyricsCache) {
                             const cache = items.lyricsCache;
-                            const hasEntry = cache.entries && cache.entries[key];
-                            const inOrder = cache.order && cache.order.includes(key);
+                            const keysToPurge = [primaryKey, fallbackKey].filter(Boolean);
+                            let modified = false;
 
-                            if (hasEntry || inOrder) {
-                                if (hasEntry) delete cache.entries[key];
-                                if (inOrder) cache.order = cache.order.filter(k => k !== key);
+                            keysToPurge.forEach(k => {
+                                if (cache.entries && cache.entries[k]) {
+                                    delete cache.entries[k];
+                                    modified = true;
+                                }
+                                if (cache.order && cache.order.includes(k)) {
+                                    cache.order = cache.order.filter(entryKey => entryKey !== k);
+                                    modified = true;
+                                }
+                            });
+
+                            if (modified) {
                                 updates.lyricsCache = cache;
                             }
                         }
