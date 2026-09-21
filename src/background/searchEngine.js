@@ -501,6 +501,11 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
         ? Promise.resolve({ ok: false, json: () => Promise.resolve([]) })
         : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
 
+    const skipNetease = (sim === 'force_netease_down');
+    const neteasePromise = skipNetease
+        ? Promise.resolve({ ok: false, json: () => Promise.resolve({ result: { songs: [] } }) })
+        : fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout);
+
     const [lrcRes, neteaseRes] = await Promise.allSettled([
         lrcPromise
             .then(r => {
@@ -517,7 +522,7 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
                 return [];
             }),
 
-        fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout)
+        neteasePromise
             .then(r => {
                 if (r.ok) {
                     neteaseOk = true;

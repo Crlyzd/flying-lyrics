@@ -78,6 +78,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { id, timeoutMs } = message.payload;
         if (!id) { sendResponse(null); return false; }
 
+        if (IS_DEV_MODE) {
+            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
+                const sim = items.devSimulateSearch || 'none';
+                if (sim === 'force_netease_down' || sim === 'force_all_down') {
+                    sendResponse(null);
+                    return;
+                }
+                fetchNeteaseRaw(id, timeoutMs)
+                    .then(res => {
+                        const lyric = typeof res === 'string' ? res : (res?.lyric || '');
+                        const tlyric = typeof res === 'object' ? (res?.tlyric || '') : '';
+                        const romalrc = typeof res === 'object' ? (res?.romalrc || '') : '';
+                        sendResponse({ lyric, tlyric, romalrc, id });
+                    })
+                    .catch(() => sendResponse(null));
+            });
+            return true;
+        }
+
         fetchNeteaseRaw(id, timeoutMs)
             .then(res => {
                 const lyric = typeof res === 'string' ? res : (res?.lyric || '');
@@ -93,6 +112,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'FETCH_LRCLIB') {
         const { id, timeoutMs } = message.payload;
         if (!id) { sendResponse(null); return false; }
+
+        if (IS_DEV_MODE) {
+            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
+                const sim = items.devSimulateSearch || 'none';
+                if (sim === 'force_lrclib_down' || sim === 'force_all_down') {
+                    sendResponse(null);
+                    return;
+                }
+                fetchLrcLibRaw(id, timeoutMs)
+                    .then(data => sendResponse(data))
+                    .catch(() => sendResponse(null));
+            });
+            return true;
+        }
 
         fetchLrcLibRaw(id, timeoutMs)
             .then(data => sendResponse(data))

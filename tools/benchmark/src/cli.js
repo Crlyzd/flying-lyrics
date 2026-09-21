@@ -22,7 +22,8 @@ function parseArgs() {
         limit: null,
         refresh: false,
         clearCache: false,
-        delayMs: 150
+        delayMs: 150,
+        lrclibOnly: false
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -35,6 +36,7 @@ function parseArgs() {
         else if (arg === '--refresh' || arg === '-r') options.refresh = true;
         else if (arg === '--clear-cache') options.clearCache = true;
         else if (arg === '--delay') options.delayMs = parseInt(args[++i], 10);
+        else if (arg === '--lrclib-only' || arg === '--no-netease') options.lrclibOnly = true;
     }
 
     return options;
@@ -128,7 +130,7 @@ async function main() {
 
             const t0 = performance.now();
             try {
-                const result = await benchmarkSearchTrack(track.title, track.artist, track.durationSec);
+                const result = await benchmarkSearchTrack(track.title, track.artist, track.durationSec, options);
                 const latencyMs = Math.round(performance.now() - t0);
                 totalLatency += latencyMs;
 

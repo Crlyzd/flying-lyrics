@@ -4,10 +4,11 @@ import { cleanTitle, cleanArtist } from './sanitizer.js';
 import { scoreCandidate } from './matcher.js';
 import { extractTitleAliases, romanize, isNonAscii } from './romanizer.js';
 
-async function fetchCandidates(title, artist, durationSec) {
+async function fetchCandidates(title, artist, durationSec, options = {}) {
+    const skipNetease = options.lrclibOnly || options.noNetease;
     const [lrclibResults, neteaseResults] = await Promise.allSettled([
         searchLrclib(title, artist, durationSec),
-        searchNetease(title, artist)
+        skipNetease ? Promise.resolve([]) : searchNetease(title, artist)
     ]);
 
     return [
@@ -68,14 +69,14 @@ function evaluateWinner(winner) {
  * @param {number} durationSec
  * @returns {Promise<{ status: 'SUCCESS' | 'NO_MATCH' | 'NO_LYRICS', bestMatch: object | null, candidateCount: number }>}
  */
-export async function benchmarkSearchTrack(rawTitle, rawArtist, durationSec) {
+export async function benchmarkSearchTrack(rawTitle, rawArtist, durationSec, options = {}) {
     const title = cleanTitle(rawTitle);
     const artist = cleanArtist(rawArtist);
 
     let allCandidates = [];
 
     // ── PASS 1: Cleaned Title Search (LRCLIB + NetEase) ──────────────────────────
-    const pass1Candidates = await fetchCandidates(title, artist, durationSec);
+    const pass1Candidates = await fetchCandidates(title, artist, durationSec, options);
     allCandidates.push(...pass1Candidates);
 
     let scoredPass1 = await verifyAndScoreCandidates(pass1Candidates, title, artist, durationSec);
@@ -93,7 +94,7 @@ export async function benchmarkSearchTrack(rawTitle, rawArtist, durationSec) {
     for (const alias of aliases) {
         if (alias.toLowerCase() === title.toLowerCase()) continue;
 
-        const aliasCandidates = await fetchCandidates(alias, artist, durationSec);
+        const aliasCandidates = await fetchCandidates(alias, artist, durationSec, options);
         allCandidates.push(...aliasCandidates);
 
         const scoredAlias = await verifyAndScoreCandidates(aliasCandidates, alias, artist, durationSec);

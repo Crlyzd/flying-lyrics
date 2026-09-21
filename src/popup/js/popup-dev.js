@@ -125,6 +125,7 @@
                 <select id="select-dev-simulate-search" style="margin-bottom: 4px;">
                     <option value="none">Normal (Live Providers)</option>
                     <option value="force_lrclib_down">Force LRCLIB Down (Test NetEase Fallback)</option>
+                    <option value="force_netease_down">Force NetEase Down (Test LRCLIB Only)</option>
                     <option value="force_all_down">Force All Search Down (Test Red ✕ Badge)</option>
                     <option value="simulate_latency">Simulate Slow Search (5s Latency)</option>
                 </select>
