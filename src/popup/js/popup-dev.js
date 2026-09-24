@@ -122,13 +122,21 @@
             <!-- SECTION 3: LYRICS SEARCH SIMULATOR -->
             <div class="control-group dev-card">
                 <label class="dev-card-label" for="select-dev-simulate-search">Lyrics Search Simulator</label>
-                <select id="select-dev-simulate-search" style="margin-bottom: 4px;">
-                    <option value="none">Normal (Live Providers)</option>
-                    <option value="force_lrclib_down">Force LRCLIB Down (Test NetEase Fallback)</option>
-                    <option value="force_netease_down">Force NetEase Down (Test LRCLIB Only)</option>
+                <select id="select-dev-simulate-search" style="margin-bottom: 6px;">
+                    <option value="none">Normal (Live Providers: LRCLIB, NetEase, KuGou)</option>
+                    <option value="force_lrclib_netease_down">Force LRCLIB &amp; NetEase Down (Test KuGou Only)</option>
+                    <option value="force_kugou_down">Force KuGou Down (Test LRCLIB &amp; NetEase)</option>
+                    <option value="force_lrclib_down">Force LRCLIB Down (Test NetEase &amp; KuGou Fallback)</option>
+                    <option value="force_netease_down">Force NetEase Down (Test LRCLIB &amp; KuGou)</option>
                     <option value="force_all_down">Force All Search Down (Test Red ✕ Badge)</option>
                     <option value="simulate_latency">Simulate Slow Search (5s Latency)</option>
                 </select>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px; margin-bottom: 6px;">
+                    <button class="search-btn dev-action-btn" id="btn-dev-ping-kugou" style="font-size: 11px; padding: 4px 10px; width: auto; margin: 0;">
+                        Ping KuGou API
+                    </button>
+                    <span id="dev-kugou-ping-status" class="dev-subtext" style="font-size: 11px;">Not tested</span>
+                </div>
                 <span class="dev-subtext">Mocks lyrics provider responses &amp; network latency</span>
             </div>
 
@@ -323,6 +331,36 @@
                     notifyTabs({ devSimulateSearch: val });
                     showToast(`Search mode: ${selectSimulateSearch.options[selectSimulateSearch.selectedIndex].text}`);
                     triggerForceRefetch(true);
+                });
+            });
+        }
+
+        // ── Ping KuGou API ──
+        const btnPingKugou = document.getElementById('btn-dev-ping-kugou');
+        const kugouPingStatus = document.getElementById('dev-kugou-ping-status');
+        if (btnPingKugou) {
+            btnPingKugou.addEventListener('click', () => {
+                btnPingKugou.disabled = true;
+                btnPingKugou.textContent = 'Pinging...';
+                if (kugouPingStatus) {
+                    kugouPingStatus.textContent = 'Testing...';
+                    kugouPingStatus.style.color = '#e2e8f0';
+                }
+                chrome.runtime.sendMessage({
+                    type: 'DEV_PING_PROVIDER',
+                    payload: { provider: 'kugou' }
+                }, (res) => {
+                    btnPingKugou.disabled = false;
+                    btnPingKugou.textContent = 'Ping KuGou API';
+                    if (kugouPingStatus) {
+                        if (res?.ok) {
+                            kugouPingStatus.textContent = `200 OK (${res.latency}ms, ${res.count} hits)`;
+                            kugouPingStatus.style.color = '#10b981';
+                        } else {
+                            kugouPingStatus.textContent = `${res?.error || 'Failed'} (${res?.latency || 0}ms)`;
+                            kugouPingStatus.style.color = '#ef4444';
+                        }
+                    }
                 });
             });
         }
@@ -557,6 +595,8 @@
                                 trackSourceEl.style.color = '#ffaa00';
                             } else if (sourceStr.includes('LRCLIB')) {
                                 trackSourceEl.style.color = '#38bdf8';
+                            } else if (sourceStr.includes('KUGOU')) {
+                                trackSourceEl.style.color = '#10b981';
                             } else if (sourceStr.includes('LOCAL')) {
                                 trackSourceEl.style.color = '#a855f7';
                             } else {

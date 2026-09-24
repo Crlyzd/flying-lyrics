@@ -163,8 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ACTIVE SOURCE CARD — shown when no explicit results yet and a lyric is already playing
         if (results.length === 0 && state.activeSource && !(activeOverride && activeOverride.type === 'local')) {
-            const sourceLabel = state.activeSource.type === 'netease' ? 'NETEASE' : 'LRCLIB';
-            const badgeClass  = state.activeSource.type === 'netease' ? 'badge-netease' : 'badge-lrclib';
+            const sourceLabel = state.activeSource.type === 'netease' 
+                ? 'NETEASE' 
+                : (state.activeSource.type === 'kugou' ? 'KUGOU' : 'LRCLIB');
+            const badgeClass  = state.activeSource.type === 'netease' 
+                ? 'badge-netease' 
+                : (state.activeSource.type === 'kugou' ? 'badge-kugou' : 'badge-lrclib');
             let syncBadge = '';
             if (state.activeSource.type !== 'local') {
                 if (state.activeSource.isEmpty) {
@@ -206,9 +210,10 @@ document.addEventListener('DOMContentLoaded', () => {
             div.className = 'result-item';
 
             // Store data for event delegation on the container
-            div.dataset.source = item.source;
-            div.dataset.id     = item.id;
-            div.dataset.name   = item.name;
+            div.dataset.source    = item.source;
+            div.dataset.id        = item.id;
+            div.dataset.accesskey = item.accesskey || '';
+            div.dataset.name      = item.name;
 
             const isActiveOverride = activeOverride && activeOverride.type !== 'local'
                 && String(activeOverride.id) === String(item.id) && activeOverride.type === item.source;
@@ -286,16 +291,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Standard result — save the chosen source/id override
-            const source = item.dataset.source;
-            const id     = item.dataset.id;
+            const source    = item.dataset.source;
+            const id        = item.dataset.id;
+            const accesskey = item.dataset.accesskey;
 
             if (source && id) {
                 const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
                     ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
                     : null;
+                const overridePayload = { type: source, id: id };
+                if (source === 'kugou' && accesskey) {
+                    overridePayload.accesskey = accesskey;
+                }
                 saveAndNotify({ 
                     trackKey: trackKey,
-                    lyricOverride: { type: source, id: id } 
+                    lyricOverride: overridePayload 
                 });
                 const spinner = document.createElement('div');
                 spinner.className = 'sync-spinner';
@@ -373,9 +383,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const buildBadgeHtml = (item) => {
                 const isItemEmpty = item.isEmpty || (state.activeSource && state.activeSource.type === item.source && String(state.activeSource.id) === String(item.id) && state.activeSource.isEmpty);
-                const sourceBadge = item.source === 'api'
-                    ? `<span class="result-badge badge-lrclib">LRCLIB</span>`
-                    : `<span class="result-badge badge-netease">NETEASE</span>`;
+                let sourceBadge = '';
+                if (item.source === 'api') {
+                    sourceBadge = `<span class="result-badge badge-lrclib">LRCLIB</span>`;
+                } else if (item.source === 'netease') {
+                    sourceBadge = `<span class="result-badge badge-netease">NETEASE</span>`;
+                } else if (item.source === 'kugou') {
+                    sourceBadge = `<span class="result-badge badge-kugou">KUGOU</span>`;
+                }
                 let statusBadge = '';
                 if (isItemEmpty) {
                     statusBadge = `<span class="result-badge badge-empty">EMPTY</span>`;
@@ -733,11 +748,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         const badgesContainer = activeItem.querySelector('.result-badges');
                         if (badgesContainer) {
                             if (!badgesContainer.querySelector('.badge-empty')) {
-                                badgesContainer.innerHTML = 
-                                    (state.activeSource.type === 'netease' 
-                                        ? `<span class="result-badge badge-netease">NETEASE</span>` 
-                                        : `<span class="result-badge badge-lrclib">LRCLIB</span>`) +
-                                    `<span class="result-badge badge-empty">EMPTY</span>`;
+                                const pType = state.activeSource.type;
+                                const pBadge = pType === 'netease'
+                                    ? `<span class="result-badge badge-netease">NETEASE</span>`
+                                    : (pType === 'kugou'
+                                        ? `<span class="result-badge badge-kugou">KUGOU</span>`
+                                        : `<span class="result-badge badge-lrclib">LRCLIB</span>`);
+                                badgesContainer.innerHTML = pBadge + `<span class="result-badge badge-empty">EMPTY</span>`;
                             }
                         }
                     }

@@ -152,6 +152,11 @@
     color: var(--accent-contrast) !important;
 }
 
+.badge-kugou {
+    background: var(--accent-green) !important;
+    color: var(--accent-green-contrast) !important;
+}
+
 .badge-unsynced {
     background: #555 !important;
     color: #FFF !important;

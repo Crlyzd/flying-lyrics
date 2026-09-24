@@ -81,7 +81,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (IS_DEV_MODE) {
             chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
                 const sim = items.devSimulateSearch || 'none';
-                if (sim === 'force_netease_down' || sim === 'force_all_down') {
+                if (sim === 'force_netease_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down') {
                     sendResponse(null);
                     return;
                 }
@@ -116,7 +116,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (IS_DEV_MODE) {
             chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
                 const sim = items.devSimulateSearch || 'none';
-                if (sim === 'force_lrclib_down' || sim === 'force_all_down') {
+                if (sim === 'force_lrclib_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down') {
                     sendResponse(null);
                     return;
                 }
@@ -129,6 +129,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         fetchLrcLibRaw(id, timeoutMs)
             .then(data => sendResponse(data))
+            .catch(() => sendResponse(null));
+        return true;
+    }
+
+    // ── Direct KuGou lookup (used by manual override resolution in services.js) ──
+    if (message.type === 'FETCH_KUGOU') {
+        const { id, accesskey, timeoutMs } = message.payload;
+        if (!id || !accesskey) { sendResponse(null); return false; }
+
+        if (IS_DEV_MODE) {
+            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
+                const sim = items.devSimulateSearch || 'none';
+                if (sim === 'force_kugou_down' || sim === 'force_all_down') {
+                    sendResponse(null);
+                    return;
+                }
+                fetchKugouRaw(id, accesskey, timeoutMs)
+                    .then(res => sendResponse(res))
+                    .catch(() => sendResponse(null));
+            });
+            return true;
+        }
+
+        fetchKugouRaw(id, accesskey, timeoutMs)
+            .then(res => sendResponse(res))
             .catch(() => sendResponse(null));
         return true;
     }
@@ -181,6 +206,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }, delay);
         });
         return true;
+    }
+
+    // ── Diagnostic Provider Ping (used by popup-dev.js) ──
+    if (message.type === 'DEV_PING_PROVIDER') {
+        const provider = message.payload?.provider || 'kugou';
+        const startTime = performance.now();
+        if (provider === 'kugou') {
+            const testQuery = 'Adele - Hello';
+            fetchWithTimeout(`https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(testQuery)}&hash=`, 6000)
+                .then(r => {
+                    const latency = Math.round(performance.now() - startTime);
+                    if (r.ok) {
+                        return r.json().then(data => {
+                            const count = Array.isArray(data?.candidates) ? data.candidates.length : 0;
+                            sendResponse({ ok: true, latency, count, status: r.status });
+                        });
+                    }
+                    sendResponse({ ok: false, latency, count: 0, status: r.status, error: `HTTP ${r.status}` });
+                })
+                .catch(err => {
+                    const latency = Math.round(performance.now() - startTime);
+                    sendResponse({ ok: false, latency, count: 0, error: err.name === 'AbortError' ? 'Timeout (>6s)' : (err.message || 'Network Error') });
+                });
+            return true;
+        }
     }
 });
 

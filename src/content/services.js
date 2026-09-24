@@ -708,6 +708,33 @@
             };
             fl.activateLyrics();
             return raw;
+        } else if (override.type === 'kugou' && override.id && override.accesskey) {
+            const resMsg = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ 
+                    type: 'FETCH_KUGOU', 
+                    payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 30000 } 
+                }, resolve);
+            });
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+
+            if (!resMsg) return ""; // Network/API error: fall back to auto-search
+
+            let raw = resMsg.lyric || "";
+            const isEmpty = !raw;
+            if (isEmpty) {
+                raw = "[00:00.00] ♫ (Empty) ♫";
+            }
+            const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
+            fl.activeLyricSource = { 
+                type: 'kugou', 
+                id: resMsg.id || override.id, 
+                accesskey: override.accesskey,
+                name: key,
+                synced: isSynced,
+                isEmpty: isEmpty
+            };
+            fl.activateLyrics();
+            return raw;
         }
         return "";
     }

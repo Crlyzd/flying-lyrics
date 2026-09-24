@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Flying Lyrics - Romanize Your Lyrics",
   "short_name": "FlyingLyrics",
-  "version": "4.8",
+  "version": "4.9",
   "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
   "permissions": [
     "storage",
@@ -24,7 +24,8 @@
     "https://music.163.com/*",
     "https://*.spotifycdn.com/*",
     "https://www.google-analytics.com/*",
-    "https://api.mymemory.translated.net/*"
+    "https://api.mymemory.translated.net/*",
+    "https://lyrics.kugou.com/*"
   ],
   "content_scripts": [
     {

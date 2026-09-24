@@ -360,6 +360,33 @@ function normalizeNetease(song) {
     };
 }
 
+function normalizeKugou(item) {
+    return {
+        source:     'kugou',
+        id:         String(item.id || ''),
+        accesskey:  String(item.accesskey || ''),
+        trackName:  item.song || '',
+        artistName: item.singer || '',
+        albumName:  '',
+        duration:   item.duration ? Math.floor(item.duration / 1000) : 0,
+        synced:     null,
+        rawLyric:   null,
+        isEmpty:    false,
+        instrumental: false
+    };
+}
+
+function decodeBase64Utf8(base64Str) {
+    if (!base64Str) return '';
+    try {
+        const binary = atob(base64Str);
+        const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+        return new TextDecoder('utf-8').decode(bytes);
+    } catch {
+        return '';
+    }
+}
+
 // ─── Network helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -374,6 +401,8 @@ function getCanonicalEndpoint(url) {
     if (url.includes('lrclib.net/api/search')) return 'lrclib_search';
     if (url.includes('music.163.com/api/song/lyric')) return 'netease_lyric';
     if (url.includes('music.163.com/api/cloudsearch')) return 'netease_search';
+    if (url.includes('lyrics.kugou.com/download')) return 'kugou_download';
+    if (url.includes('lyrics.kugou.com/search')) return 'kugou_search';
     if (url.includes('translate.googleapis.com')) return 'google_translate';
 
     try {
@@ -467,6 +496,18 @@ function fetchLrcLibRaw(id, timeoutMs) {
         .catch(() => null);
 }
 
+/** Fetches the raw KuGou lyric data (decoded from Base64 UTF-8) for a specific song ID and access key. */
+function fetchKugouRaw(id, accesskey, timeoutMs) {
+    if (!id || !accesskey) return Promise.resolve({ lyric: '', id });
+    return fetchWithTimeout(`https://lyrics.kugou.com/download?ver=1&client=pc&id=${encodeURIComponent(id)}&accesskey=${encodeURIComponent(accesskey)}&fmt=lrc&charset=utf8`, timeoutMs || DEFAULT_TIMEOUT_MS)
+        .then(r => r.json())
+        .then(data => ({
+            lyric: decodeBase64Utf8(data?.content || ''),
+            id: id
+        }))
+        .catch(() => ({ lyric: '', id }));
+}
+
 const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
 
 // ─── Core search ─────────────────────────────────────────────────────────────
@@ -493,20 +534,27 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
 
     let lrcTimedOut = false;
     let neteaseTimedOut = false;
+    let kugouTimedOut = false;
     let lrcOk = false;
     let neteaseOk = false;
+    let kugouOk = false;
 
-    const skipLrc = (sim === 'force_lrclib_down');
+    const skipLrc = (sim === 'force_lrclib_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down');
     const lrcPromise = skipLrc
         ? Promise.resolve({ ok: false, json: () => Promise.resolve([]) })
         : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
 
-    const skipNetease = (sim === 'force_netease_down');
+    const skipNetease = (sim === 'force_netease_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down');
     const neteasePromise = skipNetease
         ? Promise.resolve({ ok: false, json: () => Promise.resolve({ result: { songs: [] } }) })
         : fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout);
 
-    const [lrcRes, neteaseRes] = await Promise.allSettled([
+    const skipKugou = (sim === 'force_kugou_down' || sim === 'force_all_down');
+    const kugouPromise = skipKugou
+        ? Promise.resolve({ ok: false, json: () => Promise.resolve({ candidates: [] }) })
+        : fetchWithTimeout(`https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(query)}&hash=`, activeTimeout);
+
+    const [lrcRes, neteaseRes, kugouRes] = await Promise.allSettled([
         lrcPromise
             .then(r => {
                 if (r.ok) {
@@ -536,6 +584,22 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
                     neteaseTimedOut = true;
                 }
                 return [];
+            }),
+
+        kugouPromise
+            .then(r => {
+                if (r.ok) {
+                    kugouOk = true;
+                    return r.json();
+                }
+                return { candidates: [] };
+            })
+            .then(data => data?.candidates || [])
+            .catch((err) => {
+                if (err.name === 'AbortError' || err.message?.includes('timeout')) {
+                    kugouTimedOut = true;
+                }
+                return [];
             })
     ]);
 
@@ -552,6 +616,11 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
         candidates.push(...netItems.slice(0, 10).map(normalizeNetease));
     }
 
+    if (kugouRes.status === 'fulfilled') {
+        const kugouItems = Array.isArray(kugouRes.value) ? kugouRes.value : [];
+        candidates.push(...kugouItems.slice(0, 10).map(normalizeKugou));
+    }
+
     // Pre-calculate query metadata and score each candidate exactly once
     const queryMetadata = getQueryMetadata(cleanTitle, cleanArtist);
     for (const c of candidates) {
@@ -561,9 +630,9 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
     // Score and sort best-first
     candidates.sort((a, b) => b._score - a._score);
 
-    const isNetworkError = !lrcOk && !neteaseOk;
+    const isNetworkError = !lrcOk && !neteaseOk && !kugouOk;
 
-    return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut, isNetworkError };
+    return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut || kugouTimedOut, isNetworkError };
 }
 
 // ─── Auto Search ─────────────────────────────────────────────────────────────
@@ -657,7 +726,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
     }
 
     const resolvedPool = []; // { rawLyric, source, synced, score }
-    const neteaseToFetch = []; // array of candidates to lazy fetch
+    const candidatesToFetch = []; // array of candidates to lazy fetch (Netease & KuGou)
 
     // Pre-calculate query metadata once for the auto match loop
     const queryMetadata = getQueryMetadata(cTitleFull, cPrimaryArtist, romajiTitle, romajiArtist);
@@ -703,39 +772,62 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
                 synced:   c.synced,
                 score:    scoreCandidate(c, duration, queryMetadata),
             });
-        } else if (c.source === 'netease') {
-            // Store Netease candidate for optimistic pre-scoring
-            neteaseToFetch.push(c);
+        } else if (c.source === 'netease' || c.source === 'kugou') {
+            // Store Netease or KuGou candidate for optimistic pre-scoring
+            candidatesToFetch.push(c);
         }
     }
 
-    // Helper to download Netease lyrics and check sync status
-    const fetchNeteaseCandidates = async (candidatesList) => {
+    // Helper to download Netease/KuGou lyrics and check sync status
+    const fetchUnresolvedCandidates = async (candidatesList) => {
         const promises = candidatesList.map(async (c) => {
             try {
-                const resObj = await fetchNeteaseRaw(c.id, timeoutMs);
-                const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
-                if (raw && raw.trim().length >= 5) {
-                    const isSynced = LRC_TIMESTAMP_RE.test(raw);
-                    const resolved = { ...c, synced: isSynced };
-                    return {
-                        rawLyric: raw,
-                        source:   { 
-                            type: 'netease', 
-                            id: c.id, 
-                            name: c.trackName, 
-                            synced: isSynced,
-                            isEmpty: false,
-                            instrumental: false,
-                            tlyric: resObj?.tlyric || '',
-                            romalrc: resObj?.romalrc || ''
-                        },
-                        synced:   isSynced,
-                        score:    scoreCandidate(resolved, duration, queryMetadata),
-                    };
+                if (c.source === 'kugou') {
+                    const resObj = await fetchKugouRaw(c.id, c.accesskey, timeoutMs);
+                    const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
+                    if (raw && raw.trim().length >= 5) {
+                        const isSynced = LRC_TIMESTAMP_RE.test(raw);
+                        const resolved = { ...c, synced: isSynced };
+                        return {
+                            rawLyric: raw,
+                            source:   { 
+                                type: 'kugou', 
+                                id: c.id,
+                                accesskey: c.accesskey,
+                                name: c.trackName, 
+                                synced: isSynced,
+                                isEmpty: false,
+                                instrumental: false
+                            },
+                            synced:   isSynced,
+                            score:    scoreCandidate(resolved, duration, queryMetadata),
+                        };
+                    }
+                } else {
+                    const resObj = await fetchNeteaseRaw(c.id, timeoutMs);
+                    const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
+                    if (raw && raw.trim().length >= 5) {
+                        const isSynced = LRC_TIMESTAMP_RE.test(raw);
+                        const resolved = { ...c, synced: isSynced };
+                        return {
+                            rawLyric: raw,
+                            source:   { 
+                                type: 'netease', 
+                                id: c.id, 
+                                name: c.trackName, 
+                                synced: isSynced,
+                                isEmpty: false,
+                                instrumental: false,
+                                tlyric: resObj?.tlyric || '',
+                                romalrc: resObj?.romalrc || ''
+                            },
+                            synced:   isSynced,
+                            score:    scoreCandidate(resolved, duration, queryMetadata),
+                        };
+                    }
                 }
             } catch (err) {
-                console.warn(`FL: Auto-fetch Netease ID ${c.id} failed:`, err);
+                console.warn(`FL: Auto-fetch ${c.source} ID ${c.id} failed:`, err);
             }
             return null;
         });
@@ -743,10 +835,10 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
         return fetched.filter(Boolean);
     };
 
-    // 4. Optimistically pre-score and limit Netease candidates
-    if (neteaseToFetch.length > 0) {
-        // Score Netease candidate assuming the best case: it is synced (synced: true)
-        const optimisticScoredNetease = neteaseToFetch.map(c => {
+    // 4. Optimistically pre-score and limit unresolved candidates
+    if (candidatesToFetch.length > 0) {
+        // Score candidate assuming the best case: it is synced (synced: true)
+        const optimisticScored = candidatesToFetch.map(c => {
             const optimisticCandidate = { ...c, synced: true };
             return {
                 candidate: c,
@@ -755,28 +847,28 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
         });
 
         // Sort descending by optimistic score
-        optimisticScoredNetease.sort((a, b) => b.optimisticScore - a.optimisticScore);
+        optimisticScored.sort((a, b) => b.optimisticScore - a.optimisticScore);
 
         // Determine fetch depth based on whether LRCLIB has a synced candidate
         const hasSyncedLrcLib = resolvedPool.some(r => r.synced);
         const initialDepth = hasSyncedLrcLib ? 3 : 5;
 
-        // Take only the top initialDepth Netease candidates for Batch 1
-        const firstBatch = optimisticScoredNetease.slice(0, initialDepth).map(x => x.candidate);
+        // Take only the top initialDepth candidates for Batch 1
+        const firstBatch = optimisticScored.slice(0, initialDepth).map(x => x.candidate);
 
         // 5. Fetch first batch concurrently
-        const resolvedBatch1 = await fetchNeteaseCandidates(firstBatch);
+        const resolvedBatch1 = await fetchUnresolvedCandidates(firstBatch);
         resolvedPool.push(...resolvedBatch1);
 
         // 6. Check if we found a synced lyric in Batch 1
         const hasSyncedInBatch1 = resolvedBatch1.some(r => r.synced);
 
         // 7. Tiered fetch fallback: If no synced lyric is found in Batch 1, fetch Batch 2 (next 3)
-        if (!hasSyncedInBatch1 && optimisticScoredNetease.length > initialDepth) {
-            const secondBatch = optimisticScoredNetease
+        if (!hasSyncedInBatch1 && optimisticScored.length > initialDepth) {
+            const secondBatch = optimisticScored
                 .slice(initialDepth, initialDepth + 3)
                 .map(x => x.candidate);
-            const resolvedBatch2 = await fetchNeteaseCandidates(secondBatch);
+            const resolvedBatch2 = await fetchUnresolvedCandidates(secondBatch);
             resolvedPool.push(...resolvedBatch2);
         }
     }
@@ -827,13 +919,14 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeout
 
     // Map to a UI-friendly format (popup.js will render this directly)
     const results = candidates.map(c => ({
-        source:     c.source === 'lrclib' ? 'api' : 'netease',
+        source:     c.source === 'lrclib' ? 'api' : (c.source === 'netease' ? 'netease' : 'kugou'),
         id:         c.id,
+        accesskey:  c.accesskey || '',
         name:       c.trackName,
         artistName: c.artistName,
         albumName:  c.albumName,
         duration:   c.duration,
-        synced:     c.synced,         // null for Netease (unknown until clicked)
+        synced:     c.synced,         // null for Netease & KuGou (unknown until clicked)
         // Include the pre-resolved raw lyric for LRCLIB so the popup can apply
         // the manual override immediately without an extra network round-trip
         rawLyric:   c.source === 'lrclib' ? (c.rawLyric || '') : null,
