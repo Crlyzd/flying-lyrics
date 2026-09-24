@@ -5,10 +5,13 @@
     //  FLYING LYRICS — MULTI-TIER TRANSLATION WATERFALL (content script context)
     // ─────────────────────────────────────────────────────────────────────────────
 
+    fl._translationSessionId = 0;
+
     fl.translateExistingLyrics = async function () {
         if (!fl.lyricLines || fl.lyricLines.length === 0) return;
         if (fl.lyricLines.length === 1 && (fl.lyricLines[0].isWaitingPlaceholder || (fl.SYSTEM_MSG_SET && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text)))) return;
 
+        const sessionId = ++fl._translationSessionId;
         const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
 
         // 1. Gather all lines that actually need Romaji
@@ -32,14 +35,18 @@
         const tasks = [];
         if (romajiQueue.length > 0) {
             tasks.push(fl.processTranslateBatch(romajiQueue, 'rm', 'en', (itemIndex, resultText) => {
-                fl.lyricLines[itemIndex].romaji = resultText;
-            }));
+                if (fl._translationSessionId === sessionId && fl.lyricLines?.[itemIndex]) {
+                    fl.lyricLines[itemIndex].romaji = resultText;
+                }
+            }, sessionId));
         }
 
         if (transQueue.length > 0) {
             tasks.push(fl.processTranslateBatch(transQueue, 't', fl.translationLang, (itemIndex, resultText) => {
-                fl.lyricLines[itemIndex].translation = resultText;
-            }));
+                if (fl._translationSessionId === sessionId && fl.lyricLines?.[itemIndex]) {
+                    fl.lyricLines[itemIndex].translation = resultText;
+                }
+            }, sessionId));
         }
 
         if (tasks.length > 0) {
@@ -47,12 +54,16 @@
                 fl.activeTranslationTier = 'Translating...';
             }
             await Promise.all(tasks);
-            if (fl.activeTranslationTier === 'Translating...') {
+            if (fl._translationSessionId === sessionId) {
+                if (fl.activeTranslationTier === 'Translating...') {
+                    fl.activeTranslationTier = 'None';
+                }
+                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
+            }
+        } else {
+            if (fl._translationSessionId === sessionId) {
                 fl.activeTranslationTier = 'None';
             }
-            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-        } else {
-            fl.activeTranslationTier = 'None';
         }
     };
 
@@ -62,11 +73,12 @@
      * - Tier 2 (Network Fallbacks): Google token cascade (gtrans) -> MyMemory API -> NetEase community tlyric/romalrc
      * - Tier 3 (Local Safety Net): 100% offline rule-based romanizer.js for Japanese/Korean lyrics
      */
-    fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
+    fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback, sessionId) {
         if (fl.devDisableTranslation) {
             fl.activeTranslationTier = 'Disabled (Dev)';
             if (dtMode === 'rm') {
                 queue.forEach(q => {
+                    if (sessionId !== undefined && fl._translationSessionId !== sessionId) return;
                     const localRom = typeof romanize === 'function' ? romanize(q.text) : q.text;
                     applyCallback(q.index, (localRom || q.text).trim());
                 });
@@ -103,6 +115,11 @@
         // Fire all chunks concurrently with staggered ramp-up
         await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
             setTimeout(async () => {
+                if (sessionId !== undefined && fl._translationSessionId !== sessionId) {
+                    resolve();
+                    return;
+                }
+
                 const combinedText = chunk.map(q => q.text).join(DELIMITER);
                 let translatedCombo = "";
 
@@ -239,6 +256,11 @@
                             applyCallback(chunk[j].index, translatedLines[j].trim());
                         }
                     }
+                }
+
+                if (sessionId !== undefined && fl._translationSessionId !== sessionId) {
+                    resolve();
+                    return;
                 }
 
                 if (typeof fl.needsLayoutUpdate !== 'undefined') {

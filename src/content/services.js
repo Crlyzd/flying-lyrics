@@ -116,6 +116,7 @@
     fl.handleMissingLyrics = function () {
         fl.activeLyricSource = null;
         fl.activeTranslationTier = 'None';
+        fl._translationSessionId = (fl._translationSessionId || 0) + 1;
         fl.lyricLines = [];
         fl.isCurrentLyricSynced = false;
         fl.isMissingLyrics = true;
@@ -245,6 +246,7 @@
         if (fl._currentFetchController) {
             fl._currentFetchController.abort();
         }
+        fl._translationSessionId = (fl._translationSessionId || 0) + 1;
         fl._currentFetchController = new AbortController();
         const abortSignal = fl._currentFetchController.signal;
 
