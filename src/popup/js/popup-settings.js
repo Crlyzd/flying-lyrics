@@ -135,7 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (el.toggleEcoMode) {
         el.toggleEcoMode.addEventListener('change', () => {
-            saveAndNotify({ ecoMode: el.toggleEcoMode.checked });
+            const isEco = el.toggleEcoMode.checked;
+            if (el.glowPreview) el.glowPreview.classList.toggle('eco-mode', isEco);
+            saveAndNotify({ ecoMode: isEco });
         });
     }
 

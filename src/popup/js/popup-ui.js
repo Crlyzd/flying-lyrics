@@ -274,6 +274,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((namespace === 'local' || namespace === 'sync') && changes.showTranslation) {
             el.toggleTrans.checked = changes.showTranslation.newValue;
         }
+        // Sync ecoMode toggle and preview if changed externally
+        if ((namespace === 'local' || namespace === 'sync') && changes.ecoMode) {
+            if (el.toggleEcoMode) el.toggleEcoMode.checked = changes.ecoMode.newValue;
+            if (el.glowPreview) el.glowPreview.classList.toggle('eco-mode', !!changes.ecoMode.newValue);
+        }
         // Live-update the glow preview color when content script extracts a new palette.
         // currentVibrantColor is written to chrome.storage.local by extractPalette() on every
         // album art change, so this fires without any polling.

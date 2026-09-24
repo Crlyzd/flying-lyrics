@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 el.glowPreview.classList.toggle('shadow-disabled', !(items.lyricShadowEnabled ?? true));
             }
             
+            el.glowPreview.classList.toggle('eco-mode', !!items.ecoMode);
             el.glowPreview.style.fontFamily = items.customFont;
             el.glowPreview.style.fontSize = `${items.fontSize}px`;
         }

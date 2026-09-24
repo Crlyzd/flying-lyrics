@@ -348,6 +348,30 @@
     }
 }
 
+@keyframes rainbow-glow-eco {
+    0% {
+        text-shadow: 0 0 15px #ff0000;
+    }
+    17% {
+        text-shadow: 0 0 15px #ffff00;
+    }
+    33% {
+        text-shadow: 0 0 15px #00ff00;
+    }
+    50% {
+        text-shadow: 0 0 15px #00ffff;
+    }
+    67% {
+        text-shadow: 0 0 15px #0000ff;
+    }
+    83% {
+        text-shadow: 0 0 15px #ff00ff;
+    }
+    100% {
+        text-shadow: 0 0 15px #ff0000;
+    }
+}
+
 @keyframes rainbow-stroke-preview {
     0% {
         -webkit-text-stroke-color: #ff0000;
@@ -414,6 +438,17 @@
     animation: rainbow-glow-preview 3s linear infinite;
 }
 
+.glow-preview.active.eco-mode {
+    /* Eco Mode ON: static steady aura, matching canvas shadowBlur = 15 */
+    animation: none !important;
+    text-shadow: 0 0 15px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.rainbow.eco-mode {
+    /* Eco Mode ON + Rainbow: constant 15px flat blur while cycling chromatic spectrum */
+    animation: rainbow-glow-eco 3s linear infinite !important;
+}
+
 .glow-preview.active.shadow-disabled {
     /* Aura ON + Shadow OFF: static colored stroke, no shadow blur */
     animation: none !important;
@@ -423,6 +458,13 @@
 
 .glow-preview.active.shadow-disabled.rainbow {
     /* Aura ON + Rainbow ON + Shadow OFF: animated colored stroke, no shadow blur */
+    animation: rainbow-stroke-preview 3s linear infinite !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.shadow-disabled.rainbow.eco-mode {
+    /* Eco Mode ON + Rainbow ON + Shadow OFF: continue cycling stroke color */
     animation: rainbow-stroke-preview 3s linear infinite !important;
     text-shadow: none !important;
     -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
