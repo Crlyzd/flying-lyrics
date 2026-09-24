@@ -19,7 +19,7 @@
         const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
         const fitWidth = maxWidth * 0.75;
-        const displayFontFamily = ((isSystemMessage && !isWaitForIt) || (fl.galaxyMode === false && !isWaitForIt))
+        const displayFontFamily = (isSystemMessage && !isWaitForIt)
             ? "'Noto Sans', 'Segoe UI', sans-serif"
             : fl.userFontFamily;
         const activeSizeMin = vmin * 6.5 * fontScale;

@@ -5,9 +5,12 @@
     //  FLYING LYRICS — 2D CANVAS RENDERER ENGINE (content script context)
     //
     //  Modular sub-components:
-    //    - renderer/effects.js   (Aurora slosh, particle sparkles & background caching)
-    //    - renderer/layout.js    (Dynamic font sizing, wrapping, asymmetric boundary math)
-    //    - renderer/pipBadge.js  (Video PiP status pills & waiting state overlays)
+    //    - renderer/effects.js          (Aurora slosh, particle sparkles & background caching)
+    //    - renderer/layout.js           (Dynamic font sizing, wrapping, asymmetric boundary math)
+    //    - renderer/emptyStateQuotes.js (Dynamic waiting state quotes & stats text)
+    //    - renderer/pipBadge.js         (Video PiP status pills & waiting state overlays)
+    //    - renderer/pipSync.js          (PiP controls, playback state & volume synchronization)
+    //    - renderer/textDrawer.js       (Canvas lyric lines, shaders & glow rendering)
     // ─────────────────────────────────────────────────────────────────────────────
 
     // Layout cache state
@@ -257,102 +260,8 @@
         const maxWidth = w * 0.94;
 
         // Seeker & Play/Pause/Mute sync
-        const seekerContainer = fl._els?.seekerContainer;
-        const hasTrack = fl.currentTrack &&
-            fl.currentTrack !== "" &&
-            !((fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) || (state.paused && state.duration <= 5));
-
-        if (hasTrack && !state.paused) {
-            const nowTick = performance.now();
-            if (fl.lastActiveTickMs) {
-                const deltaMs = nowTick - fl.lastActiveTickMs;
-                if (typeof fl.accumulateListeningTime === 'function') fl.accumulateListeningTime(deltaMs);
-            }
-            fl.lastActiveTickMs = nowTick;
-        } else {
-            fl.lastActiveTickMs = null;
-        }
-
-        if (fl.activePipType !== 'video') {
-            const uiContainer = seekerContainer?.parentElement;
-            if (uiContainer && !isWaitingState && uiContainer.style.getPropertyValue('--vibrant-color')) {
-                uiContainer.style.removeProperty('--vibrant-color');
-            }
-
-            if (seekerContainer) seekerContainer.style.display = hasTrack ? 'block' : 'none';
-
-            const seeker = fl._els?.seeker;
-            if (seeker && hasTrack) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
-
-            const ppBtn = fl._els?.ppBtn;
-            if (ppBtn) {
-                const targetState = state.paused ? 'paused' : 'playing';
-                if (ppBtn.dataset.state !== targetState) {
-                    ppBtn.dataset.state = targetState;
-                    ppBtn.innerHTML = state.paused ? fl.ICON_PLAY : fl.ICON_PAUSE;
-                }
-            }
-
-            const muteBtn = fl._els?.muteBtn;
-            if (muteBtn) {
-                const adapter = fl.getActiveAdapter?.();
-                let isMuted = false;
-                if (adapter) {
-                    isMuted = adapter.isMuted();
-                } else {
-                    const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
-                    isMuted = media ? (media.muted || media.volume === 0) : false;
-                }
-                const targetMuteIcon = isMuted ? fl.ICON_VOL_MUTE : fl.ICON_VOL_HIGH;
-                if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
-            }
-        } else {
-            const video = document.getElementById('fl-video-pip-element');
-            if (video) {
-                const timeSinceLaunch = performance.now() - (fl.pipLaunchTime || 0);
-                const gracePeriodOver = timeSinceLaunch > 400;
-
-                const isBgLoading = fl.canvasBgImageUrl && !fl.canvasBgImage;
-                const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-                const isAnimating = absScrollDelta >= 0.5;
-                const shouldPauseVideo = state.paused && !isWaitingState && !isBgLoading && !fl.needsLayoutUpdate && !isAnimating && !fl.needsVideoFramePush;
-
-                if (gracePeriodOver && shouldPauseVideo !== video.paused) {
-                    if (shouldPauseVideo) {
-                        fl.ignoreVideoPauseEvent = true;
-                        video.pause();
-                    } else {
-                        fl.ignoreVideoPlayEvent = true;
-                        video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
-                    }
-                } else if (!gracePeriodOver && video.paused) {
-                    fl.ignoreVideoPlayEvent = true;
-                    video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
-                }
-
-                const adapter = fl.getActiveAdapter?.();
-                let isMuted = false;
-                if (adapter) {
-                    isMuted = adapter.isMuted();
-                } else {
-                    const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
-                    isMuted = media ? (media.muted || media.volume === 0) : false;
-                }
-
-                if (fl.lastHostMutedState === undefined) {
-                    fl.lastHostMutedState = isMuted;
-                    if (video.muted !== isMuted) {
-                        fl.ignoreVideoVolumeEvent = true;
-                        video.muted = isMuted;
-                    }
-                } else if (isMuted !== fl.lastHostMutedState) {
-                    fl.lastHostMutedState = isMuted;
-                    if (video.muted !== isMuted) {
-                        fl.ignoreVideoVolumeEvent = true;
-                        video.muted = isMuted;
-                    }
-                }
-            }
+        if (typeof fl.syncPipControls === 'function') {
+            fl.syncPipControls(state, isWaitingState);
         }
 
         if (fl.activePipType !== 'video' && (w < 140 || h < 140)) {
@@ -442,99 +351,8 @@
             }
         } else {
             fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
-            if (!fl.albumCoverMode) {
-                fl.lyricLines.forEach((line, i) => {
-                    const entry = fl.cachedLayout[i];
-                    if (!entry) return;
-                    const y = entry.y;
-
-                    // Culling: Skip drawing off-screen lines
-                    const screenY = (h / 2) - fl.scrollPos + anchorOffset + y;
-                    if (screenY < -h * 0.5 || screenY > h * 1.5) return;
-
-                    const dist = Math.abs(i - activeIdx);
-                    fl.ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
-
-                    const isSystemMessage = fl.lyricLines.length === 1 && (fl.SYSTEM_MSG_SET ? fl.SYSTEM_MSG_SET.has(line.text) : false);
-                    const isWaitForIt = fl.lyricLines.length === 1 && line.text === "Wait for it...";
-                    let drawX = 0;
-                    if (isSystemMessage) {
-                        fl.ctx.textAlign = 'center';
-                    } else if (fl.userLyricAlignment === 'left') {
-                        fl.ctx.textAlign = 'left';
-                        drawX = -(maxWidth / 2);
-                    } else if (fl.userLyricAlignment === 'right') {
-                        fl.ctx.textAlign = 'right';
-                        drawX = maxWidth / 2;
-                    } else {
-                        fl.ctx.textAlign = 'center';
-                    }
-
-                    const isCurrent = (i === activeIdx);
-                    const displayFontFamily = (isSystemMessage && !isWaitForIt) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
-                    const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
-
-                    const mainSize = entry.mainSize || (isCurrent ? vmin * 7.5 * fontScale : vmin * 6.0 * fontScale);
-                    const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-                    const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-
-                    fl.ctx.font = (isCurrent ? `700 ` : `600 `) + `${mainSize}px ${displayFontFamily}`;
-                    const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
-                    const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-
-                    // Draw Romaji
-                    if (line.romaji) {
-                        fl.ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
-                        fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#FFEAA7" : "rgba(255, 255, 255, 0.9)") : "rgba(255, 255, 255, 0.7)";
-                        if (isCurrent && fl.userLyricShadowEnabled) {
-                            fl.ctx.shadowColor = fl.userGlowEnabled ? (fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)") : "rgba(0, 0, 0, 0.8)";
-                            fl.ctx.shadowBlur = 10;
-                        } else {
-                            fl.ctx.shadowBlur = 0;
-                        }
-                        fl.wrapText(fl.ctx, line.romaji, drawX, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
-                    }
-
-                    // Draw Main Lyric
-                    fl.ctx.font = (isCurrent ? `700 ` : `600 `) + `${mainSize}px ${displayFontFamily}`;
-                    fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#FFFFFF" : "#FFFFFF") : "rgba(255, 255, 255, 0.6)";
-
-                    if (isCurrent) {
-                        if (!fl.userLyricShadowEnabled) {
-                            fl.ctx.shadowBlur = 0;
-                            fl.ctx.shadowColor = 'transparent';
-                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
-                        } else {
-                            if (fl.userGlowEnabled) {
-                                fl.ctx.shadowColor = fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)";
-                                fl.ctx.shadowBlur = fl.ecoMode ? 15 : (15 + Math.sin(now * 0.003) * 5);
-                            } else {
-                                fl.ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-                                fl.ctx.shadowBlur = 15;
-                            }
-                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                        }
-                    } else {
-                        fl.ctx.shadowBlur = 0;
-                        fl.ctx.shadowColor = 'transparent';
-                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                    }
-
-                    // Draw Translation
-                    if (fl.showTranslation && line.translation) {
-                        fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
-                        fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#81ECEC" : "rgba(255, 255, 255, 0.85)") : "rgba(255, 255, 255, 0.5)";
-                        if (isCurrent && fl.userLyricShadowEnabled) {
-                            fl.ctx.shadowColor = fl.userGlowEnabled ? (fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)") : "rgba(0, 0, 0, 0.8)";
-                            fl.ctx.shadowBlur = 10;
-                        } else {
-                            fl.ctx.shadowBlur = 0;
-                        }
-                        fl.wrapText(fl.ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
-                    }
-
-                    fl.ctx.shadowBlur = 0;
-                });
+            if (!fl.albumCoverMode && typeof fl.drawLyricLines === 'function') {
+                fl.drawLyricLines(w, h, vmin, maxWidth, activeIdx, anchorOffset, isFastScroll);
             }
         }
         fl.ctx.restore();

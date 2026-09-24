@@ -105,14 +105,17 @@
 
         const art = typeof fl.getCoverArt === 'function' ? fl.getCoverArt() : '';
 
+        // Manage cover art image loading
         if (art) {
             if (!fl.canvasBgImage || fl.canvasBgImageUrl !== art) {
                 fl.canvasBgImageUrl = art;
                 const img = new Image();
                 img.crossOrigin = "anonymous";
                 img.onload = () => {
-                    fl.canvasBgImage = img;
-                    fl.needsLayoutUpdate = true;
+                    if (fl.canvasBgImageUrl === art) {
+                        fl.canvasBgImage = img;
+                        fl.needsLayoutUpdate = true;
+                    }
                 };
                 img.src = art;
             }
@@ -121,12 +124,19 @@
             fl.canvasBgImageUrl = "";
         }
 
-        const effectiveCoverMode = fl.isMissingLyrics ? 'contain' : fl.userCoverMode;
-        const effectiveDarkness = fl.isMissingLyrics ? 0.35 : fl.userCoverDarkness;
-        const blurPx = fl.isMissingLyrics ? 0 : Math.round(w * (fl.userCoverBlur / 100));
+        const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
+        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : (fl.userCoverMode || 'centered');
+        const blurPx = isAlbumCoverForced ? 0 : (fl.userBgBlur || 0);
+        const effectiveDarkness = isAlbumCoverForced ? 0 : (fl.userBgDarkness || 0);
 
-        // Offscreen cache hit check
-        if (
+        // If Eco Mode is OFF, draw directly to the main canvas (no offscreen canvas cache)
+        if (!fl.ecoMode) {
+            fl.drawDirectBackground(fl.ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
+            return;
+        }
+
+        const currentPalette = fl.currentPalette || {};
+        const cacheMatches =
             fl.bgCacheCanvas &&
             fl.bgCacheW === w &&
             fl.bgCacheH === h &&
@@ -134,105 +144,129 @@
             fl.bgCacheBlur === blurPx &&
             fl.bgCacheDarkness === effectiveDarkness &&
             fl.bgCacheMode === effectiveCoverMode &&
-            fl.bgCacheVibrant === fl.currentPalette.vibrant &&
-            fl.bgCacheRaw === fl.currentPalette.raw
-        ) {
-            fl.ctx.drawImage(fl.bgCacheCanvas, 0, 0);
-            return;
-        }
+            fl.bgCacheVibrant === currentPalette.vibrant &&
+            fl.bgCacheRaw === currentPalette.raw &&
+            ((!fl.canvasBgImage) || (fl.bgCacheImgElement === fl.canvasBgImage));
 
-        if (!fl.bgCacheCanvas) {
-            fl.bgCacheCanvas = document.createElement('canvas');
-        }
-        if (fl.bgCacheCanvas.width !== w || fl.bgCacheCanvas.height !== h) {
-            fl.bgCacheCanvas.width = w;
-            fl.bgCacheCanvas.height = h;
+        if (!cacheMatches) {
+            if (!fl.bgCacheCanvas) {
+                fl.bgCacheCanvas = document.createElement('canvas');
+            }
+            if (fl.bgCacheCanvas.width !== w) fl.bgCacheCanvas.width = w;
+            if (fl.bgCacheCanvas.height !== h) fl.bgCacheCanvas.height = h;
             fl.bgCacheCtx = fl.bgCacheCanvas.getContext('2d');
+
+            const cacheCtx = fl.bgCacheCtx;
+            cacheCtx.clearRect(0, 0, w, h);
+
+            fl.drawDirectBackground(cacheCtx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
+
+            // Update cache parameters
+            fl.bgCacheW = w;
+            fl.bgCacheH = h;
+            fl.bgCacheUrl = fl.canvasBgImageUrl;
+            fl.bgCacheBlur = blurPx;
+            fl.bgCacheDarkness = effectiveDarkness;
+            fl.bgCacheMode = effectiveCoverMode;
+            fl.bgCacheVibrant = currentPalette.vibrant;
+            fl.bgCacheRaw = currentPalette.raw;
+            fl.bgCacheImgElement = fl.canvasBgImage;
         }
 
-        fl.drawDirectBackground(fl.bgCacheCtx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
-
-        fl.bgCacheW = w;
-        fl.bgCacheH = h;
-        fl.bgCacheUrl = fl.canvasBgImageUrl;
-        fl.bgCacheBlur = blurPx;
-        fl.bgCacheDarkness = effectiveDarkness;
-        fl.bgCacheMode = effectiveCoverMode;
-        fl.bgCacheVibrant = fl.currentPalette.vibrant;
-        fl.bgCacheRaw = fl.currentPalette.raw;
-        fl.bgCacheImgElement = fl.canvasBgImage;
-
+        // Draw offscreen canvas
         fl.ctx.drawImage(fl.bgCacheCanvas, 0, 0);
     };
 
     fl.drawDirectBackground = function (ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness) {
-        ctx.clearRect(0, 0, w, h);
+        if (effectiveCoverMode === 'centered') {
+            ctx.save();
+            if (blurPx > 0) {
+                ctx.filter = `blur(${blurPx}px)`;
+            }
 
-        if (fl.canvasBgImage && fl.canvasBgImage.complete && fl.canvasBgImage.naturalWidth > 0) {
-            const img = fl.canvasBgImage;
-            const iw = img.naturalWidth;
-            const ih = img.naturalHeight;
+            // Draw gradient background only when palette has been extracted from actual art.
+            if (fl.canvasBgImage && fl.currentPalette && fl.currentPalette.raw) {
+                const rawColor = fl.currentPalette.raw;
+                const baseBg = typeof fl.deriveDarkBg === 'function' ? fl.deriveDarkBg(rawColor) : rawColor;
+                const topBg = typeof fl.deriveLightBg === 'function' ? fl.deriveLightBg(rawColor) : rawColor;
+                const grad = ctx.createLinearGradient(0, 0, 0, h);
+                grad.addColorStop(0, topBg);
+                grad.addColorStop(1, baseBg);
+                ctx.fillStyle = grad;
+                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+            } else {
+                ctx.fillStyle = '#121212';
+                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
+            }
 
-            if (effectiveCoverMode === 'crop') {
-                const scale = Math.max(w / iw, h / ih);
-                const sw = w / scale;
-                const sh = h / scale;
-                const sx = (iw - sw) / 2;
-                const sy = (ih - sh) / 2;
+            // Draw centered art with drop shadow and rounded corners
+            if (fl.canvasBgImage) {
+                const size = Math.min(w, h) * 0.65;
+                const cx = (w - size) / 2;
+                const cy = (h - size) / 2;
+                const vmin = Math.min(w, h) / 100;
+                const cornerRadius = vmin * 4.5;
 
+                // 1. Draw the drop shadow using a filled rounded rectangle matching the image bounds
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+                ctx.shadowBlur = vmin * 8;
+                ctx.shadowOffsetY = vmin * 2;
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, size, size, cornerRadius);
+                ctx.fill();
+                ctx.restore();
+
+                // 2. Clip and draw the album cover image inside the rounded rectangle
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(cx, cy, size, size, cornerRadius);
+                ctx.clip();
+                ctx.drawImage(fl.canvasBgImage, cx, cy, size, size);
+                ctx.restore();
+            }
+            ctx.restore();
+        } else {
+            // Fill or Repeated cover mode
+            if (fl.canvasBgImage) {
                 ctx.save();
                 if (blurPx > 0) {
                     ctx.filter = `blur(${blurPx}px)`;
-                    const bleed = blurPx * 2;
-                    ctx.drawImage(img, sx, sy, sw, sh, -bleed, -bleed, w + bleed * 2, h + bleed * 2);
+                }
+
+                if (effectiveCoverMode === 'repeated') {
+                    // Create repeated pattern
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = 400;
+                    tempCanvas.height = 400;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(fl.canvasBgImage, 0, 0, 400, 400);
+                    const pattern = ctx.createPattern(tempCanvas, 'repeat');
+                    ctx.fillStyle = pattern;
+                    ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
                 } else {
-                    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+                    // Fill / Cover mode
+                    const imgW = fl.canvasBgImage.naturalWidth || fl.canvasBgImage.width;
+                    const imgH = fl.canvasBgImage.naturalHeight || fl.canvasBgImage.height;
+                    const scale = Math.max(w / imgW, h / imgH);
+                    const drawW = imgW * scale;
+                    const drawH = imgH * scale;
+                    const drawX = (w - drawW) / 2;
+                    const drawY = (h - drawH) / 2;
+                    ctx.drawImage(fl.canvasBgImage, drawX - blurPx * 2, drawY - blurPx * 2, drawW + blurPx * 4, drawH + blurPx * 4);
                 }
                 ctx.restore();
-            } else if (effectiveCoverMode === 'contain') {
-                ctx.save();
-                const bgScale = Math.max(w / iw, h / ih);
-                const bgSw = w / bgScale;
-                const bgSh = h / bgScale;
-                const bgSx = (iw - bgSw) / 2;
-                const bgSy = (ih - bgSh) / 2;
-
-                ctx.filter = 'blur(20px)';
-                ctx.drawImage(img, bgSx, bgSy, bgSw, bgSh, -40, -40, w + 80, h + 80);
-                ctx.restore();
-
-                const fgScale = Math.min(w / iw, h / ih) * 0.85;
-                const fgDw = iw * fgScale;
-                const fgDh = ih * fgScale;
-                const fgDx = (w - fgDw) / 2;
-                const fgDy = (h - fgDh) / 2;
-
-                ctx.save();
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-                ctx.shadowBlur = 30;
-                ctx.drawImage(img, 0, 0, iw, ih, fgDx, fgDy, fgDw, fgDh);
-                ctx.restore();
-            }
-
-            if (effectiveDarkness > 0) {
-                ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness})`;
+            } else {
+                ctx.fillStyle = '#121212';
                 ctx.fillRect(0, 0, w, h);
             }
-        } else {
-            const vibrantColor = fl.currentPalette.vibrant || 'rgba(30, 30, 40, 0.9)';
-            const rawColor = fl.currentPalette.raw || 'rgba(10, 10, 15, 0.95)';
+        }
 
-            const grad = ctx.createLinearGradient(0, 0, 0, h);
-            grad.addColorStop(0, vibrantColor);
-            grad.addColorStop(1, rawColor);
-
-            ctx.fillStyle = grad;
+        // Draw darkness overlay
+        if (effectiveDarkness > 0) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness / 100})`;
             ctx.fillRect(0, 0, w, h);
-
-            if (effectiveDarkness > 0) {
-                ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness})`;
-                ctx.fillRect(0, 0, w, h);
-            }
         }
     };
 
