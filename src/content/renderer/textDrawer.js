@@ -102,14 +102,9 @@
                         fl.ctx.shadowBlur = pulsedBlur;
                         fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
                     }
-                } else {
-                    if (!fl.userLyricShadowEnabled) {
-                        fl.ctx.shadowBlur = 0;
-                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                    } else {
-                        fl.ctx.shadowBlur = 15;
-                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                    }
+                } else if (fl.userLyricShadowEnabled) {
+                    fl.ctx.shadowBlur = 15;
+                    fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
                 }
             }
 
