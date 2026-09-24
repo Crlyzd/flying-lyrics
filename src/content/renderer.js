@@ -30,6 +30,7 @@
     fl.bgCacheMode = "";
     fl.bgCacheVibrant = "";
     fl.bgCacheRaw = "";
+    fl._waitForItStartTime = null;
 
     // Cached PiP DOM element references
     fl._els = null;
@@ -135,6 +136,7 @@
                 chrome.runtime.sendMessage({ type: 'ACTIVE_TRACK_CHANGED', payload: null }).catch(() => { });
             } else {
                 fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
+                fl._waitForItStartTime = performance.now();
                 fl.isCurrentLyricSynced = false;
                 fl.isMissingLyrics = false;
                 fl.needsLayoutUpdate = true;
@@ -164,6 +166,16 @@
 
                 fl.fetchLyrics();
             }
+        }
+
+        // Watchdog: break indefinite "Wait for it..." stall
+        if (fl._waitForItStartTime &&
+            fl.lyricLines.length === 1 &&
+            fl.lyricLines[0]?.text === "Wait for it..." &&
+            (performance.now() - fl._waitForItStartTime) > 15000) {
+            console.warn('FL: "Wait for it..." watchdog fired. Transitioning to missing lyrics.');
+            fl._waitForItStartTime = null;
+            if (typeof fl.handleMissingLyrics === 'function') fl.handleMissingLyrics();
         }
 
         if (fl.activePipType !== 'video' && !fl._els) fl._refreshEls();

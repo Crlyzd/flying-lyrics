@@ -59,6 +59,10 @@
      * @param {string} key - "Artist - Title" cache key.
      */
     fl.saveToPersistentCache = function (key) {
+        if (!key || typeof key !== 'string') return;
+        if (!fl.lyricLines || fl.lyricLines.length === 0) return;
+        if (fl.lyricLines.length === 1 && (fl.lyricLines[0].isWaitingPlaceholder || (fl.SYSTEM_MSG_SET && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text)))) return;
+
         const MAX_ENTRIES = 200;
 
         FLYING_LYRICS.storage.get('lyricsCache', ({ lyricsCache }) => {

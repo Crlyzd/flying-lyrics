@@ -28,9 +28,11 @@
             fl.activateLyrics();
             return override.data;
         } else if (override.type === 'api' && override.id) {
-            const resData = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
-            });
+            const resData = await fl.sendMessageWithTimeout(
+                { type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 8000 } },
+                10000,
+                null
+            );
             if (abortSignal?.aborted) throw new Error('TrackChanged');
             if (!resData) return "";
 
@@ -48,9 +50,11 @@
             fl.activateLyrics();
             return raw;
         } else if (override.type === 'netease' && override.id) {
-            const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
-            });
+            const resMsg = await fl.sendMessageWithTimeout(
+                { type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 8000 } },
+                10000,
+                null
+            );
             if (abortSignal?.aborted) throw new Error('TrackChanged');
             if (!resMsg) return "";
 
@@ -69,12 +73,11 @@
             fl.activateLyrics();
             return raw;
         } else if (override.type === 'kugou' && override.id && override.accesskey) {
-            const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ 
-                    type: 'FETCH_KUGOU', 
-                    payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 30000 } 
-                }, resolve);
-            });
+            const resMsg = await fl.sendMessageWithTimeout(
+                { type: 'FETCH_KUGOU', payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 8000 } },
+                10000,
+                null
+            );
             if (abortSignal?.aborted) throw new Error('TrackChanged');
             if (!resMsg) return "";
 
@@ -98,6 +101,7 @@
     };
 
     fl.activateLyrics = function () {
+        fl._waitForItStartTime = null;
         fl.isMissingLyrics = false;
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
@@ -114,12 +118,14 @@
     };
 
     fl.handleMissingLyrics = function () {
+        fl._waitForItStartTime = null;
         fl.activeLyricSource = null;
         fl.activeTranslationTier = 'None';
         fl._translationSessionId = (fl._translationSessionId || 0) + 1;
         fl.lyricLines = [];
         fl.isCurrentLyricSynced = false;
         fl.isMissingLyrics = true;
+        if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
         chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: null }).catch(() => {});
@@ -224,13 +230,18 @@
             retryCount = 0;
         }
         fl.isBackgroundSearchFailed = false;
+        const fetchSessionTrack = options?.sessionTrack || fl.currentTrack;
         const currentMeta = typeof fl.getCurrentTrackMetadata === 'function'
             ? fl.getCurrentTrackMetadata()
             : { title: navigator.mediaSession?.metadata?.title || '', artist: navigator.mediaSession?.metadata?.artist || '' };
 
         if (!currentMeta || !currentMeta.title) {
             if (retryCount < 5) {
-                setTimeout(() => fl.fetchLyrics(retryCount + 1, options), 1000);
+                setTimeout(() => {
+                    if (fl.currentTrack === fetchSessionTrack) {
+                        fl.fetchLyrics(retryCount + 1, { ...options, sessionTrack: fetchSessionTrack });
+                    }
+                }, 1000);
             } else if (retryCount === 5) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
@@ -239,6 +250,9 @@
                         params: { failure_reason: 'metadata_extraction_failed' }
                     }
                 }).catch(() => {});
+                if (fl.currentTrack === fetchSessionTrack) {
+                    fl.handleMissingLyrics();
+                }
             }
             return;
         }
@@ -298,8 +312,8 @@
                 if (abortSignal?.aborted) throw new Error('TrackChanged');
 
                 const { duration } = fl.getPlayerState();
-                const searchResult = await new Promise(resolve =>
-                    chrome.runtime.sendMessage({
+                const searchResult = await fl.sendMessageWithTimeout(
+                    {
                         type: 'UNIFIED_AUTO_SEARCH',
                         payload: {
                             rawArtist: currentMeta.artist || '',
@@ -307,7 +321,9 @@
                             duration:  duration           || 0,
                             timeoutMs: 5000
                         }
-                    }, resolve)
+                    },
+                    7000,
+                    { result: { rawLyric: null, source: null, synced: false, isNetworkError: true, hasTimeout: true } }
                 );
 
                 if (abortSignal?.aborted) throw new Error('TrackChanged');
@@ -382,8 +398,8 @@
 
                 try {
                     const { duration } = fl.getPlayerState();
-                    const retryResult = await new Promise(resolve =>
-                        chrome.runtime.sendMessage({
+                    const retryResult = await fl.sendMessageWithTimeout(
+                        {
                             type: 'UNIFIED_AUTO_SEARCH',
                             payload: {
                                 rawArtist: currentMeta.artist || '',
@@ -391,7 +407,9 @@
                                 duration:  duration           || 0,
                                 timeoutMs: 30000
                             }
-                        }, resolve)
+                        },
+                        32500,
+                        { result: { rawLyric: null, source: null, synced: false, isNetworkError: true, hasTimeout: true } }
                     );
 
                     if (abortSignal?.aborted) {

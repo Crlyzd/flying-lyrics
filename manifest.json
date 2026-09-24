@@ -57,6 +57,7 @@
         "src/content/services/lyricsCache.js",
         "src/content/services/translator.js",
         "src/content/services/metadataHelper.js",
+        "src/content/content/messageUtils.js",
         "src/content/services.js",
         "src/content/ui/colorPalette.js",
         "src/content/ui/domBuilder.js",
