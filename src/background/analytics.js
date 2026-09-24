@@ -61,7 +61,10 @@ async function trackEvent(eventName, params = {}) {
                 const clientId = await getClientId();
                 
                 // Clean params to ensure no complex objects or nested structures are passed directly to GA
-                const cleanParams = { session_id: getSessionId() };
+                const cleanParams = { 
+                    session_id: getSessionId(),
+                    engagement_time_msec: 100
+                };
                 for (const [key, val] of Object.entries(params)) {
                     if (val !== null && val !== undefined) {
                         cleanParams[key] = (typeof val === 'object') ? JSON.stringify(val) : val;

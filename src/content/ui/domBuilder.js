@@ -347,7 +347,7 @@
                 eventName: 'processing_duration',
                 params: { render_time_ms: injectDuration }
             }
-        });
+        }).catch(() => {});
     };
 
 })();
