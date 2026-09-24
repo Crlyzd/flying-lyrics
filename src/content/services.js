@@ -1,25 +1,22 @@
 (() => {
     const fl = window.FLYING_LYRICS;
 
-    // --- SERVICES ---
+    // ─────────────────────────────────────────────────────────────────────────────
+    //  FLYING LYRICS — SERVICES COORDINATOR (content script context)
+    //
+    //  Orchestrates lyric lifecycle, player synchronization, and overrides.
+    //  Modular sub-components:
+    //    - services/lyricsCache.js (Memory and chrome.storage.local caching)
+    //    - services/lrcParser.js   (LRC timestamp parsing and span validator)
+    //    - services/translator.js  (Multi-tier translation waterfall)
+    // ─────────────────────────────────────────────────────────────────────────────
 
-    // ─────────────────────────────────────────────────────────
-    //  METADATA SANITIZATION HELPERS
-    // ─────────────────────────────────────────────────────────
+    // ── Metadata Sanitization Helpers ──────────────────────────────────────────
 
-    /**
-     * Computes the Levenshtein edit distance between two strings (both lowercased).
-     * Used to score candidate title similarity when ranking lyrics search results.
-     *
-     * @param {string} a
-     * @param {string} b
-     * @returns {number} Edit distance (0 = identical).
-     */
     fl.levenshtein = function (a, b) {
         a = a.toLowerCase();
         b = b.toLowerCase();
         const m = a.length, n = b.length;
-        // Allocate a flat Int32Array for speed (avoids nested array allocation)
         const dp = new Int32Array((m + 1) * (n + 1));
         for (let i = 0; i <= m; i++) dp[i * (n + 1)] = i;
         for (let j = 0; j <= n; j++) dp[j] = j;
@@ -27,22 +24,15 @@
             for (let j = 1; j <= n; j++) {
                 const cost = a[i - 1] === b[j - 1] ? 0 : 1;
                 dp[i * (n + 1) + j] = Math.min(
-                    dp[(i - 1) * (n + 1) + j] + 1,    // deletion
-                    dp[i * (n + 1) + (j - 1)] + 1,    // insertion
-                    dp[(i - 1) * (n + 1) + (j - 1)] + cost // substitution
+                    dp[(i - 1) * (n + 1) + j] + 1,
+                    dp[i * (n + 1) + (j - 1)] + 1,
+                    dp[(i - 1) * (n + 1) + (j - 1)] + cost
                 );
             }
         }
         return dp[m * (n + 1) + n];
     };
 
-    /**
-     * Converts a Levenshtein distance into a 0–100 similarity percentage.
-     *
-     * @param {string} a
-     * @param {string} b
-     * @returns {number} Similarity percentage (100 = identical).
-     */
     fl.titleSimilarity = function (a, b) {
         if (!a && !b) return 100;
         if (!a || !b) return 0;
@@ -50,26 +40,8 @@
         return Math.round((1 - fl.levenshtein(a, b) / maxLen) * 100);
     };
 
-    /**
-     * Strips common noise keywords from a song title.
-     * Uses two passes:
-     *   1. Remove bracketed/parenthesised segments containing noise keywords.
-     *   2. Remove trailing " - <noise keyword>…" suffixes.
-     *
-     * Master Noise List categories:
-     *   Production  : remaster, remastered, remix, rework, vip, mix, stereo, mono, hi-res, high res
-     *   Versions    : radio edit, extended, club mix, dub, single version, album version, deluxe
-     *   Performance : live, acoustic, unplugged, demo, session, instrumental, a cappella, cover
-     *   Release Type: bonus track, hidden track, b-side, explicit, clean, edited, anniversary
-     *   Media Tags  : official video, official audio, lyrics video, mv, hd, hq, 4k, 1080p
-     *   Collab tags : feat., ft., featuring, with, vs.
-     *
-     * @param {string} title - Raw title string.
-     * @returns {string} Cleaned title.
-     */
     fl.cleanTitle = function (title) {
         if (!title) return '';
-        // Ordered list of noise terms (longer multi-word phrases first to avoid partial matches)
         const noiseTerms = [
             'official video', 'official audio', 'official music video', 'lyrics video',
             'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
@@ -84,66 +56,41 @@
             'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
         ].join('|');
 
-        // Pass 1: Extract song title if quoted in Japanese quotes with prefix e.g. 【推しの子】主題歌「アイドル」 -> アイドル
         let clean = title;
         const animeQuoteMatch = clean.match(/^[【『「《（［〔].*?[】』」》）］〕].*?[「『]([^」』]+)[」』]/);
         if (animeQuoteMatch && animeQuoteMatch[1]) {
             clean = animeQuoteMatch[1];
         }
 
-        // Pass 2: Remove bracketed noise groups (including Asian full-width brackets)
         const bracketRegex = new RegExp(
             '\\s*[({\\[【『「《（［〔](?:[^)}\\]】』」》）］〕]*?(?:' + noiseTerms + ')[^)}\\]】』」》）］〕]*?)[)}\\]】』」》）］〕]',
             'gi'
         );
         clean = clean.replace(bracketRegex, '');
-
-        // Pass 3: Remove trailing noise suffixes (- Remastered, - TV ver, etc.)
         const trailingRegex = new RegExp('\\s*-\\s*(?:' + noiseTerms + ').*$', 'gi');
         clean = clean.replace(trailingRegex, '');
-
-        // Pass 4: Strip leading/trailing Japanese corner quotes e.g. 「アイドル」 -> アイドル
         clean = clean.replace(/^[「『《〈](.+)[」』》〉]$/, '$1');
-
         return clean.trim();
     };
 
-    /**
-     * Extracts the primary (first-listed) artist from a raw artist string.
-     * Handles separators: commas, ampersands, feat./ft./featuring, "with", "vs.", " x ".
-     *
-     * @param {string} artist - Raw artist string.
-     * @returns {string} Primary artist name.
-     */
     fl.extractPrimaryArtist = function (artist) {
-        // Split on English and full-width/Japanese separators
+        if (!artist) return '';
         let primary = artist.split(/,|&|＆|、|・|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0].trim();
-        // Strip CV annotations: e.g., (CV:Name), (CV.Name), （CV：Name）
         primary = primary.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
         return primary;
     };
 
-    /**
-     * Retrieves the current track metadata combining MediaSession API with on-screen DOM fallback.
-     * Preserves native CJK / dual-language titles when MediaSession is stripped/romanized.
-     *
-     * @returns {{ artist: string, title: string, cleanTitle: string, primaryArtist: string, rawTitle: string, rawArtist: string }}
-     */
     fl.getCurrentTrackMetadata = function () {
         const meta = navigator.mediaSession?.metadata;
         let rawTitle = meta?.title || '';
         let rawArtist = meta?.artist || '';
 
-        // Check active platform adapter for richer DOM metadata
         const adapter = typeof fl.getActiveAdapter === 'function' ? fl.getActiveAdapter() : null;
         if (adapter && typeof adapter.getDomMetadata === 'function') {
             const dom = adapter.getDomMetadata();
             if (dom && dom.title) {
                 const isDomNonAscii = /[^\x00-\x7F]/.test(dom.title);
                 const isMetaNonAscii = /[^\x00-\x7F]/.test(rawTitle);
-
-                // If DOM title has CJK/non-ASCII or is a richer dual-title string while MediaSession was only Latin/short,
-                // adopt the richer DOM title
                 if (!rawTitle || (isDomNonAscii && !isMetaNonAscii) || dom.title.length > rawTitle.length) {
                     rawTitle = dom.title;
                 }
@@ -151,7 +98,6 @@
             if (dom && dom.artist) {
                 const isDomArtistNonAscii = /[^\x00-\x7F]/.test(dom.artist);
                 const isMetaArtistNonAscii = /[^\x00-\x7F]/.test(rawArtist);
-
                 if (!rawArtist || (isDomArtistNonAscii && !isMetaArtistNonAscii)) {
                     rawArtist = dom.artist;
                 }
@@ -169,6 +115,211 @@
             rawTitle,
             rawArtist
         };
+    };
+
+    fl.resolveManualOverride = async function (key, abortSignal) {
+        let override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
+        if (!override && fl.lyricsOverrides) {
+            const meta = navigator.mediaSession?.metadata;
+            if (meta?.artist && meta?.title) {
+                const mediaKey = `${meta.artist} - ${meta.title}`;
+                override = fl.lyricsOverrides[mediaKey] || null;
+            }
+        }
+        if (!override) return "";
+
+        if (override.type === 'local') {
+            fl.activeLyricSource = { type: 'local', id: null, name: key };
+            fl.activateLyrics();
+            return override.data;
+        } else if (override.type === 'api' && override.id) {
+            const resData = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
+            });
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+            if (!resData) return "";
+
+            let raw = resData.syncedLyrics || resData.plainLyrics || "";
+            const isEmpty = !raw || !!resData.instrumental;
+            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
+
+            fl.activeLyricSource = { 
+                type: 'api', 
+                id: override.id, 
+                name: resData.trackName || key, 
+                synced: !!resData.syncedLyrics || !!resData.instrumental,
+                isEmpty: isEmpty
+            };
+            fl.activateLyrics();
+            return raw;
+        } else if (override.type === 'netease' && override.id) {
+            const resMsg = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
+            });
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+            if (!resMsg) return "";
+
+            let raw = resMsg.lyric || "";
+            const isEmpty = !raw;
+            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
+
+            fl.activeLyricSource = { 
+                type: 'netease', 
+                id: resMsg.id || override.id, 
+                name: resMsg.name || key,
+                isEmpty: isEmpty,
+                tlyric: resMsg.tlyric || '',
+                romalrc: resMsg.romalrc || ''
+            };
+            fl.activateLyrics();
+            return raw;
+        } else if (override.type === 'kugou' && override.id && override.accesskey) {
+            const resMsg = await new Promise(resolve => {
+                chrome.runtime.sendMessage({ 
+                    type: 'FETCH_KUGOU', 
+                    payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 30000 } 
+                }, resolve);
+            });
+            if (abortSignal?.aborted) throw new Error('TrackChanged');
+            if (!resMsg) return "";
+
+            let raw = resMsg.lyric || "";
+            const isEmpty = !raw;
+            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
+            const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
+
+            fl.activeLyricSource = { 
+                type: 'kugou', 
+                id: resMsg.id || override.id, 
+                accesskey: override.accesskey,
+                name: key,
+                synced: isSynced,
+                isEmpty: isEmpty
+            };
+            fl.activateLyrics();
+            return raw;
+        }
+        return "";
+    };
+
+    fl.activateLyrics = function () {
+        fl.isMissingLyrics = false;
+        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: fl.activeLyricSource }).catch(() => {});
+
+        const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
+        const meta = currentMeta || navigator.mediaSession?.metadata;
+        if (meta && meta.title && meta.artist) {
+            const key = `${meta.artist} - ${meta.title}`;
+            if (typeof fl.incrementStatsTrack === 'function') {
+                fl.incrementStatsTrack(key);
+            }
+        }
+    };
+
+    fl.handleMissingLyrics = function () {
+        fl.activeLyricSource = null;
+        fl.activeTranslationTier = 'None';
+        fl.lyricLines = [];
+        fl.isCurrentLyricSynced = false;
+        fl.isMissingLyrics = true;
+        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
+        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: null }).catch(() => {});
+    };
+
+    let lastPlayerNotFoundLog = 0;
+    fl.getPlayerState = function () {
+        let currentTime = 0;
+        let duration = 1;
+        let paused = true;
+        let playerFound = false;
+
+        const adapter = fl.getActiveAdapter?.();
+        if (adapter) {
+            const currentVal = adapter.getCurrentTime();
+            const durationVal = adapter.getDuration();
+            paused = adapter.isPaused();
+
+            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0) {
+                duration = durationVal;
+            }
+
+            if (currentVal !== null && !isNaN(currentVal)) {
+                playerFound = true;
+                if (currentVal !== fl.lastTimeValue) {
+                    fl.lastTimeValue = currentVal;
+                    fl.lastUpdateMs = performance.now();
+                }
+                currentTime = fl.lastTimeValue;
+                if (!paused) {
+                    currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
+                }
+                return { currentTime, duration, paused };
+            }
+        }
+
+        if (!fl._mediaEl || fl._mediaEl.readyState < 1 || fl._mediaEl.id === 'fl-video-pip-element') {
+            const mediaElements = typeof fl.queryMediaAll === 'function' ? fl.queryMediaAll('video, audio') : [];
+            const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
+            const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
+            const pool = audioEls.length > 0 ? audioEls : videoEls;
+
+            fl._mediaEl = pool.find(m => m.readyState >= 2 && !m.paused)
+                || pool.find(m => m.readyState >= 2)
+                || null;
+        }
+
+        const activeMedia = fl._mediaEl;
+        if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
+            playerFound = true;
+            return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
+        }
+
+        if (!playerFound && fl.pipWin && !fl.pipWin.closed) {
+            const now = Date.now();
+            if (now - lastPlayerNotFoundLog > 30000) {
+                lastPlayerNotFoundLog = now;
+                chrome.runtime.sendMessage({
+                    type: 'TRACK_EVENT',
+                    payload: {
+                        eventName: 'context_failure',
+                        params: { failure_reason: 'player_element_not_found' }
+                    }
+                }).catch(() => {});
+            }
+        }
+
+        return { currentTime, duration, paused };
+    };
+
+    fl.getCoverArt = function () {
+        const isValid = (src) => src && src !== window.location.href && src !== window.location.origin + '/';
+        let src = "";
+
+        const meta = navigator.mediaSession?.metadata;
+        if (meta && meta.artwork && meta.artwork.length > 0) {
+            const s = meta.artwork[meta.artwork.length - 1].src;
+            if (isValid(s)) src = s;
+        }
+
+        if (!src) {
+            const adapter = fl.getActiveAdapter?.();
+            if (adapter) {
+                const s = adapter.getCoverArt();
+                if (isValid(s)) src = s;
+            }
+        }
+
+        if (src) {
+            if (src.includes('i.scdn.co/image/')) {
+                src = src.replace(/ab67616d0000[0-9a-f]{4}/i, 'ab67616d0000b273');
+            } else if (src.includes('googleusercontent.com') || src.includes('ggpht.com')) {
+                src = src.replace(/=w\d+-h\d+/i, '=w544-h544').replace(/=s\d+/i, '=s544');
+            }
+        }
+        return src;
     };
 
     fl.fetchLyrics = async function (retryCount = 0, options = {}) {
@@ -191,7 +342,7 @@
                         eventName: 'context_failure',
                         params: { failure_reason: 'metadata_extraction_failed' }
                     }
-                });
+                }).catch(() => {});
             }
             return;
         }
@@ -204,45 +355,32 @@
 
         try {
             const key = `${currentMeta.artist} - ${currentMeta.title}`;
-            fl.applySavedSyncOffset(key);
+            if (typeof fl.applySavedSyncOffset === 'function') fl.applySavedSyncOffset(key);
 
             const isBypassingCache = !!(options?.bypassCache || fl.devBypassCache);
-            if (isBypassingCache) {
-                console.log(`[Flying Lyrics:Dev] Bypassing cache (Tier 1 & 2) for: "${key}"`);
-            }
 
-            // Tier 1: in-memory cache (instant, same session)
-            if (!isBypassingCache && fl.checkLyricsCache(key)) {
+            // Tier 1: in-memory cache
+            if (!isBypassingCache && typeof fl.checkLyricsCache === 'function' && fl.checkLyricsCache(key)) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
-                    payload: {
-                        eventName: 'cache_check',
-                        params: { result: 'hit', tier: 'memory' }
-                    }
-                });
+                    payload: { eventName: 'cache_check', params: { result: 'hit', tier: 'memory' } }
+                }).catch(() => {});
                 return;
             }
 
-            // Tier 2: chrome.storage.local (survives tab refreshes and browser restarts)
-            if (!isBypassingCache && await fl.loadFromPersistentCache(key)) {
+            // Tier 2: chrome.storage.local
+            if (!isBypassingCache && typeof fl.loadFromPersistentCache === 'function' && await fl.loadFromPersistentCache(key)) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
-                    payload: {
-                        eventName: 'cache_check',
-                        params: { result: 'hit', tier: 'persistent' }
-                    }
-                });
+                    payload: { eventName: 'cache_check', params: { result: 'hit', tier: 'persistent' } }
+                }).catch(() => {});
                 return;
             }
 
-            // Tier 3 Cache Miss
             chrome.runtime.sendMessage({
                 type: 'TRACK_EVENT',
-                payload: {
-                    eventName: 'cache_check',
-                    params: { result: 'miss' }
-                }
-            });
+                payload: { eventName: 'cache_check', params: { result: 'miss' } }
+            }).catch(() => {});
 
             // Tier 3: network fetch
             let raw = await fl.resolveManualOverride(key, abortSignal);
@@ -251,37 +389,15 @@
                 const failedOverride = fl.lyricsOverrides[key];
                 delete fl.lyricsOverrides[key];
                 FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
-
                 chrome.runtime.sendMessage({
                     type: 'LYRIC_FETCH_FAILED',
-                    payload: {
-                        key: key,
-                        override: failedOverride
-                    }
+                    payload: { key: key, override: failedOverride }
                 }).catch(() => {});
             }
 
-            // ─────────────────────────────────────────────────────────
-            //  MULTI-PASS SEARCH PIPELINE
-            //
-            //  We try up to 3 progressively-cleaner metadata variants:
-            //    Pass 1 — Exact   : raw artist + raw title
-            //    Pass 2 — Cleaned : primary artist + noise-stripped title
-            //    Pass 3 — Title   : no artist + noise-stripped title
-            //
-            //  For each pass we query LRCLIB first, then Netease.
-            //  - A SYNCED result stops the loop immediately.
-            //  - A PLAIN TEXT result is saved as a fallback; the loop
-            //    continues trying to find a synced result in later passes.
-            //  - If the loop exhausts all passes, we use the best plain
-            //    text we collected (LRCLIB preferred over Netease).
-            // ─────────────────────────────────────────────────────────
             let initialSearchTimedOut = false;
 
             if (!raw) {
-                // Delegate all search work to the background engine.
-                // It runs LRCLIB + Netease concurrently and uses lazy evaluation
-                // for Netease synced detection (see src/background/searchEngine.js).
                 if (abortSignal?.aborted) throw new Error('TrackChanged');
 
                 const { duration } = fl.getPlayerState();
@@ -292,7 +408,7 @@
                             rawArtist: currentMeta.artist || '',
                             rawTitle:  currentMeta.title  || '',
                             duration:  duration           || 0,
-                            timeoutMs: 5000 // Strict 5-second initial timeout
+                            timeoutMs: 5000
                         }
                     }, resolve)
                 );
@@ -306,27 +422,23 @@
                 }
             }
 
-            // Immediately parse and render if we got something in the first pass
             if (raw) {
                 chrome.runtime.sendMessage({
                     type: 'TRACK_EVENT',
-                    payload: {
-                        eventName: 'lyrics_fetch_result',
-                        params: { status: 'success' }
-                    }
-                });
+                    payload: { eventName: 'lyrics_fetch_result', params: { status: 'success' } }
+                }).catch(() => {});
 
                 fl.activateLyrics();
-
                 const lines = raw.split('\n');
-                fl.parseLrcOrGeneratePseudoSync(lines, raw);
+                if (typeof fl.parseLrcOrGeneratePseudoSync === 'function') {
+                    fl.parseLrcOrGeneratePseudoSync(lines, raw);
+                }
 
-                // --- LYRIC TIMESTAMP SPAN VALIDATION ---
+                // Lyric timestamp span validation
                 if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
                     const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
                     const realDuration = fl.getPlayerState().duration;
                     if (realDuration > 60 && lastTs < realDuration * 0.5) {
-                        console.log(`FL: Synced lyrics span only ${Math.round(lastTs)}s vs ${Math.round(realDuration)}s track — demoting to pseudo-sync.`);
                         fl.isCurrentLyricSynced = false;
                         if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                         const cleanLines = raw
@@ -348,25 +460,22 @@
 
                 if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
-                // Fire-and-forget translation and cache saving
-                fl.translateExistingLyrics().then(() => {
-                    if (!isBypassingCache) {
-                        fl.saveToPersistentCache(key);
-                    }
-                });
-            }
-
-            // Trigger retry/deep search if we found nothing OR if a timeout occurred
-            if (!raw || initialSearchTimedOut) {
-                if (!raw) {
-                    // Switch to Album Cover Mode immediately (loading indicator / background retry)
-                    chrome.runtime.sendMessage({
-                        type: 'TRACK_EVENT',
-                        payload: {
-                            eventName: 'lyrics_fetch_result',
-                            params: { status: 'failure', error_type: 'no_match_first_pass' }
+                if (typeof fl.translateExistingLyrics === 'function') {
+                    fl.translateExistingLyrics().then(() => {
+                        if (!isBypassingCache && typeof fl.saveToPersistentCache === 'function') {
+                            fl.saveToPersistentCache(key);
                         }
                     });
+                }
+            }
+
+            // Retry pipeline if missing or timed out
+            if (!raw || initialSearchTimedOut) {
+                if (!raw) {
+                    chrome.runtime.sendMessage({
+                        type: 'TRACK_EVENT',
+                        payload: { eventName: 'lyrics_fetch_result', params: { status: 'failure', error_type: 'no_match_first_pass' } }
+                    }).catch(() => {});
                     fl.handleMissingLyrics();
                 }
 
@@ -383,7 +492,7 @@
                                 rawArtist: currentMeta.artist || '',
                                 rawTitle:  currentMeta.title  || '',
                                 duration:  duration           || 0,
-                                timeoutMs: 30000 // 30-second timeout for background retry
+                                timeoutMs: 30000
                             }
                         }, resolve)
                     );
@@ -394,26 +503,21 @@
                     }
 
                     if (retryResult?.result?.rawLyric) {
-                        if (retryResult.result.rawLyric === raw) {
-                            return;
-                        }
+                        if (retryResult.result.rawLyric === raw) return;
                         raw = retryResult.result.rawLyric;
                         fl.activeLyricSource = retryResult.result.source;
 
                         chrome.runtime.sendMessage({
                             type: 'TRACK_EVENT',
-                            payload: {
-                                eventName: 'lyrics_fetch_result',
-                                params: { status: 'success_on_retry' }
-                            }
-                        });
+                            payload: { eventName: 'lyrics_fetch_result', params: { status: 'success_on_retry' } }
+                        }).catch(() => {});
 
                         fl.activateLyrics();
-
                         const lines = raw.split('\n');
-                        fl.parseLrcOrGeneratePseudoSync(lines, raw);
+                        if (typeof fl.parseLrcOrGeneratePseudoSync === 'function') {
+                            fl.parseLrcOrGeneratePseudoSync(lines, raw);
+                        }
 
-                        // Sync Validation
                         if (fl.isCurrentLyricSynced && fl.lyricLines.length > 1) {
                             const lastTs = fl.lyricLines[fl.lyricLines.length - 1].time;
                             const realDuration = fl.getPlayerState().duration;
@@ -439,45 +543,35 @@
 
                         if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
 
-                        await fl.translateExistingLyrics();
-                        if (!isBypassingCache) {
-                            fl.saveToPersistentCache(key);
-                        }
-                    } else {
-                        if (!raw) {
-                            fl.activeLyricSource = null;
-                            fl.activeTranslationTier = 'None';
-                            const isNetworkError = !retryResult || !retryResult.result || !!retryResult.result.isNetworkError;
-                            if (isNetworkError) {
-                                chrome.runtime.sendMessage({
-                                    type: 'TRACK_EVENT',
-                                    payload: {
-                                        eventName: 'lyrics_fetch_result',
-                                        params: { status: 'failure', error_type: 'network_error_retry' }
-                                    }
-                                });
-                                fl.isBackgroundSearchFailed = true;
-                                setTimeout(() => {
-                                    if (fl.isBackgroundSearchFailed) {
-                                        fl.isBackgroundSearchFailed = false;
-                                        if (typeof fl.updateSyncIndicator === 'function') {
-                                            fl.updateSyncIndicator();
-                                        }
-                                    }
-                                }, 5000);
-                            } else {
-                                chrome.runtime.sendMessage({
-                                    type: 'TRACK_EVENT',
-                                    payload: {
-                                        eventName: 'lyrics_fetch_result',
-                                        params: { status: 'not_found', error_type: 'no_match_retry' }
-                                    }
-                                });
-                                fl.isBackgroundSearchFailed = false;
-                                if (typeof fl.updateSyncIndicator === 'function') {
-                                    fl.updateSyncIndicator();
-                                }
+                        if (typeof fl.translateExistingLyrics === 'function') {
+                            await fl.translateExistingLyrics();
+                            if (!isBypassingCache && typeof fl.saveToPersistentCache === 'function') {
+                                fl.saveToPersistentCache(key);
                             }
+                        }
+                    } else if (!raw) {
+                        fl.activeLyricSource = null;
+                        fl.activeTranslationTier = 'None';
+                        const isNetworkError = !retryResult || !retryResult.result || !!retryResult.result.isNetworkError;
+                        if (isNetworkError) {
+                            chrome.runtime.sendMessage({
+                                type: 'TRACK_EVENT',
+                                payload: { eventName: 'lyrics_fetch_result', params: { status: 'failure', error_type: 'network_error_retry' } }
+                            }).catch(() => {});
+                            fl.isBackgroundSearchFailed = true;
+                            setTimeout(() => {
+                                if (fl.isBackgroundSearchFailed) {
+                                    fl.isBackgroundSearchFailed = false;
+                                    if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
+                                }
+                            }, 5000);
+                        } else {
+                            chrome.runtime.sendMessage({
+                                type: 'TRACK_EVENT',
+                                payload: { eventName: 'lyrics_fetch_result', params: { status: 'not_found', error_type: 'no_match_retry' } }
+                            }).catch(() => {});
+                            fl.isBackgroundSearchFailed = false;
+                            if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                         }
                     }
                 } catch (retryErr) {
@@ -489,761 +583,26 @@
                         setTimeout(() => {
                             if (fl.isBackgroundSearchFailed) {
                                 fl.isBackgroundSearchFailed = false;
-                                if (typeof fl.updateSyncIndicator === 'function') {
-                                    fl.updateSyncIndicator();
-                                }
+                                if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                             }
                         }, 5000);
                     }
                 } finally {
-                    if (typeof fl.setIndicatorRetrying === 'function') {
-                        fl.setIndicatorRetrying(false);
-                    }
+                    if (typeof fl.setIndicatorRetrying === 'function') fl.setIndicatorRetrying(false);
                 }
             }
         } catch (e) {
-            if (e.message === 'TrackChanged' || e.name === 'AbortError') {
-                console.log("FL: Aborted previous fetchLyrics pipeline (track changed).");
-                return;
-            }
+            if (e.message === 'TrackChanged' || e.name === 'AbortError') return;
             const errType = e.name === 'AbortError' || e.message?.includes('timeout') ? 'timeout' : 'network_error';
             chrome.runtime.sendMessage({
                 type: 'TRACK_EVENT',
-                payload: {
-                    eventName: 'lyrics_fetch_result',
-                    params: { status: 'failure', error_type: errType }
-                }
-            });
+                payload: { eventName: 'lyrics_fetch_result', params: { status: 'failure', error_type: errType } }
+            }).catch(() => {});
             fl.lyricLines = [{ time: 0, text: "Network Error", romaji: "" }];
             fl.isCurrentLyricSynced = false;
             if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
             if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
         }
-    }
-
-    // --- PERSISTENT LYRICS CACHE (chrome.storage.local) ---
-
-    /**
-     * Tier-2 cache read: looks up `key` in chrome.storage.local.
-     * On hit, populates fl.lyricLines + the in-memory cache and fires
-     * translateExistingLyrics() to fill any missing translations (e.g. if
-     * CC was off during the original fetch).
-     *
-     * @param {string} key - "Artist - Title" cache key.
-     * @returns {Promise<boolean>} true if the cache was hit.
-     */
-    fl.loadFromPersistentCache = async function (key) {
-        return new Promise(resolve => {
-            FLYING_LYRICS.storage.get('lyricsCache', ({ lyricsCache }) => {
-                const entry = lyricsCache?.entries?.[key];
-                if (!entry || !Array.isArray(entry.lines) || entry.lines.length === 0) {
-                    return resolve(false);
-                }
-
-                fl.lyricLines = entry.lines;
-                fl.isCurrentLyricSynced = entry.isSynced;
-                fl.activeLyricSource = entry.source || null;
-
-                if (entry.translationLang !== fl.translationLang) {
-                    fl.lyricLines.forEach(l => l.translation = "");
-                }
-
-                // Warm the in-memory cache so subsequent same-session skips are instant
-                fl.cachedLyrics.key = key;
-                fl.cachedLyrics.lines = entry.lines;
-                fl.cachedLyrics.isSynced = entry.isSynced;
-                fl.cachedLyrics.translationLang = fl.translationLang;
-                fl.cachedLyrics.source = entry.source || null;
-
-                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-                fl.activateLyrics();
-
-                // Fill any missing translations/romaji without blocking the resolve
-                // (This will also fetch the new language if we just wiped it above)
-                fl.translateExistingLyrics();
-
-                // Fire-and-forget save back to storage to persist the new language
-                if (entry.translationLang !== fl.translationLang) {
-                    // We wait 3 seconds to give translateExistingLyrics a head start
-                    setTimeout(() => fl.saveToPersistentCache(key), 3000);
-                }
-
-                resolve(true);
-            });
-        });
-    };
-
-    /**
-     * Tier-2 cache write: persists the current fl.lyricLines (including romaji
-     * and translations) to chrome.storage.local under an LRU map.
-     * Evicts the oldest entry when the cap of 200 songs is reached.
-     *
-     * Called fire-and-forget after translateExistingLyrics() resolves so the
-     * stored entry always contains the fully-enriched data.
-     *
-     * @param {string} key - "Artist - Title" cache key.
-     */
-    fl.saveToPersistentCache = function (key) {
-        const MAX_ENTRIES = 200;
-
-        FLYING_LYRICS.storage.get('lyricsCache', ({ lyricsCache }) => {
-            const cache = lyricsCache ?? { order: [], entries: {} };
-
-            // Move key to front (most recently used)
-            cache.order = cache.order.filter(k => k !== key);
-
-            // Evict oldest entries until we're under the cap
-            while (cache.order.length >= MAX_ENTRIES) {
-                const oldest = cache.order.pop();
-                delete cache.entries[oldest];
-            }
-
-            cache.order.unshift(key);
-            cache.entries[key] = {
-                lines: fl.lyricLines,       // array of {time, text, romaji, translation}
-                isSynced: fl.isCurrentLyricSynced,
-                translationLang: fl.translationLang,
-                savedAt: Date.now(),
-                source: fl.activeLyricSource
-            };
-
-            FLYING_LYRICS.storage.set({ lyricsCache: cache });
-        });
-    };
-
-    // --- fetchLyrics Pipeline Helpers ---
-
-    // Note: _fetchWithTimeout, fetchFromLrcLib, and fetchFromNeteaseFallback have
-    // been removed. All search network I/O is now handled exclusively by the
-    // background engine (src/background/searchEngine.js) via UNIFIED_AUTO_SEARCH.
-
-    fl.applySavedSyncOffset = function (key) {
-        fl.activeLyricSource = null;
-        fl.syncOffset = fl.songOffsets[key] !== undefined ? fl.songOffsets[key] : fl.globalSyncOffset;
-        chrome.runtime.sendMessage({ type: 'SETTINGS_UPDATE', payload: { syncOffset: fl.syncOffset } }).catch(() => { });
-    }
-
-    fl.checkLyricsCache = function (key) {
-        if (fl.cachedLyrics.key === key && fl.cachedLyrics.lines.length > 0) {
-            fl.lyricLines = fl.cachedLyrics.lines;
-            fl.isCurrentLyricSynced = fl.cachedLyrics.isSynced;
-            fl.activeLyricSource = fl.cachedLyrics.source || null;
-
-            if (fl.cachedLyrics.translationLang !== fl.translationLang) {
-                fl.lyricLines.forEach(l => l.translation = "");
-                fl.cachedLyrics.translationLang = fl.translationLang;
-            }
-
-            fl.activateLyrics();
-            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-            // Always attempt translation after a cache hit.
-            // translateExistingLyrics() skips lines that already have translations
-            // (checks !item.translation), so this is a no-op for fully-translated caches.
-            // It covers two real scenarios that previously required the user to toggle CC:
-            //   1. CC was OFF during first play → cached lines have no translations
-            //   2. Translation was still in-flight when the song was re-detected
-            fl.translateExistingLyrics();
-            return true;
-        }
-        return false;
-    }
-
-    fl.resolveManualOverride = async function (key, abortSignal) {
-        let override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
-        if (!override && fl.lyricsOverrides) {
-            const meta = navigator.mediaSession?.metadata;
-            if (meta?.artist && meta?.title) {
-                const mediaKey = `${meta.artist} - ${meta.title}`;
-                override = fl.lyricsOverrides[mediaKey] || null;
-            }
-        }
-        if (!override) return "";
-
-        if (override.type === 'local') {
-            fl.activeLyricSource = { type: 'local', id: null, name: key };
-            fl.activateLyrics();
-            return override.data;
-        } else if (override.type === 'api' && override.id) {
-            const resData = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
-            });
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-
-            if (!resData) return ""; // Network/API error: fall back to auto-search
-
-            let raw = resData.syncedLyrics || resData.plainLyrics || "";
-            const isEmpty = !raw || !!resData.instrumental;
-            if (isEmpty) {
-                raw = "[00:00.00] ♫ (Empty) ♫";
-            }
-            fl.activeLyricSource = { 
-                type: 'api', 
-                id: override.id, 
-                name: resData.trackName || key, 
-                synced: !!resData.syncedLyrics || !!resData.instrumental,
-                isEmpty: isEmpty
-            };
-            fl.activateLyrics();
-            return raw;
-        } else if (override.type === 'netease' && override.id) {
-            const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 30000 } }, resolve);
-            });
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-
-            if (!resMsg) return ""; // Network/API error: fall back to auto-search
-
-            let raw = resMsg.lyric || "";
-            const isEmpty = !raw;
-            if (isEmpty) {
-                raw = "[00:00.00] ♫ (Empty) ♫";
-            }
-            fl.activeLyricSource = { 
-                type: 'netease', 
-                id: resMsg.id || override.id, 
-                name: resMsg.name || key,
-                isEmpty: isEmpty,
-                tlyric: resMsg.tlyric || '',
-                romalrc: resMsg.romalrc || ''
-            };
-            fl.activateLyrics();
-            return raw;
-        } else if (override.type === 'kugou' && override.id && override.accesskey) {
-            const resMsg = await new Promise(resolve => {
-                chrome.runtime.sendMessage({ 
-                    type: 'FETCH_KUGOU', 
-                    payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 30000 } 
-                }, resolve);
-            });
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-
-            if (!resMsg) return ""; // Network/API error: fall back to auto-search
-
-            let raw = resMsg.lyric || "";
-            const isEmpty = !raw;
-            if (isEmpty) {
-                raw = "[00:00.00] ♫ (Empty) ♫";
-            }
-            const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
-            fl.activeLyricSource = { 
-                type: 'kugou', 
-                id: resMsg.id || override.id, 
-                accesskey: override.accesskey,
-                name: key,
-                synced: isSynced,
-                isEmpty: isEmpty
-            };
-            fl.activateLyrics();
-            return raw;
-        }
-        return "";
-    }
-
-    // fetchFromLrcLib and fetchFromNeteaseFallback removed — replaced by the
-    // unified background engine. See src/background/searchEngine.js.
-
-    /**
-     * Shared helper called by every lyric-loading path (cache hit, persistent cache,
-     * local file, and network fetch) the moment real lyrics are available.
-     * Resets the missing-lyrics state flag and immediately restores the user's
-     * visual settings (blur, darkness, cover mode) that were overridden while
-     * Cover Album Mode was active.
-     */
-    fl.activateLyrics = function () {
-        fl.isMissingLyrics = false;
-        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
-        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
-        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: fl.activeLyricSource }).catch(() => {});
-
-        const currentMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
-        const meta = currentMeta || navigator.mediaSession?.metadata;
-        if (meta && meta.title && meta.artist) {
-            const key = `${meta.artist} - ${meta.title}`;
-            if (typeof fl.incrementStatsTrack === 'function') {
-                fl.incrementStatsTrack(key);
-            }
-        }
-    };
-
-    fl.handleMissingLyrics = function () {
-        fl.activeLyricSource = null;
-        fl.activeTranslationTier = 'None';
-        // Clear lyricLines entirely so the canvas draws nothing (Cover Album Mode)
-        fl.lyricLines = [];
-        fl.isCurrentLyricSynced = false;
-        fl.isMissingLyrics = true;
-        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
-        if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
-        chrome.runtime.sendMessage({ type: 'ACTIVE_LYRIC_CHANGED', payload: null }).catch(() => {});
-    }
-
-    fl.parseLrcOrGeneratePseudoSync = function (lines, rawStr) {
-        const startTime = performance.now();
-        if (typeof fl.wrapCache !== 'undefined') fl.wrapCache.clear();
-        const temp = [];
-
-        // Reset missing-lyrics state via the shared helper — restores user's visual
-        // settings (blur, darkness, cover mode) if Cover Album Mode was previously active.
-        fl.activateLyrics();
-
-        const isSynced = /\[\d+:\d+\.\d+\]/.test(rawStr);
-        fl.isCurrentLyricSynced = isSynced;
-        if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
-
-        if (!isSynced) {
-            const cleanLines = lines.map(l => l.trim()).filter(l => l);
-            if (cleanLines.length === 0) {
-                fl.handleMissingLyrics();
-                return;
-            }
-
-            const duration = fl.getPlayerState().duration || 180;
-            const timePerLine = duration / cleanLines.length;
-
-            for (let i = 0; i < cleanLines.length; i++) {
-                temp.push({ time: i * timePerLine, text: cleanLines[i], romaji: "", translation: "" });
-            }
-        } else {
-            for (let line of lines) {
-                const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
-                if (!match) continue;
-                const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
-                const text = match[3].trim();
-                if (!text) continue;
-                temp.push({ time, text, romaji: "", translation: "" });
-            }
-        }
-
-        fl.lyricLines = temp.length ? temp : [{ time: 0, text: "No Lyrics Available", romaji: "", translation: "" }];
-
-        const parseDuration = Math.round(performance.now() - startTime);
-        chrome.runtime.sendMessage({
-            type: 'TRACK_EVENT',
-            payload: {
-                eventName: 'processing_duration',
-                params: { parse_time_ms: parseDuration }
-            }
-        });
-    }
-
-    let lastPlayerNotFoundLog = 0;
-    fl.getPlayerState = function () {
-        let currentTime = 0;
-        let duration = 1;
-        let paused = true;
-        let playerFound = false;
-
-        // --- PLATFORM ADAPTER EXTRACTION ---
-        const adapter = fl.getActiveAdapter?.();
-        if (adapter) {
-            const currentVal = adapter.getCurrentTime();
-            const durationVal = adapter.getDuration();
-            paused = adapter.isPaused();
-
-            if (durationVal !== null && !isNaN(durationVal) && durationVal > 0) {
-                duration = durationVal;
-            }
-
-            if (currentVal !== null && !isNaN(currentVal)) {
-                playerFound = true;
-                if (currentVal !== fl.lastTimeValue) {
-                    fl.lastTimeValue = currentVal;
-                    fl.lastUpdateMs = performance.now();
-                }
-                currentTime = fl.lastTimeValue;
-                if (!paused) {
-                    currentTime += (performance.now() - fl.lastUpdateMs) / 1000;
-                }
-                return { currentTime, duration, paused };
-            }
-        }
-
-        // --- NON-ADAPTER FALLBACK (e.g. generic audio/video element) ---
-        // OPT-5: Cache the active media element in fl._mediaEl to avoid a full DOM
-        // querySelectorAll scan every rAF frame. Re-scan only when the cached reference
-        // is gone or the element is no longer ready (e.g. after a page navigation).
-        if (!fl._mediaEl || fl._mediaEl.readyState < 1 || fl._mediaEl.id === 'fl-video-pip-element') {
-            const mediaElements = fl.queryMediaAll('video, audio');
-
-            // Prefer <audio> over <video> so YouTube Music's <video> is used correctly
-            // while still avoiding accidental matches on silent background videos elsewhere.
-            const audioEls = mediaElements.filter(m => m.tagName === 'AUDIO');
-            const videoEls = mediaElements.filter(m => m.tagName === 'VIDEO');
-            const pool = audioEls.length > 0 ? audioEls : videoEls;
-
-            fl._mediaEl = pool.find(m => m.readyState >= 2 && !m.paused)
-                || pool.find(m => m.readyState >= 2)
-                || null;
-        }
-
-        const activeMedia = fl._mediaEl;
-        if (activeMedia && activeMedia.duration > 0 && activeMedia.currentTime >= 0) {
-            playerFound = true;
-            return { currentTime: activeMedia.currentTime, duration: activeMedia.duration, paused: activeMedia.paused };
-        }
-
-        // Throttled context failure reporting: if rendering but no active player element is found
-        if (!playerFound && fl.pipWin && !fl.pipWin.closed) {
-            const now = Date.now();
-            if (now - lastPlayerNotFoundLog > 30000) { // Log at most once per 30 seconds
-                lastPlayerNotFoundLog = now;
-                chrome.runtime.sendMessage({
-                    type: 'TRACK_EVENT',
-                    payload: {
-                        eventName: 'context_failure',
-                        params: { failure_reason: 'player_element_not_found' }
-                    }
-                });
-            }
-        }
-
-        return { currentTime, duration, paused };
-    }
-
-    fl.getCoverArt = function () {
-        const isValid = (src) => src && src !== window.location.href && src !== window.location.origin + '/';
-        let src = "";
-
-        // 1. MediaSession API (Grab the last item, which is inherently the highest resolution)
-        const meta = navigator.mediaSession?.metadata;
-        if (meta && meta.artwork && meta.artwork.length > 0) {
-            const s = meta.artwork[meta.artwork.length - 1].src;
-            if (isValid(s)) src = s;
-        }
-
-        // 2. Active Platform Adapter Fallback
-        if (!src) {
-            const adapter = fl.getActiveAdapter?.();
-            if (adapter) {
-                const s = adapter.getCoverArt();
-                if (isValid(s)) src = s;
-            }
-        }
-
-        if (src) {
-            // Upgrade Spotify CDN image URLs to high-res (640x640)
-            if (src.includes('i.scdn.co/image/')) {
-                src = src.replace(/ab67616d0000[0-9a-f]{4}/i, 'ab67616d0000b273');
-            }
-            // Upgrade YouTube Music image URLs to high-res (544x544)
-            else if (src.includes('googleusercontent.com') || src.includes('ggpht.com')) {
-                src = src.replace(/=w\d+-h\d+/i, '=w544-h544')
-                         .replace(/=s\d+/i, '=s544');
-            }
-        }
-
-        return src;
-    }
-
-    fl.translateExistingLyrics = async function () {
-        if (!fl.lyricLines || fl.lyricLines.length === 0) return;
-        if (fl.lyricLines.length === 1 && (fl.lyricLines[0].isWaitingPlaceholder || fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text))) return;
-
-        const placeholders = ["Waiting for music...", "No lyrics found", "Network Error", "Wait for it...", "No Lyrics Available"];
-
-        // 1. Gather all lines that actually need Romaji
-        const romajiQueue = [];
-        fl.lyricLines.forEach((item, index) => {
-            if (!placeholders.includes(item.text) && !item.romaji && /[぀-ゟ゠-ヿ一-鿿가-힣]/.test(item.text)) {
-                romajiQueue.push({ index, text: item.text });
-            }
-        });
-
-        // 2. Gather all lines that actually need Translation
-        const transQueue = [];
-        if (fl.showTranslation) {
-            fl.lyricLines.forEach((item, index) => {
-                if (!placeholders.includes(item.text) && !item.translation) {
-                    transQueue.push({ index, text: item.text });
-                }
-            });
-        }
-
-        // Run Romaji and Translation batches concurrently — cuts enrichment time in half
-        // compared to the old sequential approach.
-        const tasks = [];
-
-        if (romajiQueue.length > 0) {
-            tasks.push(fl.processTranslateBatch(romajiQueue, 'rm', 'en', (itemIndex, resultText) => {
-                fl.lyricLines[itemIndex].romaji = resultText;
-            }));
-        }
-
-        if (transQueue.length > 0) {
-            tasks.push(fl.processTranslateBatch(transQueue, 't', fl.translationLang, (itemIndex, resultText) => {
-                fl.lyricLines[itemIndex].translation = resultText;
-            }));
-        }
-
-        if (tasks.length > 0) {
-            if (!fl.devDisableTranslation) {
-                fl.activeTranslationTier = 'Translating...';
-            }
-            await Promise.all(tasks);
-            if (fl.activeTranslationTier === 'Translating...') {
-                fl.activeTranslationTier = 'None';
-            }
-            if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-        } else {
-            fl.activeTranslationTier = 'None';
-        }
-    }
-
-    /**
-     * Sends all chunks to Google Translate in parallel (Promise.all) rather than
-     * serially. For a 100-line song this collapses 7 sequential ~2s round-trips
-     * into a single ~2s wait, which is why translations now appear all at once
-     * instead of trickling in over 15+ seconds.
-     *
-     * A 150ms staggered start per chunk is used so requests don't all hit the
-     * API at exactly the same millisecond, reducing the chance of a 429.
-     */
-    fl.extractLrcTimestampMap = function (lrcText) {
-        if (!lrcText) return null;
-        const map = new Map();
-        const lines = lrcText.split('\n');
-        for (const line of lines) {
-            const match = line.match(/^\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]\s*(.*)$/);
-            if (match) {
-                const min = parseInt(match[1], 10);
-                const sec = parseInt(match[2], 10);
-                const msStr = match[3] || "0";
-                const ms = msStr.length === 2 ? parseInt(msStr, 10) * 10 : parseInt(msStr, 10);
-                const totalSec = Math.round((min * 60 + sec + ms / 1000) * 10) / 10;
-                const text = match[4]?.trim();
-                if (text) map.set(totalSec, text);
-            }
-        }
-        return map;
-    };
-
-    fl.findClosestLrcMatch = function (lrcMap, targetSec, toleranceSec = 1.0) {
-        if (!lrcMap || lrcMap.size === 0) return null;
-        const target = Math.round(targetSec * 10) / 10;
-        if (lrcMap.has(target)) return lrcMap.get(target);
-
-        let bestMatch = null;
-        let minDiff = toleranceSec;
-        for (const [time, text] of lrcMap.entries()) {
-            const diff = Math.abs(time - target);
-            if (diff < minDiff) {
-                minDiff = diff;
-                bestMatch = text;
-            }
-        }
-        return bestMatch;
-    };
-
-    /**
-     * Resilient 3-tier batch translation & romanization:
-     * - Tier 1 (Primary): Google Translate (client=dict-chrome-ex)
-     * - Tier 2 (Network Fallbacks): Google token cascade (gtrans) -> MyMemory API -> NetEase community tlyric/romalrc
-     * - Tier 3 (Local Safety Net): 100% offline rule-based romanizer.js for Japanese/Korean lyrics
-     */
-    fl.processTranslateBatch = async function (queue, dtMode, targetLang, applyCallback) {
-        if (fl.devDisableTranslation) {
-            console.log(`[Flying Lyrics:Dev] Translation (${dtMode}) skipped by Dev Limiter`);
-            fl.activeTranslationTier = 'Disabled (Dev)';
-            if (dtMode === 'rm') {
-                queue.forEach(q => {
-                    const localRom = typeof romanize === 'function' ? romanize(q.text) : q.text;
-                    applyCallback(q.index, (localRom || q.text).trim());
-                });
-                if (typeof fl.needsLayoutUpdate !== 'undefined') fl.needsLayoutUpdate = true;
-            }
-            return;
-        }
-
-        const CHUNK_SIZE = 15;
-        const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
-        const staggerMs = fl.devTranslateStagger || 150;
-        const transConfig = fl.devTransProviders || {
-            google: fl.devSimulateTrans !== 'force_gtrans_down' && fl.devSimulateTrans !== 'force_all_trans_down',
-            mymemory: fl.devSimulateTrans !== 'force_all_trans_down',
-            netease: fl.devSimulateTrans !== 'force_all_trans_down'
-        };
-        const skipGoogle = transConfig.google === false;
-        const skipMyMemory = transConfig.mymemory === false;
-        const skipNetEase = transConfig.netease === false;
-
-        // Pre-parse NetEase community fallbacks if available on active track
-        let neteaseLrcMap = null;
-        const extraSource = fl.activeLyricSource;
-        const neteaseRawLrc = (dtMode === 't') ? extraSource?.tlyric : extraSource?.romalrc;
-        if (neteaseRawLrc && typeof fl.extractLrcTimestampMap === 'function') {
-            neteaseLrcMap = fl.extractLrcTimestampMap(neteaseRawLrc);
-        }
-
-        const chunks = [];
-        for (let i = 0; i < queue.length; i += CHUNK_SIZE) {
-            chunks.push(queue.slice(i, i + CHUNK_SIZE));
-        }
-
-        // Fire all chunks concurrently with a configurable ramp-up stagger
-        await Promise.all(chunks.map((chunk, chunkIdx) => new Promise(resolve => {
-            setTimeout(async () => {
-                const combinedText = chunk.map(q => q.text).join(DELIMITER);
-                let translatedCombo = "";
-
-                // ─────────────────────────────────────────────────────────────
-                // TIER 1 (PRIMARY): Google Translate (client=dict-chrome-ex)
-                // ─────────────────────────────────────────────────────────────
-                if (!skipGoogle) {
-                    try {
-                        const primaryUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`;
-                        const res = await fetch(primaryUrl);
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (dtMode === 'rm') {
-                                translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
-                            } else if (dtMode === 't' && data && data[0]) {
-                                translatedCombo = data[0].map(x => x[0] || "").join('');
-                            }
-                            if (translatedCombo) {
-                                fl.activeTranslationTier = 'Tier 1 (Google)';
-                            }
-                        } else if (res.status === 429) {
-                            chrome.runtime.sendMessage({
-                                type: 'TRACK_EVENT',
-                                payload: {
-                                    eventName: 'rate_limited',
-                                    params: { url: 'https://translate.googleapis.com/translate_a/single', client: 'dict-chrome-ex' }
-                                }
-                            }).catch(() => {});
-                        }
-                    } catch (e) {
-                        console.log("Tier 1 Google translation error:", e);
-                    }
-                } else {
-                    console.log(`[Flying Lyrics:Dev] Simulating Google Translate failure (${dtMode})`);
-                }
-
-                // ─────────────────────────────────────────────────────────────
-                // TIER 2 (NETWORK FALLBACKS): Sequential Waterfall
-                // ─────────────────────────────────────────────────────────────
-                // Tier 2A: Google token cascade (client=gtrans) for dt=t
-                if (!translatedCombo && dtMode === 't' && !skipGoogle) {
-                    try {
-                        const cascadeUrl = `https://translate.googleapis.com/translate_a/single?client=gtrans&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(combinedText)}`;
-                        const resCascade = await fetch(cascadeUrl);
-                        if (resCascade.ok) {
-                            const dataCascade = await resCascade.json();
-                            if (dataCascade?.[0]) {
-                                translatedCombo = dataCascade[0].map(x => x[0] || "").join('');
-                                if (translatedCombo) {
-                                    fl.activeTranslationTier = 'Tier 2A (Cascade)';
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // Cascade failed
-                    }
-                }
-
-                // Tier 2B: External Translation Fallback via MyMemory Translated API
-                if (!translatedCombo && dtMode === 't' && !skipMyMemory) {
-                    try {
-                        // MyMemory requires a real ISO source code (does not support 'auto').
-                        // 1. First attempt: built-in Chromium ML language classifier (supports 100+ languages)
-                        let srcLang = 'en';
-                        if (typeof chrome !== 'undefined' && chrome.i18n && typeof chrome.i18n.detectLanguage === 'function') {
-                            try {
-                                const detected = await new Promise(res => chrome.i18n.detectLanguage(combinedText, res));
-                                if (detected?.languages?.length > 0) {
-                                    const top = detected.languages[0].language;
-                                    if (top && top !== 'und') {
-                                        srcLang = top.split('-')[0].toLowerCase();
-                                    }
-                                }
-                            } catch (err) {}
-                        }
-
-                        // 2. Script-based fallback if ML detection was undetermined ('und' or 'en' for non-Latin)
-                        if (srcLang === 'en' || srcLang === 'und') {
-                            if (/[぀-ゟ゠-ヿ]/.test(combinedText)) srcLang = 'ja';
-                            else if (/[가-힣]/.test(combinedText)) srcLang = 'ko';
-                            else if (/[一-鿿]/.test(combinedText)) srcLang = 'zh';
-                            else if (/[а-яА-ЯёЁ]/.test(combinedText)) srcLang = 'ru';
-                            else if (/[\u0E00-\u0E7F]/.test(combinedText)) srcLang = 'th';
-                            else if (/[\u0600-\u06FF]/.test(combinedText)) srcLang = 'ar';
-                            else if (/[\u0900-\u097F]/.test(combinedText)) srcLang = 'hi';
-                            else if (/[\u0370-\u03FF]/.test(combinedText)) srcLang = 'el';
-                            else if (/[\u0590-\u05FF]/.test(combinedText)) srcLang = 'he';
-                        }
-
-                        if (srcLang !== targetLang) {
-                            const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(combinedText)}&langpair=${srcLang}|${targetLang}`;
-                            const resMM = await fetch(mmUrl);
-                            if (resMM.ok) {
-                                const mmData = await resMM.json();
-                                if (mmData?.responseData?.translatedText && mmData.responseStatus !== 403 && mmData.responseStatus !== "403") {
-                                    translatedCombo = mmData.responseData.translatedText;
-                                    if (translatedCombo) {
-                                        fl.activeTranslationTier = 'Tier 2B (MyMemory)';
-                                    }
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // MyMemory failed
-                    }
-                }
-
-                // Tier 2C: NetEase Community Lyrics Fallback (0 network calls)
-                let neteaseMatchedAny = false;
-                if (!translatedCombo && !skipNetEase && neteaseLrcMap && neteaseLrcMap.size > 0) {
-                    for (let j = 0; j < chunk.length; j++) {
-                        const itemIndex = chunk[j].index;
-                        const itemTime = fl.lyricLines[itemIndex]?.time || 0;
-                        const matched = fl.findClosestLrcMatch(neteaseLrcMap, itemTime);
-                        if (matched) {
-                            applyCallback(itemIndex, matched.trim());
-                            neteaseMatchedAny = true;
-                        }
-                    }
-                    if (neteaseMatchedAny) {
-                        fl.activeTranslationTier = 'Tier 2C (NetEase)';
-                    }
-                }
-
-                // ─────────────────────────────────────────────────────────────
-                // TIER 3 (OFFLINE LOCAL SAFETY NET): Local romanizer.js
-                // ─────────────────────────────────────────────────────────────
-                if (dtMode === 'rm') {
-                    if (translatedCombo) {
-                        const translatedLines = translatedCombo.split(/\s*\|\s*\|\s*\|\s*/);
-                        for (let j = 0; j < chunk.length; j++) {
-                            if (translatedLines[j]) {
-                                applyCallback(chunk[j].index, translatedLines[j].trim());
-                            } else if (typeof romanize === 'function') {
-                                const localRom = romanize(chunk[j].text);
-                                if (localRom) applyCallback(chunk[j].index, localRom.trim());
-                            }
-                        }
-                    } else if (!neteaseMatchedAny && typeof romanize === 'function') {
-                        // Whole chunk fallback when all network tiers failed
-                        for (let j = 0; j < chunk.length; j++) {
-                            const localRom = romanize(chunk[j].text);
-                            if (localRom) applyCallback(chunk[j].index, localRom.trim());
-                        }
-                        fl.activeTranslationTier = 'Tier 3 (Offline Romaji)';
-                    }
-                } else if (dtMode === 't' && translatedCombo) {
-                    const translatedLines = translatedCombo.split('\n');
-                    for (let j = 0; j < chunk.length; j++) {
-                        if (translatedLines[j]) {
-                            applyCallback(chunk[j].index, translatedLines[j].trim());
-                        }
-                    }
-                }
-
-                // Trigger a layout refresh so the canvas allocates space immediately
-                if (typeof fl.needsLayoutUpdate !== 'undefined') {
-                    fl.needsLayoutUpdate = true;
-                }
-                resolve();
-            }, chunkIdx * staggerMs);
-        })));
     };
 
 })();

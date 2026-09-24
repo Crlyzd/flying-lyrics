@@ -1,0 +1,142 @@
+/* =========================================================
+ *  CONTROLS: RANGE SLIDERS & OFFSET SELECTORS
+ * ========================================================= */
+
+
+/* =========================================================
+ *  RANGE SLIDERS
+ * ========================================================= */
+.range-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.range-row:last-of-type {
+    margin-bottom: 0;
+}
+
+.range-row-last {
+    margin-bottom: 0;
+}
+
+.range-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 16px;
+    outline: none;
+    cursor: pointer;
+}
+
+.range-row input[type=range]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.range-row input[type=range]::-moz-range-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.range-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -6px; /* Centering offset: (4px - 16px) / 2 */
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--accent-glow);
+    transition: transform 0.15s;
+}
+
+.range-row input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.range-row input[type=range]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 6px var(--accent-glow);
+    transition: transform 0.15s;
+}
+
+.range-row input[type=range]::-moz-range-thumb:hover {
+    transform: scale(1.15);
+}
+
+.range-value {
+    font-size: 12px;
+    min-width: 38px;
+    text-align: right;
+    color: var(--accent-foreground);
+    font-family: monospace;
+    font-weight: bold;
+}
+
+
+/* =========================================================
+ *  SYNC OFFSET DISPLAY & ROW
+ * ========================================================= */
+.sync-control-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+#offset-display {
+    font-family: monospace;
+    font-size: 16px;
+    min-width: 60px;
+    text-align: center;
+}
+
+
+/* =========================================================
+ *  GLOBAL OFFSET INPUT & ROW
+ * ========================================================= */
+.global-offset-label {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.global-offset-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 6px 0;
+}
+
+#global-offset-input {
+    width: 75px;
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    text-align: center;
+    font-family: monospace;
+    font-size: 14px;
+    outline: none;
+}
+
+#global-offset-set-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+    width: 100px;
+}

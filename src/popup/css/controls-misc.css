@@ -1,0 +1,264 @@
+/* =========================================================
+ *  CONTROLS: ICONS, ACCORDIONS & SPINNERS
+ * ========================================================= */
+
+
+/* =========================================================
+ *  DEEP SEARCH INDICATOR (progress row in results)
+ * ========================================================= */
+#deep-search-indicator {
+    cursor: default !important;
+    justify-content: center !important;
+    background-color: rgba(255, 204, 0, 0.05) !important;
+    border-bottom: 1px dashed rgba(255, 204, 0, 0.2) !important;
+    border-top: none !important;
+}
+
+.deep-search-label-row {
+    display: flex;
+    align-items: center;
+    color: #ffcc00;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* =========================================================
+ *  SYNC SPINNER (loading animation)
+ * ========================================================= */
+.sync-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 204, 0, 0.3);
+    border-radius: 50%;
+    border-top-color: #ffcc00;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================================================
+ *  SVG ICON MASK SYSTEM
+ *  Uses CSS mask so icons inherit currentColor without
+ *  needing a separate fill/stroke attribute per instance.
+ * ========================================================= */
+.icon-mask {
+    display: inline-block;
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.icon-music {
+    -webkit-mask-image: url('../icons/music.svg');
+    mask-image: url('../icons/music.svg');
+}
+
+.icon-brush {
+    -webkit-mask-image: url('../icons/brush.svg');
+    mask-image: url('../icons/brush.svg');
+}
+
+.icon-settings {
+    -webkit-mask-image: url('../icons/settings.svg');
+    mask-image: url('../icons/settings.svg');
+}
+
+.icon-system {
+    -webkit-mask-image: url('../icons/system.svg');
+    mask-image: url('../icons/system.svg');
+}
+
+.icon-folder {
+    -webkit-mask-image: url('../icons/folder.svg');
+    mask-image: url('../icons/folder.svg');
+}
+
+.icon-edit {
+    -webkit-mask-image: url('../icons/edit.svg');
+    mask-image: url('../icons/edit.svg');
+}
+
+.icon-customize {
+    -webkit-mask-image: url('../icons/customize.svg');
+    mask-image: url('../icons/customize.svg');
+}
+
+.icon-back {
+    -webkit-mask-image: url('../icons/back.svg');
+    mask-image: url('../icons/back.svg');
+}
+
+.icon-album {
+    -webkit-mask-image: url('../icons/album.svg');
+    mask-image: url('../icons/album.svg');
+}
+
+.icon-recent {
+    -webkit-mask-image: url('../icons/recent.svg');
+    mask-image: url('../icons/recent.svg');
+}
+
+.icon-sparkles {
+    -webkit-mask-image: url('../icons/sparkles.svg');
+    mask-image: url('../icons/sparkles.svg');
+}
+
+.icon-galaxy {
+    -webkit-mask-image: url('../icons/galaxy.svg');
+    mask-image: url('../icons/galaxy.svg');
+}
+
+.icon-bug {
+    -webkit-mask-image: url('../icons/bug.svg');
+    mask-image: url('../icons/bug.svg');
+}
+
+.icon-coffee {
+    -webkit-mask-image: url('../icons/coffee.svg');
+    mask-image: url('../icons/coffee.svg');
+}
+
+/* Icon size helpers */
+.icon-size-10 {
+    width: 10px;
+    height: 10px;
+}
+
+.icon-size-14 {
+    width: 14px;
+    height: 14px;
+}
+
+.icon-size-15 {
+    width: 15px;
+    height: 15px;
+}
+
+.icon-size-16 {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-size-20 {
+    width: 20px;
+    height: 20px;
+}
+
+#borderless-pip-warning {
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#borderless-pip-warning:hover {
+    text-decoration: underline;
+    opacity: 0.85;
+}
+
+/* =========================================================
+ *  COLLAPSIBLE GROUP (ACCORDION) STYLES
+ * ========================================================= */
+.control-group.collapsible-group {
+    padding: 0;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.control-group.collapsible-group:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    color: #eee;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.collapsible-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--accent-foreground);
+}
+
+.collapsible-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.collapsible-title-wrapper .icon-svg {
+    opacity: 0.85;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.collapsible-header:hover .collapsible-title-wrapper .icon-svg {
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.chevron-icon {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid #888;
+    border-bottom: 2px solid #888;
+    transform: rotate(-135deg); /* Pointing UP (Expanded) */
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s;
+    margin-right: 4px;
+}
+
+.collapsible-header:hover .chevron-icon {
+    border-color: var(--accent);
+}
+
+.collapsible-content {
+    max-height: 1200px;
+    opacity: 1;
+    padding: 2px 14px 14px 14px;
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.22s ease-in-out, 
+                padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: visible;
+}
+
+/* Collapsed State */
+.control-group.collapsible-group.collapsed .collapsible-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.control-group.collapsible-group.collapsed .chevron-icon {
+    transform: rotate(45deg); /* Pointing DOWN (Collapsed) */
+}
+
+/* Disable state support (Album Cover Mode) */
+#visual-controls-wrapper.controls-disabled .collapsible-header {
+    pointer-events: none;
+    opacity: 0.5;
+}

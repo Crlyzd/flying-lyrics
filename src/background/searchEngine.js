@@ -1,133 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  FLYING LYRICS — UNIFIED SEARCH ENGINE (background context)
+//  FLYING LYRICS — UNIFIED SEARCH ENGINE (background context coordinator)
 //
-//  This module is the single source of truth for all lyric search operations.
-//  It is called exclusively by message handlers in background.js:
-//
-//    UNIFIED_SEARCH      → used by popup.js (Manual Search)
-//    UNIFIED_AUTO_SEARCH → used by services.js (Auto Search)
-//
-//  Architecture:
-//    1. Fires LRCLIB and Netease search concurrently (Promise.allSettled).
-//    2. Normalises both APIs into a flat, unified candidate array.
-//    3. Scores and sorts candidates with a single algorithm that both
-//       auto and manual search share.
-//    4. Auto Search walks down the sorted list, lazily fetching Netease raw
-//       lyrics on demand to check for LRC timestamps (Lazy Evaluation).
+//  This module orchestrates lyric search operations across providers.
+//  Sub-responsibilities are cleanly decoupled into:
+//    - search/sanitizer.js          (Title/artist noise stripping & alias extraction)
+//    - search/scoring.js            (Levenshtein, token similarity & candidate scoring)
+//    - search/network.js            (Fetch timeout & telemetry instrumentation)
+//    - search/providers/lrclib.js   (LRCLIB API adapter)
+//    - search/providers/netease.js  (NetEase API adapter)
+//    - search/providers/kugou.js    (KuGou API adapter & Base64 UTF-8 decoder)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_TIMEOUT_MS = 5000;
-
-// ─── Levenshtein helpers ─────────────────────────────────────────────────────
-
-function levenshtein(a, b) {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-
-    if (a.length < b.length) {
-        const tmp = a; a = b; b = tmp;
-    }
-
-    const m = a.length;
-    const n = b.length;
-
-    let prevRow = new Int32Array(n + 1);
-    let currRow = new Int32Array(n + 1);
-
-    for (let j = 0; j <= n; j++) {
-        prevRow[j] = j;
-    }
-
-    for (let i = 1; i <= m; i++) {
-        currRow[0] = i;
-        const charA = a[i - 1];
-        for (let j = 1; j <= n; j++) {
-            const cost = charA === b[j - 1] ? 0 : 1;
-            currRow[j] = Math.min(
-                prevRow[j] + 1,        // Deletion
-                currRow[j - 1] + 1,    // Insertion
-                prevRow[j - 1] + cost  // Substitution
-            );
-        }
-        const temp = prevRow;
-        prevRow = currRow;
-        currRow = temp;
-    }
-    return prevRow[n];
-}
-
-function titleSimilarity(a, b) {
-    if (!a && !b) return 100;
-    if (!a || !b) return 0;
-    const maxLen = Math.max(a.length, b.length);
-    return Math.round((1 - levenshtein(a, b) / maxLen) * 100);
-}
-
-// ─── Metadata cleaning ───────────────────────────────────────────────────────
-
-function cleanTitle(title) {
-    if (!title) return '';
-    const noiseTerms = [
-        'official video', 'official audio', 'official music video', 'lyrics video',
-        'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
-        'hidden track', 'high res', 'hi-res', 'a cappella',
-        'from the first take', 'anime ver\\.?', 'tv size ver\\.?', 'tv size', 'tv ver\\.?',
-        'short ver\\.?', 'theme song', 'soundtrack', 'original soundtrack', 'ost',
-        '主題歌', '挿入歌', 'テーマソング', 'エンディング', 'オープニング', '劇中歌', '伴奏', '伴奏版',
-        'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
-        'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
-        'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
-        'anniversary', 'b-side', 'mv', '4k', '1080p', 'hq', 'hd',
-        'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
-    ].join('|');
-
-    // Pass 1: Extract song title if quoted in Japanese quotes with prefix e.g. 【推しの子】主題歌「アイドル」 -> アイドル
-    let clean = title;
-    const animeQuoteMatch = clean.match(/^[【『「《（［〔].*?[】』」》）］〕].*?[「『]([^」』]+)[」』]/);
-    if (animeQuoteMatch && animeQuoteMatch[1]) {
-        clean = animeQuoteMatch[1];
-    }
-
-    // Pass 2: Remove bracketed noise groups (including Asian full-width brackets)
-    const bracketRegex = new RegExp(
-        '\\s*[({\\[【『「《（［〔](?:[^)}\\]】』」》）］〕]*?(?:' + noiseTerms + ')[^)}\\]】』」》）］〕]*?)[)}\\]】』」》）］〕]',
-        'gi'
-    );
-    clean = clean.replace(bracketRegex, '');
-
-    // Pass 3: Remove trailing noise suffixes (- Remastered, - TV ver, etc.)
-    const trailingRegex = new RegExp('\\s*-\\s*(?:' + noiseTerms + ').*$', 'gi');
-    clean = clean.replace(trailingRegex, '');
-
-    // Pass 4: Strip leading/trailing Japanese corner quotes e.g. 「アイドル」 -> アイドル
-    clean = clean.replace(/^[「『《〈](.+)[」』》〉]$/, '$1');
-
-    return clean.trim();
-}
-
-function extractPrimaryArtist(artist) {
-    let primary = artist.split(/,|&|＆|、|・|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0].trim();
-    primary = primary.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
-    return primary;
-}
-
-function cleanArtist(artist) {
-    if (!artist) return '';
-    let cleaned = artist.split(/\b(feat\.?|ft\.?|featuring|with|vs\.?)\b/i)[0].trim();
-    cleaned = cleaned.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
-    return cleaned.replace(/[\s,;&＆]+$/, '').trim();
-}
-
-function extractShortTitle(title) {
-    if (!title) return '';
-    if (/\s+-/.test(title)) {
-        const parts = title.split(/\s+-\s*/);
-        if (parts[0] && parts[0].trim()) {
-            return parts[0].trim();
-        }
-    }
-    return title;
-}
+const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
 
 // In-memory cache for transliteration: key -> transliterated string
 const transliterationCache = new Map();
@@ -137,16 +21,18 @@ const transliterationCache = new Map();
  * Returns tone-stripped Latin string, or falls back to offline romanize().
  */
 async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
-    if (!text || !isNonAscii(text)) return text || '';
+    if (!text || (typeof isNonAscii === 'function' && !isNonAscii(text))) return text || '';
     const key = text.trim().toLowerCase();
     if (transliterationCache.has(key)) {
         return transliterationCache.get(key);
     }
 
+    const fetchFn = typeof fetchWithTimeout === 'function' ? fetchWithTimeout : fetch;
+
     // Tier 1 (Primary): client=gtx (fast for single-line title/artist strings)
     try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
-        const res = await fetchWithTimeout(url, timeoutMs);
+        const res = await fetchFn(url, timeoutMs);
         if (res && res.ok) {
             const data = await res.json();
             let romanized = '';
@@ -159,14 +45,14 @@ async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
                 return cleaned;
             }
         }
-    } catch (e) {
+    } catch {
         // Fallback to Tier 2 on network error/timeout
     }
 
     // Tier 2 (Network Fallback): client=dict-chrome-ex
     try {
         const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
-        const res2 = await fetchWithTimeout(fallbackUrl, timeoutMs);
+        const res2 = await fetchFn(fallbackUrl, timeoutMs);
         if (res2 && res2.ok) {
             const data2 = await res2.json();
             let romanized2 = '';
@@ -179,7 +65,7 @@ async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
                 return cleaned2;
             }
         }
-    } catch (e2) {
+    } catch {
         // Fallback to Tier 3 on failure
     }
 
@@ -191,486 +77,32 @@ async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
 
 function getQueryMetadata(cleanQueryTitle, cleanQueryArtist, extraRomajiTitle = '', extraRomajiArtist = '') {
     const titleLower = (cleanQueryTitle || '').toLowerCase();
-    const titleShort = extractShortTitle(cleanQueryTitle || '').toLowerCase();
+    const titleShort = (typeof extractShortTitle === 'function' ? extractShortTitle(cleanQueryTitle || '') : cleanQueryTitle || '').toLowerCase();
     
-    const artistLower = cleanArtist(cleanQueryArtist || '').toLowerCase();
-    const artistPrimary = extractPrimaryArtist(cleanQueryArtist || '').toLowerCase();
+    const artistLower = (typeof cleanArtist === 'function' ? cleanArtist(cleanQueryArtist || '') : cleanQueryArtist || '').toLowerCase();
+    const artistPrimary = (typeof extractPrimaryArtist === 'function' ? extractPrimaryArtist(cleanQueryArtist || '') : cleanQueryArtist || '').toLowerCase();
+
+    const romFn = typeof romanize === 'function' ? romanize : (s => s);
 
     return {
         titleLower,
         titleShort,
-        titleCleanRomaji: (extraRomajiTitle || romanize(titleLower)).toLowerCase(),
-        titleShortRomaji: romanize(titleShort).toLowerCase(),
+        titleCleanRomaji: (extraRomajiTitle || romFn(titleLower)).toLowerCase(),
+        titleShortRomaji: romFn(titleShort).toLowerCase(),
         artistLower,
-        artistFullRomaji: (extraRomajiArtist || romanize(artistLower)).toLowerCase(),
+        artistFullRomaji: (extraRomajiArtist || romFn(artistLower)).toLowerCase(),
         artistPrimary,
-        artistPrimaryRomaji: romanize(artistPrimary).toLowerCase()
+        artistPrimaryRomaji: romFn(artistPrimary).toLowerCase()
     };
 }
 
-function getTitleSimilarity(query, candidateTitle) {
-    const isObj = query && typeof query === 'object';
-    const qTitleClean = isObj ? query.titleLower : (query || '').toLowerCase();
-    const qTitleShort = isObj ? query.titleShort : extractShortTitle(query || '').toLowerCase();
-    const qTitleCleanRomaji = isObj ? query.titleCleanRomaji : romanize(qTitleClean);
-    const qTitleShortRomaji = isObj ? query.titleShortRomaji : romanize(qTitleShort);
-
-    const cTitleClean = cleanTitle(candidateTitle || '').toLowerCase();
-    const cTitleShort = extractShortTitle(cTitleClean).toLowerCase();
-    const cTitleCleanRomaji = romanize(cTitleClean);
-    const cTitleShortRomaji = romanize(cTitleShort);
-
-    return Math.max(
-        titleSimilarity(qTitleClean, cTitleClean),
-        titleSimilarity(qTitleClean, cTitleCleanRomaji),
-        titleSimilarity(qTitleCleanRomaji, cTitleClean),
-        titleSimilarity(qTitleCleanRomaji, cTitleCleanRomaji),
-        titleSimilarity(qTitleShort, cTitleClean),
-        titleSimilarity(qTitleShort, cTitleCleanRomaji),
-        titleSimilarity(qTitleClean, cTitleShort),
-        titleSimilarity(qTitleCleanRomaji, cTitleShort),
-        titleSimilarity(qTitleShort, cTitleShort),
-        titleSimilarity(qTitleShort, cTitleShortRomaji),
-        titleSimilarity(qTitleShortRomaji, cTitleShort),
-        titleSimilarity(qTitleShortRomaji, cTitleShortRomaji)
-    );
-}
-
-function splitArtists(artistStr) {
-    if (!artistStr) return [];
-    return artistStr
-        .split(/[,;&/|、・]|\b(?:feat\.?|ft\.?|featuring|with|vs\.?)\b/i)
-        .map(s => s.trim().toLowerCase())
-        .filter(Boolean);
-}
-
-function getArtistSimilarity(query, candidateArtist) {
-    const isObj = query && typeof query === 'object';
-    const qArtistFull = isObj ? query.artistLower : cleanArtist(query || '').toLowerCase();
-    const qArtistFullRomaji = isObj ? query.artistFullRomaji : romanize(qArtistFull);
-    const qArtistPrimary = isObj ? query.artistPrimary : extractPrimaryArtist(query || '').toLowerCase();
-    const qArtistPrimaryRomaji = isObj ? query.artistPrimaryRomaji : romanize(qArtistPrimary);
-
-    const cArtistFull = cleanArtist(candidateArtist || '').toLowerCase();
-    const cArtistFullRomaji = romanize(cArtistFull);
-    const cArtistPrimary = extractPrimaryArtist(candidateArtist || '').toLowerCase();
-    const cArtistPrimaryRomaji = romanize(cArtistPrimary);
-
-    const baseScore = Math.max(
-        titleSimilarity(qArtistPrimary, cArtistPrimary),
-        titleSimilarity(qArtistPrimary, cArtistPrimaryRomaji),
-        titleSimilarity(qArtistPrimaryRomaji, cArtistPrimary),
-        titleSimilarity(qArtistPrimaryRomaji, cArtistPrimaryRomaji),
-        titleSimilarity(qArtistFull, cArtistFull),
-        titleSimilarity(qArtistFull, cArtistFullRomaji),
-        titleSimilarity(qArtistFullRomaji, cArtistFull),
-        titleSimilarity(qArtistFullRomaji, cArtistFullRomaji)
-    );
-
-    // Cross-set component comparison for multi-artist collaborations
-    const qArtists = splitArtists(qArtistFull);
-    const cArtists = splitArtists(cArtistFull);
-    if (qArtists.length > 1 || cArtists.length > 1) {
-        let maxComponentSim = 0;
-        for (const qa of qArtists) {
-            const qaRomaji = romanize(qa);
-            for (const ca of cArtists) {
-                const caRomaji = romanize(ca);
-                const sim = Math.max(
-                    titleSimilarity(qa, ca),
-                    titleSimilarity(qa, caRomaji),
-                    titleSimilarity(qaRomaji, ca),
-                    titleSimilarity(qaRomaji, caRomaji)
-                );
-                if (sim > maxComponentSim) maxComponentSim = sim;
-            }
-        }
-        if (maxComponentSim >= 85) {
-            return Math.max(baseScore, 90, maxComponentSim);
-        }
-        return Math.max(baseScore, Math.round(maxComponentSim * 0.85));
-    }
-
-    return baseScore;
-}
-
-// ─── Scoring ─────────────────────────────────────────────────────────────────
-
 /**
- * Scores a single normalised candidate.
- *
- * Score breakdown (higher = better):
- *   +10 000  : synced lyric (confirmed LRC timestamps)
- *   +100     : LRCLIB source bonus — acts as a TIE-BREAKER only between equally
- *              good matches; intentionally small so it never overrides a title mismatch.
- *   -8 000   : title mismatch gate — applied when titleSim < 40%, ensuring a clearly
- *              wrong title (e.g. "Made In Heaven" when searching "Faith") can never
- *              beat a correct result regardless of source or sync status.
- *   -delta   : absolute seconds difference between candidate and actual duration
- *              (only penalised when delta > 5s to allow platform rounding)
- *   +titleSim*10  : Levenshtein closeness of candidate title to clean query title
- *   +artistSim*5  : Levenshtein closeness of candidate artist to clean query artist
- *
- * @param {object} candidate – normalised candidate (see normalizeLrcLib / normalizeNetease)
- * @param {number} actualDuration – current player duration in seconds
- * @param {string} cleanQueryTitle – noise-stripped title for similarity scoring
- * @param {string} cleanQueryArtist – primary artist/full artist for similarity scoring
- * @returns {number}
+ * Unified candidate search across providers.
  */
-function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryArtist) {
-    const syncedBonus  = candidate.synced ? 10000 : 0;
-    // Small tie-breaker only — NOT large enough to override a title mismatch
-    const sourceBonus  = candidate.source === 'lrclib' ? 100 : 0;
-
-    const durationDelta = actualDuration > 0
-        ? Math.max(0, Math.abs((candidate.duration || 0) - actualDuration) - 5)
-        : 0;
-
-    const isMetadataObj = cleanQueryTitle && typeof cleanQueryTitle === 'object';
-    const titleSim = getTitleSimilarity(cleanQueryTitle, candidate.trackName);
-    const artistSim = getArtistSimilarity(isMetadataObj ? cleanQueryTitle : cleanQueryArtist, candidate.artistName);
-
-    const queryTitleText = isMetadataObj ? cleanQueryTitle.titleLower : cleanQueryTitle;
-
-    // Gate: heavily penalise candidates whose title is clearly wrong.
-    // BUT relax the penalty if:
-    //   1. The primary artist matches closely (artistSim >= 85%).
-    //   2. The title or artist scripts differ (cross-script e.g. English vs CJK/Kanji/Cyrillic).
-    //   3. The track duration matches very closely (delta <= 3s) with partial title/artist similarity.
-    let titleMismatchPenalty = 0;
-    if (queryTitleText && titleSim < 40) {
-        const isQueryNonAscii = isNonAscii(queryTitleText) || isNonAscii(isMetadataObj ? (cleanQueryTitle.artistLower || '') : (cleanQueryArtist || ''));
-        const isCandidateNonAscii = isNonAscii(candidate.trackName || '') || isNonAscii(candidate.artistName || '');
-        const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
-        const durationClose = actualDuration > 0 && Math.abs((candidate.duration || 0) - actualDuration) <= 3;
-
-        if (artistSim >= 85 && scriptMismatch) {
-            titleMismatchPenalty = -2000;
-        } else if (durationClose && scriptMismatch && (artistSim >= 40 || titleSim >= 20)) {
-            titleMismatchPenalty = -1500;
-        } else {
-            titleMismatchPenalty = -12000;
-        }
-    }
-
-    return syncedBonus + sourceBonus + titleMismatchPenalty - durationDelta + (titleSim * 10) + (artistSim * 5);
-}
-
-// ─── Normalise API responses ──────────────────────────────────────────────────
-
-function normalizeLrcLib(item) {
-    const hasLyrics = !!(item.syncedLyrics || item.plainLyrics);
-    const isEmpty = !hasLyrics || !!item.instrumental;
-    let rawLyric = item.syncedLyrics || item.plainLyrics || '';
-    if (isEmpty && !rawLyric) {
-        rawLyric = "[00:00.00] ♫ (Empty) ♫";
-    }
-    return {
-        source:     'lrclib',
-        id:         item.id,
-        trackName:  item.trackName  || '',
-        artistName: item.artistName || '',
-        albumName:  item.albumName  || '',
-        duration:   item.duration   || 0,
-        // Pre-resolved: LRCLIB always returns the full lyric text in the search response
-        synced:     !!item.syncedLyrics || !!item.instrumental,
-        rawLyric:   rawLyric,
-        instrumental: !!item.instrumental,
-        isEmpty:    isEmpty
-    };
-}
-
-function normalizeNetease(song) {
-    return {
-        source:     'netease',
-        id:         song.id,
-        trackName:  song.name                              || '',
-        artistName: song.ar ? song.ar.map(a => a.name).join(', ') : '',
-        albumName:  song.al ? song.al.name                 : '',
-        duration:   song.dt ? Math.floor(song.dt / 1000)  : 0,
-        // Unknown until we lazily fetch the raw lyric string
-        synced:     null,
-        rawLyric:   null,
-    };
-}
-
-function normalizeKugou(item) {
-    return {
-        source:     'kugou',
-        id:         String(item.id || ''),
-        accesskey:  String(item.accesskey || ''),
-        trackName:  item.song || '',
-        artistName: item.singer || '',
-        albumName:  '',
-        duration:   item.duration ? Math.floor(item.duration / 1000) : 0,
-        synced:     null,
-        rawLyric:   null,
-        isEmpty:    false,
-        instrumental: false
-    };
-}
-
-function decodeBase64Utf8(base64Str) {
-    if (!base64Str) return '';
-    try {
-        const binary = atob(base64Str);
-        const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
-        return new TextDecoder('utf-8').decode(bytes);
-    } catch {
-        return '';
-    }
-}
-
-// ─── Network helpers ──────────────────────────────────────────────────────────
-
-/**
- * Normalises a raw URL into a fixed canonical endpoint identifier.
- * Prevents high-cardinality explosion in telemetry (e.g. dynamic song IDs in paths).
- * @param {string} url
- * @returns {string}
- */
-function getCanonicalEndpoint(url) {
-    if (!url) return 'unknown';
-    if (url.includes('lrclib.net/api/get')) return 'lrclib_get';
-    if (url.includes('lrclib.net/api/search')) return 'lrclib_search';
-    if (url.includes('music.163.com/api/song/lyric')) return 'netease_lyric';
-    if (url.includes('music.163.com/api/cloudsearch')) return 'netease_search';
-    if (url.includes('lyrics.kugou.com/download')) return 'kugou_download';
-    if (url.includes('lyrics.kugou.com/search')) return 'kugou_search';
-    if (url.includes('msearch.kugou.com') || url.includes('/api/v3/search/song')) return 'kugou_song_search';
-    if (url.includes('translate.googleapis.com')) return 'google_translate';
-
-    try {
-        const parsed = new URL(url);
-        return `${parsed.hostname}${parsed.pathname.split('/').slice(0, 3).join('/')}`;
-    } catch {
-        return url.split('?')[0];
-    }
-}
-
-/**
- * Maps a numeric latency in milliseconds to a discrete range bucket.
- * @param {number} ms
- * @returns {string}
- */
-function getLatencyRange(ms) {
-    if (ms <= 200) return 'under_200ms';
-    if (ms <= 500) return '200ms_500ms';
-    if (ms <= 1000) return '500ms_1s';
-    if (ms <= 2000) return '1s_2s';
-    if (ms <= 5000) return '2s_5s';
-    return 'over_5s';
-}
-
-/**
- * Wraps fetch() with a hard timeout using AbortController.
- * Caps request duration to prevent extension hanging when external API servers are slow.
- *
- * @param {string} url - URL to fetch
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Response>}
- */
-function fetchWithTimeout(url, timeoutMs) {
-    const startTime = performance.now();
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-    const endpoint = getCanonicalEndpoint(url);
-
-    return fetch(url, { signal: controller.signal })
-        .then(res => {
-            clearTimeout(id);
-            const latency = Math.round(performance.now() - startTime);
-            const latencyRange = getLatencyRange(latency);
-            // Log api_latency event anonymously with discrete latency bucket and canonical endpoint
-            if (typeof trackEvent === 'function') {
-                trackEvent('api_latency', {
-                    endpoint: endpoint,
-                    latency_range: latencyRange,
-                    latency_ms: latency,
-                    status: res.status
-                });
-                if (res.status === 429) {
-                    trackEvent('rate_limited', { endpoint: endpoint });
-                }
-            }
-            return res;
-        })
-        .catch(err => {
-            clearTimeout(id);
-            const latency = Math.round(performance.now() - startTime);
-            const latencyRange = getLatencyRange(latency);
-            if (typeof trackEvent === 'function') {
-                const errName = err.name === 'AbortError' ? 'timeout' : (err.message || err.name || 'network_error');
-                trackEvent('api_latency', {
-                    endpoint: endpoint,
-                    latency_range: latencyRange,
-                    latency_ms: latency,
-                    error: errName
-                });
-            }
-            throw err;
-        });
-}
-
-/** Fetches the raw Netease lyric data (main lrc, tlyric, romalrc) for a specific song ID. */
-function fetchNeteaseRaw(id, timeoutMs) {
-    return fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${id}&lv=1&tv=-1`, timeoutMs || DEFAULT_TIMEOUT_MS)
-        .then(r => r.json())
-        .then(data => ({
-            lyric: data?.lrc?.lyric || '',
-            tlyric: data?.tlyric?.lyric || '',
-            romalrc: data?.romalrc?.lyric || ''
-        }))
-        .catch(() => ({ lyric: '', tlyric: '', romalrc: '' }));
-}
-
-/** Fetches the raw LRCLIB lyric data for a specific song ID. */
-function fetchLrcLibRaw(id, timeoutMs) {
-    return fetchWithTimeout(`https://lrclib.net/api/get/${id}`, timeoutMs || DEFAULT_TIMEOUT_MS)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null);
-}
-
-/** Fetches the raw KuGou lyric data (decoded from Base64 UTF-8) for a specific song ID and access key. */
-function fetchKugouRaw(id, accesskey, timeoutMs) {
-    if (!id || !accesskey) return Promise.resolve({ lyric: '', id });
-    return fetchWithTimeout(`https://lyrics.kugou.com/download?ver=1&client=pc&id=${encodeURIComponent(id)}&accesskey=${encodeURIComponent(accesskey)}&fmt=lrc&charset=utf8`, timeoutMs || DEFAULT_TIMEOUT_MS)
-        .then(r => r.json())
-        .then(data => ({
-            lyric: decodeBase64Utf8(data?.content || ''),
-            id: id
-        }))
-        .catch(() => ({ lyric: '', id }));
-}
-
-/**
- * Two-tier search for KuGou:
- * Tier 1: Direct lyric keyword lookup via lyrics.kugou.com/search (fast path for exact matches)
- * Tier 2: Fuzzy song search via msearch.kugou.com/api/v3/search/song -> hash lookup via lyrics.kugou.com/search?hash=
- * Concurrently executes both tiers and deduplicates results by candidate ID.
- *
- * @param {string} query
- * @param {number} timeoutMs
- * @returns {Promise<{candidates: object[], ok: boolean, timedOut: boolean}>}
- */
-async function searchKugouCandidates(query, timeoutMs) {
-    if (!query) return { candidates: [], ok: false, timedOut: false };
-
-    let anyOk = false;
-    let anyTimeout = false;
-
-    // Tier 1: Direct lyric search (fast path for exact matches)
-    const directSearchPromise = fetchWithTimeout(
-        `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(query)}&hash=`,
-        timeoutMs
-    )
-        .then(r => {
-            if (r.ok) anyOk = true;
-            return r.ok ? r.json() : { candidates: [] };
-        })
-        .then(d => (Array.isArray(d?.candidates) ? d.candidates : []))
-        .catch(err => {
-            if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
-                anyTimeout = true;
-            }
-            return [];
-        });
-
-    // Tier 2: Fuzzy song search -> hash lookup
-    const songSearchPromise = fetchWithTimeout(
-        `https://msearch.kugou.com/api/v3/search/song?keyword=${encodeURIComponent(query)}&page=1&pagesize=4`,
-        timeoutMs
-    )
-        .then(r => {
-            if (r.ok) anyOk = true;
-            return r.ok ? r.json() : null;
-        })
-        .then(async data => {
-            const songs = data?.data?.info || [];
-            const hashes = [];
-            for (const s of songs) {
-                if (s?.hash && !hashes.includes(s.hash)) {
-                    hashes.push(s.hash);
-                    if (hashes.length >= 2) break;
-                }
-            }
-            if (hashes.length === 0) return [];
-
-            const hashPromises = hashes.map(hash =>
-                fetchWithTimeout(
-                    `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=&hash=${encodeURIComponent(hash)}`,
-                    timeoutMs
-                )
-                    .then(r => {
-                        if (r.ok) anyOk = true;
-                        return r.ok ? r.json() : { candidates: [] };
-                    })
-                    .then(d => (Array.isArray(d?.candidates) ? d.candidates : []))
-                    .catch(err => {
-                        if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
-                            anyTimeout = true;
-                        }
-                        return [];
-                    })
-            );
-
-            const hashResults = await Promise.all(hashPromises);
-            return hashResults.flat();
-        })
-        .catch(err => {
-            if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
-                anyTimeout = true;
-            }
-            return [];
-        });
-
-    const [directRes, songRes] = await Promise.allSettled([directSearchPromise, songSearchPromise]);
-
-    const candidates = [];
-    const seen = new Set();
-    const lists = [
-        directRes.status === 'fulfilled' ? directRes.value : [],
-        songRes.status === 'fulfilled' ? songRes.value : []
-    ];
-
-    for (const list of lists) {
-        if (Array.isArray(list)) {
-            for (const item of list) {
-                const key = String(item.id || '');
-                if (key && !seen.has(key)) {
-                    seen.add(key);
-                    candidates.push(item);
-                }
-            }
-        }
-    }
-
-    return { candidates, ok: anyOk, timedOut: anyTimeout && !anyOk };
-}
-
-const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
-
-// ─── Core search ─────────────────────────────────────────────────────────────
-
-/**
- * The unified search function.
- *
- * Fires LRCLIB, Netease and KuGou search requests concurrently and returns an array
- * of normalised candidates sorted best-first by score.
- *
- * Netease & KuGou candidates have synced=null / rawLyric=null at this stage.
- * For Manual Search this is fine — the popup shows the metadata list and
- * only fetches the raw lyric when the user clicks a result.
- * For Auto Search, getBestAutoMatch() handles Lazy Evaluation on top.
- *
- * @param {string} query           – The search string (e.g. "Artist - Clean Title")
- * @param {number} actualDuration  – Player duration in seconds (0 = unknown)
- * @param {string} cleanTitle      – Noise-stripped title for scoring
- * @param {string} cleanArtist     – Primary artist for scoring
- * @returns {Promise<object[]>}    – Sorted candidate array
- */
-async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs, simOrProviders) {
-    const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
+async function unifiedSearch(query, actualDuration, cleanTitleStr, cleanArtistStr, timeoutMs, simOrProviders) {
+    const defaultMs = typeof DEFAULT_TIMEOUT_MS !== 'undefined' ? DEFAULT_TIMEOUT_MS : 5000;
+    const activeTimeout = timeoutMs || defaultMs;
+    const fetchFn = typeof fetchWithTimeout === 'function' ? fetchWithTimeout : fetch;
 
     let lrcTimedOut = false;
     let neteaseTimedOut = false;
@@ -695,16 +127,19 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
 
     const lrcPromise = skipLrc
         ? Promise.resolve({ ok: false, json: () => Promise.resolve([]) })
-        : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
+        : fetchFn(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
 
     const neteasePromise = skipNetease
         ? Promise.resolve({ ok: false, json: () => Promise.resolve({ result: { songs: [] } }) })
-        : fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout);
+        : fetchFn(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout);
 
-    const skipKugouActual = skipKugou;
-    const kugouPromise = skipKugouActual
+    const kugouSearchFn = typeof searchKugouCandidates === 'function' 
+        ? searchKugouCandidates 
+        : (globalThis.KUGOU_PROVIDER?.searchKugouCandidates || (() => Promise.resolve({ candidates: [] })));
+
+    const kugouPromise = skipKugou
         ? Promise.resolve({ candidates: [], ok: false, timedOut: false })
-        : searchKugouCandidates(query, activeTimeout);
+        : kugouSearchFn(query, activeTimeout);
 
     const [lrcRes, neteaseRes, kugouRes] = await Promise.allSettled([
         lrcPromise
@@ -740,12 +175,8 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
 
         kugouPromise
             .then(res => {
-                if (res?.ok) {
-                    kugouOk = true;
-                }
-                if (res?.timedOut) {
-                    kugouTimedOut = true;
-                }
+                if (res?.ok) kugouOk = true;
+                if (res?.timedOut) kugouTimedOut = true;
                 return res?.candidates || [];
             })
             .catch((err) => {
@@ -757,67 +188,53 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
     ]);
 
     const candidates = [];
+    const normLrc = typeof normalizeLrcLib === 'function' ? normalizeLrcLib : (c => c);
+    const normNet = typeof normalizeNetease === 'function' ? normalizeNetease : (c => c);
+    const normKu = typeof normalizeKugou === 'function' ? normalizeKugou : (c => c);
 
     if (lrcRes.status === 'fulfilled') {
         const lrcItems = Array.isArray(lrcRes.value) ? lrcRes.value : [];
-        // Limit to top 10 per source to keep the result list manageable
-        candidates.push(...lrcItems.slice(0, 10).map(normalizeLrcLib));
+        candidates.push(...lrcItems.slice(0, 10).map(normLrc));
     }
 
     if (neteaseRes.status === 'fulfilled') {
         const netItems = Array.isArray(neteaseRes.value) ? neteaseRes.value : [];
-        candidates.push(...netItems.slice(0, 10).map(normalizeNetease));
+        candidates.push(...netItems.slice(0, 10).map(normNet));
     }
 
     if (kugouRes.status === 'fulfilled') {
         const kugouItems = Array.isArray(kugouRes.value) ? kugouRes.value : [];
-        candidates.push(...kugouItems.slice(0, 10).map(normalizeKugou));
+        candidates.push(...kugouItems.slice(0, 10).map(normKu));
     }
 
     // Pre-calculate query metadata and score each candidate exactly once
-    const queryMetadata = getQueryMetadata(cleanTitle, cleanArtist);
+    const queryMetadata = getQueryMetadata(cleanTitleStr, cleanArtistStr);
+    const scoreFn = typeof scoreCandidate === 'function' ? scoreCandidate : (() => 0);
+
     for (const c of candidates) {
-        c._score = scoreCandidate(c, actualDuration, queryMetadata);
+        c._score = scoreFn(c, actualDuration, queryMetadata);
     }
 
-    // Score and sort best-first
     candidates.sort((a, b) => b._score - a._score);
-
     const isNetworkError = !lrcOk && !neteaseOk && !kugouOk;
 
     return { candidates, hasTimeout: lrcTimedOut || neteaseTimedOut || kugouTimedOut, isNetworkError };
 }
 
-// ─── Auto Search ─────────────────────────────────────────────────────────────
-
 /**
- * Auto Search entry-point.
- *
- * Runs the unified search pipeline and walks down the sorted list to find
- * the highest-quality (preferably synced) lyric automatically.
- *
- * Strategy:
- *   Pass 1 – "PrimaryArtist - CleanTitle" (clean primary artist and noise-free title)
- *   Pass 2 – "CleanTitle only"            (fallback)
- *   Pass 3 – "Romanized Artist - Title"   (for CJK tracks via Google Translate / offline)
- *   Pass 4 – "Title Aliases"              (for dual-script e.g. "좋은 날 (Good Day)")
- *   Pass 5 – "FullArtist - CleanTitle"    (multi-artist composite fallback)
- *
- * @param {string} rawArtist    – Raw artist string from mediaSession
- * @param {string} rawTitle     – Raw title string from mediaSession
- * @param {number} duration     – Player duration in seconds
- * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
+ * Auto Search entry-point with multi-pass query fallback and lazy evaluation.
  */
 async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrProviders) {
-    const cPrimaryArtist = extractPrimaryArtist(rawArtist || '');
-    const cArtistFull    = cleanArtist(rawArtist || '');
-    const cTitleFull     = cleanTitle(rawTitle || '');
-    const cTitleShort    = extractShortTitle(cTitleFull);
+    const cPrimaryArtist = typeof extractPrimaryArtist === 'function' ? extractPrimaryArtist(rawArtist || '') : (rawArtist || '');
+    const cArtistFull    = typeof cleanArtist === 'function' ? cleanArtist(rawArtist || '') : (rawArtist || '');
+    const cTitleFull     = typeof cleanTitle === 'function' ? cleanTitle(rawTitle || '') : (rawTitle || '');
+    const cTitleShort    = typeof extractShortTitle === 'function' ? extractShortTitle(cTitleFull) : cTitleFull;
 
-    // Concurrently fetch romanization via Google Translate (with 2s max timeout & in-memory cache) for non-ASCII tracks
     let romajiTitle = '';
     let romajiArtist = '';
-    if (isNonAscii(cTitleFull) || isNonAscii(cArtistFull)) {
+    const nonAsciiFn = typeof isNonAscii === 'function' ? isNonAscii : (s => /[^\x00-\x7F]/.test(s));
+
+    if (nonAsciiFn(cTitleFull) || nonAsciiFn(cArtistFull)) {
         const [rTitle, rArtist] = await Promise.all([
             fetchRomanizedMetadata(cTitleShort, Math.min(2000, timeoutMs || 2000)),
             fetchRomanizedMetadata(cPrimaryArtist, Math.min(2000, timeoutMs || 2000))
@@ -826,7 +243,6 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
         romajiArtist = rArtist || '';
     }
 
-    // Extract title aliases (e.g. "좋은 날 (Good Day)" -> ["좋은 날", "Good Day"])
     const titleAliases = typeof extractTitleAliases === 'function' ? extractTitleAliases(cTitleFull) : [];
 
     const passes = [
@@ -852,22 +268,16 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
         passes.push(`${cArtistFull} - ${cTitleShort}`.trim());
     }
 
-    // Deduplicate unique query passes
     const uniquePasses = [...new Set(passes.map(p => p.trim()).filter(Boolean))];
-
-    // 1. Run all searches concurrently
     const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs, simOrProviders));
     const results = await Promise.all(searchPromises);
 
-    // 2. Combine and deduplicate candidates by source & id
     const allCandidates = [];
     const seenCandidates = new Set();
     let hasTimeout = false;
 
     for (const res of results) {
-        if (res?.hasTimeout) {
-            hasTimeout = true;
-        }
+        if (res?.hasTimeout) hasTimeout = true;
         const candidatesList = res?.candidates || [];
         for (const c of candidatesList) {
             const key = `${c.source}-${c.id}`;
@@ -878,43 +288,39 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
         }
     }
 
-    const resolvedPool = []; // { rawLyric, source, synced, score }
-    const candidatesToFetch = []; // array of candidates to lazy fetch (Netease & KuGou)
-
-    // Pre-calculate query metadata once for the auto match loop
+    const resolvedPool = [];
+    const candidatesToFetch = [];
     const queryMetadata = getQueryMetadata(cTitleFull, cPrimaryArtist, romajiTitle, romajiArtist);
+    const titleSimFn = typeof getTitleSimilarity === 'function' ? getTitleSimilarity : (() => 100);
+    const artistSimFn = typeof getArtistSimilarity === 'function' ? getArtistSimilarity : (() => 100);
+    const scoreFn = typeof scoreCandidate === 'function' ? scoreCandidate : (() => 0);
 
-    // 3. Early filtering and sorting
     for (const c of allCandidates) {
-        const titleSim = getTitleSimilarity(queryMetadata, c.trackName);
-
+        const titleSim = titleSimFn(queryMetadata, c.trackName);
         let isMatchPossible = true;
+
         if (titleSim < 40) {
-            // Protect multi-script tracks from early discard if artist matches OR duration matches within 3s
-            const isQueryNonAscii = isNonAscii(cTitleFull) || isNonAscii(cPrimaryArtist);
-            const isCandidateNonAscii = isNonAscii(c.trackName || '') || isNonAscii(c.artistName || '');
+            const isQueryNonAscii = nonAsciiFn(cTitleFull) || nonAsciiFn(cPrimaryArtist);
+            const isCandidateNonAscii = nonAsciiFn(c.trackName || '') || nonAsciiFn(c.artistName || '');
             const scriptMismatch = isQueryNonAscii !== isCandidateNonAscii;
 
-            const artistSim = getArtistSimilarity(queryMetadata, c.artistName);
+            const artistSim = artistSimFn(queryMetadata, c.artistName);
             const durationMatches = duration > 0 && Math.abs((c.duration || 0) - duration) <= 3;
 
             if ((artistSim >= 85 && scriptMismatch) || (durationMatches && scriptMismatch && (artistSim >= 40 || titleSim >= 20))) {
-                // Keep candidate: script-relaxed scoring will evaluate it
+                // Keep candidate
             } else {
                 isMatchPossible = false;
             }
         }
 
-        if (!isMatchPossible) {
-            // Drop candidates with <40% title similarity that are not valid script mismatches.
-            continue;
-        }
+        if (!isMatchPossible) continue;
 
         if (c.source === 'lrclib') {
             if (!c.rawLyric) continue;
             resolvedPool.push({
                 rawLyric: c.rawLyric,
-                source:   { 
+                source: { 
                     type: 'api', 
                     id: c.id, 
                     name: c.trackName, 
@@ -922,49 +328,49 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
                     isEmpty: c.isEmpty || false,
                     instrumental: c.instrumental || false
                 },
-                synced:   c.synced,
-                score:    scoreCandidate(c, duration, queryMetadata),
+                synced: c.synced,
+                score: scoreFn(c, duration, queryMetadata),
             });
         } else if (c.source === 'netease' || c.source === 'kugou') {
-            // Store Netease or KuGou candidate for optimistic pre-scoring
             candidatesToFetch.push(c);
         }
     }
 
-    // Helper to download Netease/KuGou lyrics and check sync status
     const fetchUnresolvedCandidates = async (candidatesList) => {
         const promises = candidatesList.map(async (c) => {
             try {
                 if (c.source === 'kugou') {
-                    const resObj = await fetchKugouRaw(c.id, c.accesskey, timeoutMs);
+                    const fetchKuFn = typeof fetchKugouRaw === 'function' ? fetchKugouRaw : (globalThis.KUGOU_PROVIDER?.fetchKugouRaw);
+                    const resObj = await fetchKuFn(c.id, c.accesskey, timeoutMs);
                     const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
                     if (raw && raw.trim().length >= 5) {
                         const isSynced = LRC_TIMESTAMP_RE.test(raw);
                         const resolved = { ...c, synced: isSynced };
                         return {
                             rawLyric: raw,
-                            source:   { 
+                            source: { 
                                 type: 'kugou', 
-                                id: c.id,
-                                accesskey: c.accesskey,
+                                id: c.id, 
+                                accesskey: c.accesskey, 
                                 name: c.trackName, 
                                 synced: isSynced,
                                 isEmpty: false,
                                 instrumental: false
                             },
-                            synced:   isSynced,
-                            score:    scoreCandidate(resolved, duration, queryMetadata),
+                            synced: isSynced,
+                            score: scoreFn(resolved, duration, queryMetadata),
                         };
                     }
                 } else {
-                    const resObj = await fetchNeteaseRaw(c.id, timeoutMs);
+                    const fetchNetFn = typeof fetchNeteaseRaw === 'function' ? fetchNeteaseRaw : (globalThis.NETEASE_PROVIDER?.fetchNeteaseRaw);
+                    const resObj = await fetchNetFn(c.id, timeoutMs);
                     const raw = typeof resObj === 'string' ? resObj : (resObj?.lyric || '');
                     if (raw && raw.trim().length >= 5) {
                         const isSynced = LRC_TIMESTAMP_RE.test(raw);
                         const resolved = { ...c, synced: isSynced };
                         return {
                             rawLyric: raw,
-                            source:   { 
+                            source: { 
                                 type: 'netease', 
                                 id: c.id, 
                                 name: c.trackName, 
@@ -974,8 +380,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
                                 tlyric: resObj?.tlyric || '',
                                 romalrc: resObj?.romalrc || ''
                             },
-                            synced:   isSynced,
-                            score:    scoreCandidate(resolved, duration, queryMetadata),
+                            synced: isSynced,
+                            score: scoreFn(resolved, duration, queryMetadata),
                         };
                     }
                 }
@@ -988,39 +394,23 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
         return fetched.filter(Boolean);
     };
 
-    // 4. Optimistically pre-score and limit unresolved candidates
     if (candidatesToFetch.length > 0) {
-        // Score candidate assuming the best case: it is synced (synced: true)
-        const optimisticScored = candidatesToFetch.map(c => {
-            const optimisticCandidate = { ...c, synced: true };
-            return {
-                candidate: c,
-                optimisticScore: scoreCandidate(optimisticCandidate, duration, queryMetadata)
-            };
-        });
-
-        // Sort descending by optimistic score
+        const optimisticScored = candidatesToFetch.map(c => ({
+            candidate: c,
+            optimisticScore: scoreFn({ ...c, synced: true }, duration, queryMetadata)
+        }));
         optimisticScored.sort((a, b) => b.optimisticScore - a.optimisticScore);
 
-        // Determine fetch depth based on whether LRCLIB has a synced candidate
         const hasSyncedLrcLib = resolvedPool.some(r => r.synced);
         const initialDepth = hasSyncedLrcLib ? 3 : 5;
-
-        // Take only the top initialDepth candidates for Batch 1
         const firstBatch = optimisticScored.slice(0, initialDepth).map(x => x.candidate);
 
-        // 5. Fetch first batch concurrently
         const resolvedBatch1 = await fetchUnresolvedCandidates(firstBatch);
         resolvedPool.push(...resolvedBatch1);
 
-        // 6. Check if we found a synced lyric in Batch 1
         const hasSyncedInBatch1 = resolvedBatch1.some(r => r.synced);
-
-        // 7. Tiered fetch fallback: If no synced lyric is found in Batch 1, fetch Batch 2 (next 3)
         if (!hasSyncedInBatch1 && optimisticScored.length > initialDepth) {
-            const secondBatch = optimisticScored
-                .slice(initialDepth, initialDepth + 3)
-                .map(x => x.candidate);
+            const secondBatch = optimisticScored.slice(initialDepth, initialDepth + 3).map(x => x.candidate);
             const resolvedBatch2 = await fetchUnresolvedCandidates(secondBatch);
             resolvedPool.push(...resolvedBatch2);
         }
@@ -1029,48 +419,27 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrP
     const isNetworkError = results.length > 0 && results.every(res => res?.isNetworkError);
 
     if (resolvedPool.length === 0) {
-        return {
-            rawLyric: null,
-            source:   null,
-            synced:   false,
-            hasTimeout,
-            isNetworkError
-        };
+        return { rawLyric: null, source: null, synced: false, hasTimeout, isNetworkError };
     }
 
-    // 8. Sort the fully-resolved pool by score (descending) and return the winner
     resolvedPool.sort((a, b) => b.score - a.score);
     const winner = resolvedPool[0];
 
     return {
-        rawLyric:   winner.rawLyric,
-        source:     winner.source,
-        synced:     winner.synced,
+        rawLyric: winner.rawLyric,
+        source: winner.source,
+        synced: winner.synced,
         hasTimeout,
         isNetworkError: false
     };
 }
 
-// ─── Manual Search ────────────────────────────────────────────────────────────
-
 /**
- * Manual Search entry-point.
- *
- * Returns a flat, scored array of metadata-only candidates suitable for
- * rendering in the popup results list. Raw lyrics are NOT fetched here —
- * the content script fetches them via FETCH_NETEASE / direct LRCLIB id
- * only when the user clicks a result.
- *
- * @param {string} query         – Raw query string from the search input
- * @param {number} duration      – Player duration in seconds (0 = unknown)
- * @param {string} cleanArtist   – Primary artist for scoring (may be empty)
- * @param {string} cleanTitleStr – Noise-stripped title for scoring (may be empty)
- * @returns {Promise<object[]>}  – UI-ready candidate list
+ * Manual Search entry-point for popup UI.
  */
-async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs, simOrProviders) {
-    const { candidates, hasTimeout, isNetworkError } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, simOrProviders);
+async function manualSearch(query, duration, cleanArtistStr, cleanTitleStr, timeoutMs, simOrProviders) {
+    const { candidates, hasTimeout, isNetworkError } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtistStr, timeoutMs, simOrProviders);
 
-    // Map to a UI-friendly format (popup.js will render this directly)
     const results = candidates.map(c => ({
         source:     c.source === 'lrclib' ? 'api' : (c.source === 'netease' ? 'netease' : 'kugou'),
         id:         c.id,
@@ -1079,9 +448,7 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeout
         artistName: c.artistName,
         albumName:  c.albumName,
         duration:   c.duration,
-        synced:     c.synced,         // null for Netease & KuGou (unknown until clicked)
-        // Include the pre-resolved raw lyric for LRCLIB so the popup can apply
-        // the manual override immediately without an extra network round-trip
+        synced:     c.synced,
         rawLyric:   c.source === 'lrclib' ? (c.rawLyric || '') : null,
         isEmpty:    c.isEmpty || false,
         instrumental: c.instrumental || false
@@ -1089,3 +456,12 @@ async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeout
 
     return { results, hasTimeout, isNetworkError: !!isNetworkError };
 }
+
+// Global scope exports for MV3 Service Worker
+globalThis.SEARCH_ENGINE = {
+    unifiedSearch,
+    getBestAutoMatch,
+    manualSearch,
+    fetchRomanizedMetadata,
+    getQueryMetadata
+};

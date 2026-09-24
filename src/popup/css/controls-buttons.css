@@ -1,0 +1,210 @@
+/* =========================================================
+ *  CONTROLS: BUTTONS & ACTION CONTROLS
+ * ========================================================= */
+
+
+/* =========================================================
+ *  CUSTOMIZE BUTTON (above Auto-Launch)
+ * ========================================================= */
+.button-customize {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 9px 10px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Segoe UI', sans-serif;
+    transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 15px;
+}
+
+.button-customize:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.button-customize:active {
+    transform: scale(0.98);
+}
+
+/* =========================================================
+ *  HELP BUTTON (Yellow / Conditional)
+ * ========================================================= */
+.button-help {
+    width: 100%;
+    background: #ffcc00;
+    color: #121212;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Segoe UI', sans-serif;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 12px rgba(255, 204, 0, 0.15);
+}
+
+.button-help:hover {
+    background: #ffe066;
+    box-shadow: 0 6px 16px rgba(255, 204, 0, 0.35);
+}
+
+.button-help:active {
+    transform: scale(0.98);
+}
+
+/* =========================================================
+ *  SMALL CIRCULAR BUTTON (sync offset ± controls)
+ * ========================================================= */
+.btn-small {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-small:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+
+/* =========================================================
+ *  ACTION BUTTON SYSTEM
+ *  .btn-action-base  — shared base (ghost style)
+ *  .btn-action-primary   — full-width variant
+ *  .btn-action-secondary — flex-1 variant (pair layout)
+ * ========================================================= */
+
+/* Shared base for action button pair — avoids 10-property duplication */
+.btn-action-base {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 7px;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s, border-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-action-base:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.btn-action-primary {
+    width: 100%;
+}
+
+.btn-action-secondary {
+    flex: 1;
+}
+
+/* =========================================================
+ *  FILE UPLOAD OVERLAY WRAPPER
+ * ========================================================= */
+.upload-btn-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.file-input-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.file-input-overlay::-webkit-file-upload-button {
+    cursor: pointer;
+}
+
+.upload-btn-wrapper:hover .btn-action-base {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.upload-btn-wrapper:active .btn-action-base {
+    transform: scale(0.98);
+}
+
+/* Hidden file input — triggered programmatically */
+#import-file {
+    display: none;
+}
+
+/* =========================================================
+ *  RESET SETTINGS BUTTON
+ * ========================================================= */
+#btn-reset-settings {
+    margin-top: 15px;
+    background: #552222;
+    border: 1px solid #ff4444;
+    color: #ff8888;
+}
+
+/* =========================================================
+ *  BACKUP / DATA MANAGEMENT BUTTONS
+ * ========================================================= */
+.data-mgmt-label {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.data-mgmt-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.btn-backup {
+    flex: 1;
+    padding: 6px;
+    font-size: 12px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    border-radius: 4px;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn-backup:hover {
+    background-color: var(--accent-hover);
+    transform: scale(1.02);
+}
+
+.btn-backup:active {
+    transform: scale(0.98);
+}

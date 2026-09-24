@@ -1,5 +1,16 @@
-// Import telemetry module, unified search engine, and romanizer helper
-importScripts('storage.js', 'analytics.js', 'romanizer.js', 'searchEngine.js');
+// Import telemetry module, romanizer helper, and modular search engine components
+importScripts(
+    'storage.js',
+    'analytics.js',
+    'romanizer.js',
+    'search/sanitizer.js',
+    'search/scoring.js',
+    'search/network.js',
+    'search/providers/lrclib.js',
+    'search/providers/netease.js',
+    'search/providers/kugou.js',
+    'searchEngine.js'
+);
 
 // Detect unpacked developer environment (!update_url in manifest)
 const IS_DEV_MODE = !('update_url' in chrome.runtime.getManifest());

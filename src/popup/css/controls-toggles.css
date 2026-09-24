@@ -1,0 +1,261 @@
+/* =========================================================
+ *  CONTROLS: TOGGLES, SWITCHES & CHECKBOXES
+ * ========================================================= */
+
+
+/* =========================================================
+ *  TOGGLE SWITCH
+ * ========================================================= */
+.switch {
+    position: relative;
+    display: inline-block;
+    margin: 0;
+    width: 40px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: .4s;
+    border-radius: 20px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 1px;
+    top: 1px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--accent);
+    border-color: transparent;
+}
+
+input:checked+.slider:before {
+    transform: translateX(20px);
+    background-color: var(--accent-contrast);
+}
+
+input:disabled + .slider {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+
+/* =========================================================
+ *  ALBUM COVER MODE TOGGLE CARD
+ * ========================================================= */
+.album-cover-toggle-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel-bg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.album-cover-toggle-card.active {
+    border-color: var(--accent-glow);
+    background: var(--accent-bg);
+}
+
+.acm-left {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.acm-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+}
+
+.acm-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.acm-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+}
+
+.acm-sub {
+    font-size: 10px;
+    color: #888;
+}
+
+/* Disabled overlay for all visual controls below ACM toggle */
+#visual-controls-wrapper {
+    transition: opacity 0.2s;
+}
+
+#visual-controls-wrapper.controls-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* =========================================================
+ *  COVER MODE SELECTOR GROUP (radio-style options)
+ * ========================================================= */
+.cover-mode-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cover-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s, background-color 0.2s;
+    font-size: 13px;
+}
+
+.cover-mode-option:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.cover-mode-option.selected {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.cover-mode-icon {
+    font-size: 16px;
+    width: 22px;
+    text-align: center;
+}
+
+.cover-mode-desc {
+    flex: 1;
+    font-size: 13px;
+}
+
+.cover-mode-desc span {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    font-weight: normal;
+}
+
+.cover-radio {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: transparent;
+    flex-shrink: 0;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.cover-mode-option.selected .cover-radio {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.cover-mode-label {
+    margin-bottom: 10px;
+}
+
+
+/* =========================================================
+ *  CUSTOM TICKBOX & BACKUP WARNING
+ * ========================================================= */
+.tickbox-container {
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+}
+
+.tickbox-container input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.tickbox-container:hover input ~ .checkmark {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.tickbox-container input:checked ~ .checkmark {
+    background-color: var(--accent);
+    border-color: transparent;
+}
+
+.checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+}
+
+.tickbox-container input:checked ~ .checkmark:after {
+    display: block;
+}
+
+.tickbox-container .checkmark:after {
+    left: 7px;
+    top: 3px;
+    width: 4px;
+    height: 9px;
+    border: solid var(--accent-contrast, white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.backup-warning-text {
+    color: #ffaa00;
+    font-size: 9px;
+    font-style: italic;
+    line-height: 1.2;
+}

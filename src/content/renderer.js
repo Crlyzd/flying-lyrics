@@ -1,16 +1,23 @@
 (() => {
     const fl = window.FLYING_LYRICS;
 
-    // --- RENDERER ---
+    // ─────────────────────────────────────────────────────────────────────────────
+    //  FLYING LYRICS — 2D CANVAS RENDERER ENGINE (content script context)
+    //
+    //  Modular sub-components:
+    //    - renderer/effects.js   (Aurora slosh, particle sparkles & background caching)
+    //    - renderer/layout.js    (Dynamic font sizing, wrapping, asymmetric boundary math)
+    //    - renderer/pipBadge.js  (Video PiP status pills & waiting state overlays)
+    // ─────────────────────────────────────────────────────────────────────────────
 
-    // Layout cache state — tracks what we last computed so we can skip redundant math
+    // Layout cache state
     fl.lastW = -1;
-    fl.lastH = -1;     // Last known PiP window dimensions (-1 forces first-frame resize)
-    fl.lastActiveIdx = -1;          // Last active lyric line index
-    fl.lastLyricsLen = 0;           // Last known lyric count
-    fl.needsLayoutUpdate = true;    // Dirty flag (true on first run)
-    fl.cachedLayout = [];           // Pre-computed {y, mainSize} for each lyric line
-    fl.bgCacheCanvas = null;        // Offscreen canvas for cached background
+    fl.lastH = -1;
+    fl.lastActiveIdx = -1;
+    fl.lastLyricsLen = 0;
+    fl.needsLayoutUpdate = true;
+    fl.cachedLayout = [];
+    fl.bgCacheCanvas = null;
     fl.bgCacheCtx = null;
     fl.bgCacheW = -1;
     fl.bgCacheH = -1;
@@ -21,8 +28,7 @@
     fl.bgCacheVibrant = "";
     fl.bgCacheRaw = "";
 
-    // OPT-4: Cached PiP DOM element references (populated by injectStructure via _refreshEls).
-    // Avoids getElementById on every frame once the PiP structure is stable.
+    // Cached PiP DOM element references
     fl._els = null;
 
     fl._refreshEls = function () {
@@ -37,513 +43,15 @@
         };
     };
 
-    const EMPTY_STATE_TEXTS = [
-        // Category 1: User Stats
-        { type: "stat", key: "totalSynced", template: "You've synced {val} tracks so far. Nice." },
-        { type: "stat", key: "dailyStreak", template: "Current streak: {val} days of good music." },
-        { type: "stat", key: "totalSynced", template: "{val} songs and counting..." },
-        { type: "stat", key: "hoursListening", template: "You've spent {val} hours reading lyrics." },
-        { type: "stat", key: "favoriteTime", template: "Fun fact: your most active time is {val}." },
-
-        // Category 2: Funny Memes & Text
-        { type: "meme", text: "Waiting for the beat to drop..." },
-        { type: "meme", text: "Tuning the digital piano..." },
-        { type: "meme", text: "Checking if the aux cord is plugged in..." },
-        { type: "meme", text: "Pigeons can recognize good music. Can you?" },
-        { type: "meme", text: "Loading the next banger..." },
-        { type: "meme", text: "Are you going to play something or just stare at me?" },
-        { type: "meme", text: "Polishing the vinyl..." },
-        { type: "meme", text: "Warming up the vocal cords..." },
-        { type: "meme", text: "Searching the multiverse for lyrics..." },
-        { type: "meme", text: "Did you forget to press play?" },
-        { type: "meme", text: "Mic check, one two, one two..." },
-        { type: "meme", text: "The silence is deafening." },
-        { type: "meme", text: "Vibing in the void..." },
-        { type: "meme", text: "Even silence has a rhythm..." },
-        { type: "meme", text: "Summoning the music gods..." },
-        { type: "meme", text: "Is this John Cage's 4'33\"?" },
-        { type: "meme", text: "Brewing some lo-fi beats..." },
-        { type: "meme", text: "Untangling the headphone wires..." },
-        { type: "meme", text: "Blowing dust off the cartridge..." },
-        { type: "meme", text: "Waiting for the DJ to show up..." },
-        { type: "meme", text: "Looking for the play button..." },
-        { type: "meme", text: "Translating silence into Japanese..." },
-        { type: "meme", text: "Connecting to the music matrix..." },
-        { type: "meme", text: "Charging the flux capacitor..." },
-        { type: "meme", text: "Still waiting..." }
-    ];
-
-    function resolveStatText(item) {
-        if (!fl.userStats) return null;
-        if (item.key === "totalSynced") {
-            const val = fl.userStats.totalSynced || 0;
-            if (val === 0) return null;
-            return item.template.replace("{val}", val);
-        }
-        if (item.key === "dailyStreak") {
-            const val = fl.userStats.dailyStreak || 0;
-            if (val === 0) return null;
-            return item.template.replace("{val}", val);
-        }
-        if (item.key === "hoursListening") {
-            const val = fl.userStats.hoursListening || 0;
-            const formatted = val.toFixed(1);
-            if (parseFloat(formatted) === 0) return null;
-            return item.template.replace("{val}", formatted);
-        }
-        if (item.key === "favoriteTime") {
-            const counts = fl.userStats.timeOfDayCounts || {};
-            let maxCount = 0;
-            let favPeriod = "";
-            for (let p in counts) {
-                if (counts[p] > maxCount) {
-                    maxCount = counts[p];
-                    favPeriod = p;
-                }
-            }
-            if (maxCount === 0 || !favPeriod) return null;
-            return item.template.replace("{val}", favPeriod);
-        }
-        return null;
-    }
-
-    function getResolvedText(idx) {
-        const item = EMPTY_STATE_TEXTS[idx];
-        if (item.type === "stat") {
-            const resolved = resolveStatText(item);
-            if (resolved !== null) return resolved;
-
-            const memeIndex = (idx * 7) % 25;
-            return EMPTY_STATE_TEXTS[5 + memeIndex].text;
-        }
-        return item.text;
-    }
-
-    fl.drawWaitingState = function (w, h, vmin, maxWidth, anchorOffset) {
-        const cycleTimeMs = 30000;
-        const totalMs = performance.now();
-        const cycleIndex = Math.floor(totalMs / cycleTimeMs);
-        const currentTextIndex = cycleIndex % EMPTY_STATE_TEXTS.length;
-        const nextTextIndex = (cycleIndex + 1) % EMPTY_STATE_TEXTS.length;
-
-        const timeInCycle = totalMs % cycleTimeMs;
-        const transitionMs = 600;
-
-        const currentString = getResolvedText(currentTextIndex);
-        const nextString = getResolvedText(nextTextIndex);
-
-        // Trigger layout update on text index switch to update lyricLines[0] wrapping
-        if (fl.lastEmptyStateIndex !== currentTextIndex) {
-            fl.lastEmptyStateIndex = currentTextIndex;
-            if (fl.lyricLines && fl.lyricLines[0]) {
-                fl.lyricLines[0].text = currentString;
-                fl.lyricLines[0].isWaitingPlaceholder = true;
-            }
-            fl.needsLayoutUpdate = true;
-        }
-
-        const timeSec = totalMs / 1000;
-        const tColor = (Math.sin(timeSec * 0.4) + 1) / 2;
-        const r = Math.round(140 + (240 - 140) * tColor);
-        const g = Math.round(215 + (155 - 215) * tColor);
-        const b = Math.round(160 + (190 - 160) * tColor);
-        const activeColor = `rgb(${r}, ${g}, ${b})`;
-
-        // Sync button colors
-        const uiContainer = fl._els?.seekerContainer?.parentElement;
-        if (uiContainer) {
-            uiContainer.style.setProperty('--vibrant-color', activeColor);
-        }
-
-        const displayFontFamily = "'Noto Sans', 'Segoe UI', sans-serif";
-        const mainSize = vmin * 6.5;
-        const lineHeight = mainSize * 1.45; // relaxed line spacing
-
-        const y = 0;
-        const drawX = 0;
-
-        fl.ctx.save();
-        // Shadow is controlled by the user's Lyric Shadow toggle, not Eco Mode.
-        if (fl.userLyricShadowEnabled) {
-            fl.ctx.shadowColor = activeColor;
-            fl.ctx.shadowBlur = 15;
-        } else {
-            fl.ctx.shadowBlur = 0;
-        }
-        fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
-        fl.ctx.fillStyle = "#FFFFFF";
-        fl.ctx.textAlign = 'center';
-
-        if (timeInCycle > cycleTimeMs - transitionMs) {
-            const progress = (timeInCycle - (cycleTimeMs - transitionMs)) / transitionMs;
-
-            // Draw current text fading out
-            fl.ctx.save();
-            fl.ctx.globalAlpha = 1.0 - progress;
-            const currentLines = fl.getWrapLines(fl.ctx, currentString, maxWidth);
-            const currentY = y - ((currentLines.length - 1) * lineHeight) / 2;
-            fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
-            fl.ctx.restore();
-
-            // Draw next text fading in
-            fl.ctx.save();
-            fl.ctx.globalAlpha = progress;
-            const nextLines = fl.getWrapLines(fl.ctx, nextString, maxWidth);
-            const nextY = y - ((nextLines.length - 1) * lineHeight) / 2;
-            fl.wrapText(fl.ctx, nextString, drawX, nextY, maxWidth, lineHeight, false, false);
-            fl.ctx.restore();
-        } else {
-            const currentLines = fl.getWrapLines(fl.ctx, currentString, maxWidth);
-            const currentY = y - ((currentLines.length - 1) * lineHeight) / 2;
-            fl.wrapText(fl.ctx, currentString, drawX, currentY, maxWidth, lineHeight, false, false);
-        }
-        fl.ctx.restore();
-
-        // Draw Wide Equalizer at the bottom (growing downwards)
-        // ECO-5: Reduce bar count in Eco Mode to cut per-frame draw calls by ~57%.
-        const barCount = fl.ecoMode ? 15 : 35;
-        const totalW = maxWidth * 0.65;
-        const barW = (totalW / barCount) * 0.7;
-        const barGap = (totalW / barCount) * 0.3;
-        const startX = -(totalW / 2) + (barW / 2);
-
-        fl.ctx.font = `700 ${mainSize}px ${displayFontFamily}`;
-        const currentLinesCount = fl.getWrapLines(fl.ctx, currentString, maxWidth).length;
-        const nextLinesCount = fl.getWrapLines(fl.ctx, nextString, maxWidth).length;
-        const maxLines = Math.max(currentLinesCount, nextLinesCount);
-        const textHeightOffset = (maxLines - 1) * lineHeight;
-
-        const eqY = y + (mainSize * 1.5) + textHeightOffset; // pushed down for relaxed breathing room
-
-        fl.ctx.save();
-        const grad = fl.ctx.createLinearGradient(0, eqY, 0, eqY + mainSize * 1.2);
-        grad.addColorStop(0, activeColor);
-        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
-        fl.ctx.fillStyle = grad;
-        // Equalizer shadow is controlled by the Lyric Shadow toggle.
-        if (fl.userLyricShadowEnabled) {
-            fl.ctx.shadowColor = activeColor;
-            fl.ctx.shadowBlur = 10;
-        } else {
-            fl.ctx.shadowBlur = 0;
-        }
-
-        for (let b = 0; b < barCount; b++) {
-            const distFromCenter = Math.abs(b - (barCount - 1) / 2) / ((barCount - 1) / 2);
-            const bellFactor = Math.exp(-3 * distFromCenter * distFromCenter);
-
-            const speed = 3.5;
-            const timeScale = timeSec * speed;
-            const noise = 0.3 * Math.sin(timeScale + b * 0.4) +
-                0.4 * Math.sin(timeScale * 1.6 - b * 0.25) +
-                0.3 * Math.sin(timeScale * 2.2 + b * 0.7);
-
-            const maxH = mainSize * 1.1 * bellFactor;
-            const barH = Math.max(mainSize * 0.15, maxH * (0.35 + 0.65 * noise));
-
-            fl.ctx.fillRect(startX + b * (barW + barGap) - barW / 2, eqY, barW, barH);
-        }
-        fl.ctx.restore();
-    };
-
-    fl.drawCanvasBackground = function (w, h) {
-        const isWaiting = (fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder));
-        if (!isWaiting && fl.activePipType !== 'video') return;
-
-        if (isWaiting) {
-            // --- AURORA SLOSH: three soft radial blobs (green, blue, purple) ---
-            // Each blob has an independently shifting center using different sin/cos
-            // frequencies, so they drift past each other in a slow organic slosh.
-            // ECO-8: Freeze the aurora master time constant so gradient centers don't
-            // move, eliminating per-frame radial gradient recalculation overhead.
-            const t = fl.ecoMode ? 0.5 : performance.now() * 0.0002; // master time (slow)
-            const diag = Math.sqrt(w * w + h * h);
-            const blobR = diag * 0.65; // radius large enough to fill the canvas softly
-
-            // Fill base dark background first
-            fl.ctx.fillStyle = '#060a0f';
-            fl.ctx.fillRect(0, 0, w, h);
-
-            // Composite mode: 'lighter' adds blob colors together where they overlap,
-            // producing the bright aurora mixing effect.
-            fl.ctx.globalCompositeOperation = 'lighter';
-
-            const blobs = [
-                // [cx_offset_cos_freq, cy_offset_sin_freq, phase, innerColor, outerAlpha]
-                { cx: w * (0.4 + 0.25 * Math.cos(t * 0.7)), cy: h * (0.35 + 0.22 * Math.sin(t * 0.5)), color: 'rgba(20, 190, 100, 0.27)' }, // green (30% darker)
-                { cx: w * (0.6 + 0.22 * Math.cos(t * 0.4 + 1.2)), cy: h * (0.55 + 0.28 * Math.sin(t * 0.65 + 2)), color: 'rgba(30, 80, 200, 0.20)' }, // blue (30% darker)
-                { cx: w * (0.5 + 0.30 * Math.cos(t * 0.55 + 2.5)), cy: h * (0.45 + 0.20 * Math.sin(t * 0.45 + 1)), color: 'rgba(120, 30, 200, 0.18)' }, // purple (30% darker)
-            ];
-
-            for (const blob of blobs) {
-                const grad = fl.ctx.createRadialGradient(blob.cx, blob.cy, 0, blob.cx, blob.cy, blobR);
-                grad.addColorStop(0, blob.color);
-                grad.addColorStop(0.5, blob.color.replace(/[\d.]+\)$/, '0.07)')); // 30% darker intermediate stop
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                fl.ctx.fillStyle = grad;
-                fl.ctx.fillRect(0, 0, w, h);
-            }
-
-            // Restore default composite mode before any subsequent drawing
-            fl.ctx.globalCompositeOperation = 'source-over';
-
-            // --- SPARKLES / STARS EFFECT ---
-            // C3-FIX (ECO-5): Trim or grow the existing sparkle array instead of
-            // reinitializing it wholesale on eco mode toggle. Full reinit would wipe
-            // all opacity/phase state mid-animation, causing a visible flicker.
-            const maxSparkles = fl.ecoMode ? 8 : 25;
-            if (!fl.waitingSparkles) fl.waitingSparkles = [];
-            // Trim excess sparkles (switching non-eco→eco)
-            while (fl.waitingSparkles.length > maxSparkles) fl.waitingSparkles.pop();
-            // Grow missing sparkles (switching eco→non-eco or first init)
-            while (fl.waitingSparkles.length < maxSparkles) {
-                const maxOpacity = (0.3 + Math.random() * 0.5) * 0.7;
-                fl.waitingSparkles.push({
-                    x: Math.random(),
-                    y: Math.random(),
-                    size: 1.5 + Math.random() * 2,
-                    opacity: Math.random() * maxOpacity,
-                    maxOpacity: maxOpacity,
-                    speed: (0.005 + Math.random() * 0.01) / 6,
-                    phase: Math.random() > 0.5 ? 'in' : 'out'
-                });
-            }
-
-            for (const s of fl.waitingSparkles) {
-                // Update opacity
-                if (s.phase === 'in') {
-                    s.opacity += s.speed;
-                    if (s.opacity >= s.maxOpacity) {
-                        s.opacity = s.maxOpacity;
-                        s.phase = 'out';
-                    }
-                } else {
-                    s.opacity -= s.speed;
-                    if (s.opacity <= 0) {
-                        s.opacity = 0;
-                        s.x = Math.random();
-                        s.y = Math.random();
-                        s.size = 1.5 + Math.random() * 2;
-                        s.maxOpacity = (0.3 + Math.random() * 0.5) * 0.7; // 30% reduction (multiplied by 0.7)
-                        s.speed = (0.005 + Math.random() * 0.01) / 6; // 6 times longer fade (divided by 6)
-                        s.phase = 'in';
-                    }
-                }
-
-                // Draw sparkle
-                const sx = s.x * w;
-                const sy = s.y * h;
-
-                fl.ctx.save();
-
-                // Outer glow ring (simulates shadowBlur glow)
-                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity * 0.25})`;
-                fl.ctx.beginPath();
-                fl.ctx.arc(sx, sy, s.size * 0.95, 0, Math.PI * 2);
-                fl.ctx.fill();
-
-                // Core dot
-                fl.ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
-                fl.ctx.beginPath();
-                fl.ctx.arc(sx, sy, s.size * 0.4, 0, Math.PI * 2);
-                fl.ctx.fill();
-
-                // Cross flares
-                fl.ctx.beginPath();
-                fl.ctx.moveTo(sx - s.size * 2, sy);
-                fl.ctx.lineTo(sx + s.size * 2, sy);
-                fl.ctx.moveTo(sx, sy - s.size * 2);
-                fl.ctx.lineTo(sx, sy + s.size * 2);
-                fl.ctx.lineWidth = 0.6;
-                fl.ctx.strokeStyle = `rgba(255, 255, 255, ${s.opacity * 0.5})`;
-                fl.ctx.stroke();
-
-                fl.ctx.restore();
-            }
-
-            return;
-        }
-
-        const art = fl.getCoverArt();
-
-        // Manage cover art image loading
-        if (art) {
-            if (!fl.canvasBgImage || fl.canvasBgImageUrl !== art) {
-                fl.canvasBgImageUrl = art;
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.onload = () => {
-                    if (fl.canvasBgImageUrl === art) {
-                        fl.canvasBgImage = img;
-                        fl.needsLayoutUpdate = true;
-                    }
-                };
-                img.src = art;
-            }
-        } else {
-            fl.canvasBgImage = null;
-            fl.canvasBgImageUrl = "";
-        }
-
-        const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
-        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
-        const blurPx = isAlbumCoverForced ? 0 : fl.userBgBlur;
-        const effectiveDarkness = isAlbumCoverForced ? 0 : fl.userBgDarkness;
-
-        // If Eco Mode is OFF, draw directly to the main canvas (no offscreen canvas cache)
-        if (!fl.ecoMode) {
-            fl.drawDirectBackground(fl.ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
-            return;
-        }
-
-        const cacheMatches =
-            fl.bgCacheCanvas &&
-            fl.bgCacheW === w &&
-            fl.bgCacheH === h &&
-            fl.bgCacheUrl === fl.canvasBgImageUrl &&
-            fl.bgCacheBlur === blurPx &&
-            fl.bgCacheDarkness === effectiveDarkness &&
-            fl.bgCacheMode === effectiveCoverMode &&
-            fl.bgCacheVibrant === fl.currentPalette.vibrant &&
-            fl.bgCacheRaw === fl.currentPalette.raw &&
-            ((!fl.canvasBgImage) || (fl.bgCacheImgElement === fl.canvasBgImage));
-
-        if (!cacheMatches) {
-            if (!fl.bgCacheCanvas) {
-                fl.bgCacheCanvas = document.createElement('canvas');
-            }
-            if (fl.bgCacheCanvas.width !== w) fl.bgCacheCanvas.width = w;
-            if (fl.bgCacheCanvas.height !== h) fl.bgCacheCanvas.height = h;
-            fl.bgCacheCtx = fl.bgCacheCanvas.getContext('2d');
-
-            const cacheCtx = fl.bgCacheCtx;
-            cacheCtx.clearRect(0, 0, w, h);
-
-            fl.drawDirectBackground(cacheCtx, w, h, effectiveCoverMode, blurPx, effectiveDarkness);
-
-            // Update cache parameters
-            fl.bgCacheW = w;
-            fl.bgCacheH = h;
-            fl.bgCacheUrl = fl.canvasBgImageUrl;
-            fl.bgCacheBlur = blurPx;
-            fl.bgCacheDarkness = effectiveDarkness;
-            fl.bgCacheMode = effectiveCoverMode;
-            fl.bgCacheVibrant = fl.currentPalette.vibrant;
-            fl.bgCacheRaw = fl.currentPalette.raw;
-            fl.bgCacheImgElement = fl.canvasBgImage;
-        }
-
-        // Draw offscreen canvas
-        fl.ctx.drawImage(fl.bgCacheCanvas, 0, 0);
-    };
-
-    fl.drawDirectBackground = function (ctx, w, h, effectiveCoverMode, blurPx, effectiveDarkness) {
-        if (effectiveCoverMode === 'centered') {
-            ctx.save();
-            if (blurPx > 0) {
-                ctx.filter = `blur(${blurPx}px)`;
-            }
-
-            // Draw gradient background only when palette has been extracted from actual art.
-            if (fl.canvasBgImage && fl.currentPalette && fl.currentPalette.raw) {
-                const rawColor = fl.currentPalette.raw;
-                const baseBg = fl.deriveDarkBg(rawColor);
-                const topBg = fl.deriveLightBg(rawColor);
-                const grad = ctx.createLinearGradient(0, 0, 0, h);
-                grad.addColorStop(0, topBg);
-                grad.addColorStop(1, baseBg);
-                ctx.fillStyle = grad;
-                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
-            } else {
-                ctx.fillStyle = '#121212';
-                ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
-            }
-
-            // Draw centered art with drop shadow and rounded corners
-            if (fl.canvasBgImage) {
-                const size = Math.min(w, h) * 0.65;
-                const cx = (w - size) / 2;
-                const cy = (h - size) / 2;
-                const vmin = Math.min(w, h) / 100;
-                const cornerRadius = vmin * 4.5;
-
-                // 1. Draw the drop shadow using a filled rounded rectangle matching the image bounds
-                ctx.save();
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-                ctx.shadowBlur = vmin * 8;
-                ctx.shadowOffsetY = vmin * 2;
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.roundRect(cx, cy, size, size, cornerRadius);
-                ctx.fill();
-                ctx.restore();
-
-                // 2. Clip and draw the album cover image inside the rounded rectangle
-                ctx.save();
-                ctx.beginPath();
-                ctx.roundRect(cx, cy, size, size, cornerRadius);
-                ctx.clip();
-                ctx.drawImage(fl.canvasBgImage, cx, cy, size, size);
-                ctx.restore();
-            }
-            ctx.restore();
-        } else {
-            // Fill or Repeated cover mode
-            if (fl.canvasBgImage) {
-                ctx.save();
-                if (blurPx > 0) {
-                    ctx.filter = `blur(${blurPx}px)`;
-                }
-
-                if (effectiveCoverMode === 'repeated') {
-                    // Create repeated pattern
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = 400;
-                    tempCanvas.height = 400;
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCtx.drawImage(fl.canvasBgImage, 0, 0, 400, 400);
-                    const pattern = ctx.createPattern(tempCanvas, 'repeat');
-                    ctx.fillStyle = pattern;
-                    ctx.fillRect(-blurPx * 2, -blurPx * 2, w + blurPx * 4, h + blurPx * 4);
-                } else {
-                    // Fill / Cover mode
-                    const imgW = fl.canvasBgImage.width;
-                    const imgH = fl.canvasBgImage.height;
-                    const scale = Math.max(w / imgW, h / imgH);
-                    const drawW = imgW * scale;
-                    const drawH = imgH * scale;
-                    const drawX = (w - drawW) / 2;
-                    const drawY = (h - drawH) / 2;
-                    ctx.drawImage(fl.canvasBgImage, drawX - blurPx * 2, drawY - blurPx * 2, drawW + blurPx * 4, drawH + blurPx * 4);
-                }
-                ctx.restore();
-            } else {
-                ctx.fillStyle = '#121212';
-                ctx.fillRect(0, 0, w, h);
-            }
-        }
-
-        // Draw darkness overlay
-        if (effectiveDarkness > 0) {
-            ctx.fillStyle = `rgba(0, 0, 0, ${effectiveDarkness / 100})`;
-            ctx.fillRect(0, 0, w, h);
-        }
-    };
-
     fl.queueNextFrame = function (callback) {
         if (fl.activePipType === 'video') {
             if (!fl.ecoMode) {
-                // Bypass Chrome's background tab requestAnimationFrame throttling via high-frequency setTimeout
                 window.setTimeout(callback, 16.6);
             } else {
-                // C2-FIX (ECO-1): For Video PiP, rAF is irrelevant (canvas feeds a <video> stream).
-                // A flat 50ms timer gives a clean ~20 FPS without the double-delay of setTimeout→rAF.
                 window.setTimeout(callback, 50);
             }
         } else if (fl.activePipType === 'document' && fl.pipWin && !fl.pipWin.closed) {
             if (fl.ecoMode) {
-                // ECO-1: Document PiP rAF is gated by pipWin's display refresh rate (can be 144Hz).
-                // Delay by 30ms first to throttle to ~30 FPS max.
                 const timerHost = fl.pipWin;
                 timerHost.setTimeout(() => fl.pipWin && !fl.pipWin.closed && fl.pipWin.requestAnimationFrame(callback), 30);
             } else {
@@ -557,13 +65,11 @@
 
         fl.isRenderLoopRunning = true;
 
-        // --- FPS Limit Throttling (Eco Mode) ---
-        // ECO-5: In the waiting (no-music) state, throttle even harder to ~12 FPS.
-        // isWaitingState is safe to call here; it's a getter defined on fl in config.js.
+        // FPS Limit Throttling (Eco Mode)
         if (fl.ecoMode) {
             const now = performance.now();
             const elapsed = now - (fl.lastFrameTimeMs || 0);
-            const ecoTargetDelay = fl.isWaitingState ? 83.3 : 33.3; // 12 FPS waiting, 30 FPS playing
+            const ecoTargetDelay = fl.isWaitingState ? 83.3 : 33.3;
             if (elapsed < ecoTargetDelay - 2) {
                 fl.queueNextFrame(fl.renderLoop);
                 return;
@@ -573,46 +79,38 @@
 
         const state = fl.getPlayerState();
 
-        // WORKAROUND: Auto-next simulation for YouTube Music 3 seconds before song ends
-        // This programmatically triggers a Next click to bypass YouTube Music's autoplay preloader
-        // transition, which otherwise breaks/desynchronizes the seeker bar in Document PiP mode.
+        // Auto-next simulation for YouTube Music 3s before end
         if (fl.getActiveAdapter?.() === fl.adapters?.ytmusic && !state.paused && state.duration > 5) {
             const timeRemaining = state.duration - state.currentTime;
             if (timeRemaining > 3) {
                 fl.hasTriggeredAutoNext = false;
             } else if (timeRemaining > 0 && timeRemaining <= 3 && !fl.hasTriggeredAutoNext) {
-                console.log(`FL: Auto-next triggered 3 seconds before end (Remaining: ${timeRemaining.toFixed(2)}s)`);
                 fl.hasTriggeredAutoNext = true;
                 fl.adapters.ytmusic.clickNext();
             }
         }
 
-        // Apply Sync Offset
         if (!state.paused) {
             state.currentTime += (fl.syncOffset / 1000);
         }
 
-        // Auto-heal/re-fetch if duration becomes valid (transitioned from <= 5 to > 5)
+        // Auto-heal if duration becomes valid
         if (fl.currentTrack &&
             (fl.isMissingLyrics || (fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...")) &&
             state.duration > 5 &&
             (!fl.lastKnownValidDuration || fl.lastKnownValidDuration <= 5)) {
-
-            console.log(`FL: Duration became valid (${state.duration}s). Re-fetching lyrics...`);
             fl.fetchLyrics();
         }
         fl.lastKnownValidDuration = state.duration;
 
-        const trackMeta = typeof fl.getCurrentTrackMetadata === 'function'
-            ? fl.getCurrentTrackMetadata()
-            : null;
+        const trackMeta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : null;
         const nowTitle = trackMeta?.title || navigator.mediaSession?.metadata?.title || "";
         const nowArtist = trackMeta?.artist || navigator.mediaSession?.metadata?.artist || "";
         const trackKey = `${nowArtist} - ${nowTitle}`.trim();
 
         if (trackKey !== fl.currentTrack) {
             fl.currentTrack = trackKey;
-            fl.hasTriggeredAutoNext = false; // Reset YouTube Music auto-skip latch on track change
+            fl.hasTriggeredAutoNext = false;
             fl.activeLyricSource = null;
             fl.activeTranslationTier = 'None';
 
@@ -624,43 +122,32 @@
                 fl.needsLayoutUpdate = true;
                 fl._els = null;
                 fl.lastKnownValidDuration = 0;
-                // Reset scroll positions immediately to avoid top-to-bottom slide transitions
                 fl.scrollPos = 0;
                 fl.targetScroll = 0;
                 fl.lastAnimationTimeMs = null;
-                // Reset extracted art cache so the next song triggers a fresh palette extraction
                 fl.lastExtractedArt = "";
-                // Reset stored vibrant color to default so popup preview snaps back to neutral
                 chrome.storage.local.set({ currentVibrantColor: "#1DB954" });
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
-
-                // Notify popup/background that track was cleared
                 chrome.runtime.sendMessage({ type: 'ACTIVE_TRACK_CHANGED', payload: null }).catch(() => { });
             } else {
-                // --- INSTANT FLUSH: Clear old lyrics immediately ---
                 fl.lyricLines = [{ time: 0, text: "Wait for it...", romaji: "", translation: "" }];
                 fl.isCurrentLyricSynced = false;
                 fl.isMissingLyrics = false;
                 fl.needsLayoutUpdate = true;
-                fl._els = null; // invalidate DOM cache on track change (new PiP may be up)
+                fl._els = null;
                 fl.lastKnownValidDuration = 0;
-                // Reset scroll positions immediately to avoid top-to-bottom slide transitions
                 fl.scrollPos = 0;
                 fl.targetScroll = 0;
                 fl.lastAnimationTimeMs = null;
                 if (typeof fl.updateSyncIndicator === 'function') fl.updateSyncIndicator();
                 if (typeof fl.applyVisualSettings === 'function') fl.applyVisualSettings();
 
-                // Reset media element cache so getPlayerState() re-scans on the next call.
                 fl._mediaEl = null;
-
-                // Reset time interpolation state.
                 fl.lastTimeStr = "";
                 fl.lastTimeValue = 0;
                 fl.lastUpdateMs = performance.now();
 
-                // Notify popup/background that a new track started
                 chrome.runtime.sendMessage({
                     type: 'ACTIVE_TRACK_CHANGED',
                     payload: {
@@ -676,18 +163,16 @@
             }
         }
 
-        // OPT-4: Refresh element cache if not yet populated or canvas was replaced.
         if (fl.activePipType !== 'video' && !fl._els) fl._refreshEls();
 
-        // --- CONTINUOUS BACKGROUND IMAGE SYNC ---
-        const art = fl.getCoverArt();
+        // Continuous background image sync
+        const art = typeof fl.getCoverArt === 'function' ? fl.getCoverArt() : '';
         if (fl.activePipType === 'video') {
             if (art && fl.lastExtractedArt !== art) {
                 fl.extractPalette(art);
             }
         } else {
             const bg = fl._els?.bgCover;
-
             if (bg && art) {
                 const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
                 const effectiveCoverMode = isAlbumCoverForced ? 'centered' : fl.userCoverMode;
@@ -698,29 +183,20 @@
                     }
                     if (fl.lastExtractedArt !== art) {
                         fl.extractPalette(art);
-                        if (typeof fl.updateCenteredArt === 'function') {
-                            fl.updateCenteredArt(art);
-                        }
+                        if (typeof fl.updateCenteredArt === 'function') fl.updateCenteredArt(art);
                     }
                 } else {
                     const newBg = `url("${art}")`;
-                    // Only trigger a DOM repaint if the image actually changed
                     if (bg.style.backgroundImage !== newBg) {
                         bg.style.backgroundImage = newBg;
-                        fl.extractPalette(art); // Trigger color extraction
-
-                        // Also update the centered art (if in centered mode)
-                        if (typeof fl.updateCenteredArt === 'function') {
-                            fl.updateCenteredArt(art);
-                        }
+                        fl.extractPalette(art);
+                        if (typeof fl.updateCenteredArt === 'function') fl.updateCenteredArt(art);
                     }
                 }
             } else if (bg && !art) {
                 if (bg.style.backgroundImage !== 'none' && bg.style.backgroundImage !== '') {
                     bg.style.backgroundImage = 'none';
-                    if (typeof fl.updateCenteredArt === 'function') {
-                        fl.updateCenteredArt("");
-                    }
+                    if (typeof fl.updateCenteredArt === 'function') fl.updateCenteredArt("");
                 }
             }
         }
@@ -735,18 +211,16 @@
 
         if (fl.activePipType === 'video') {
             if (!fl.canvas) {
-                if (fl.pipWin) {
-                    fl.queueNextFrame(fl.renderLoop);
-                }
+                if (fl.pipWin) fl.queueNextFrame(fl.renderLoop);
                 return null;
             }
         } else {
             if (!fl.canvas || !fl.pipWin.document.body.contains(fl.canvas)) {
                 fl.canvas = fl.pipWin.document.getElementById('lyricCanvas');
                 fl.ctx = null;
-                fl.lastW = -1; // Force resize for the new canvas
+                fl.lastW = -1;
                 fl.lastH = -1;
-                fl._els = null; // Canvass replaced — re-cache all elements
+                fl._els = null;
             }
         }
         if (!fl.canvas) {
@@ -758,8 +232,6 @@
         let w = fl.activePipType === 'video' ? fl.pipWin.width : fl.pipWin.innerWidth;
         let h = fl.activePipType === 'video' ? fl.pipWin.height : fl.pipWin.innerHeight;
 
-        // ECO-7: Cap canvas internal resolution to 480px max (browser upscales via CSS).
-        // Cuts GPU fill-rate by up to 65% on large windows; text softens slightly.
         if (fl.ecoMode) {
             const maxRes = 480;
             if (w > maxRes || h > maxRes) {
@@ -769,40 +241,32 @@
             }
         }
 
-        // Bail out if the PiP window hasn't finished laying out yet (can happen on the very first frame).
-        // Re-queuing the loop is cheaper than drawing garbage into a 0x0 canvas.
         if (w <= 0 || h <= 0) {
             fl.queueNextFrame(fl.renderLoop);
             return;
         }
 
-        // --- CANVAS RESIZE GUARD ---
-        // Only resize when dimensions actually changed. Assigning canvas.width/height
-        // every frame thrashes memory and is the single biggest CPU culprit.
         if (w !== fl.lastW || h !== fl.lastH) {
             fl.canvas.width = w;
             fl.canvas.height = h;
             fl.lastW = w; fl.lastH = h;
-            fl.needsLayoutUpdate = true; // Window changed — recompute all offsets
+            fl.needsLayoutUpdate = true;
         }
 
         const vmin = Math.min(w, h) / 100;
         const maxWidth = w * 0.94;
 
-        // --- OPT-4: Use cached element refs for per-frame DOM writes ---
+        // Seeker & Play/Pause/Mute sync
         const seekerContainer = fl._els?.seekerContainer;
         const hasTrack = fl.currentTrack &&
             fl.currentTrack !== "" &&
             !((fl.lyricLines.length === 1 && (fl.lyricLines[0].text === "Waiting for music..." || fl.lyricLines[0].isWaitingPlaceholder)) || (state.paused && state.duration <= 5));
 
-        // Accumulate listening stats
         if (hasTrack && !state.paused) {
             const nowTick = performance.now();
             if (fl.lastActiveTickMs) {
                 const deltaMs = nowTick - fl.lastActiveTickMs;
-                if (typeof fl.accumulateListeningTime === 'function') {
-                    fl.accumulateListeningTime(deltaMs);
-                }
+                if (typeof fl.accumulateListeningTime === 'function') fl.accumulateListeningTime(deltaMs);
             }
             fl.lastActiveTickMs = nowTick;
         } else {
@@ -815,9 +279,7 @@
                 uiContainer.style.removeProperty('--vibrant-color');
             }
 
-            if (seekerContainer) {
-                seekerContainer.style.display = hasTrack ? 'block' : 'none';
-            }
+            if (seekerContainer) seekerContainer.style.display = hasTrack ? 'block' : 'none';
 
             const seeker = fl._els?.seeker;
             if (seeker && hasTrack) seeker.style.width = `${(state.currentTime / state.duration) * 100}%`;
@@ -831,7 +293,6 @@
                 }
             }
 
-            // Update mute button icon if changed externally (or by our toggle)
             const muteBtn = fl._els?.muteBtn;
             if (muteBtn) {
                 const adapter = fl.getActiveAdapter?.();
@@ -846,20 +307,11 @@
                 if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
             }
         } else {
-            // Sync host player state -> virtual video element in Video PiP
             const video = document.getElementById('fl-video-pip-element');
             if (video) {
-                // --- GRACE PERIOD: delay video.pause() for 400ms after launch ---
-                // video.pause() freezes the canvas stream on whatever was last drawn.
-                // If called on the very first frame (before any content is painted),
-                // the PiP locks on the initial black #121212 fill and stays black
-                // until the user clicks play. The grace period ensures at least a few
-                // frames of meaningful content (waiting animation, "Wait for it...",
-                // or actual lyrics) are drawn before the stream can be frozen.
                 const timeSinceLaunch = performance.now() - (fl.pipLaunchTime || 0);
                 const gracePeriodOver = timeSinceLaunch > 400;
 
-                // Sync play/pause state (only after grace period to avoid black-frame freeze)
                 const isBgLoading = fl.canvasBgImageUrl && !fl.canvasBgImage;
                 const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
                 const isAnimating = absScrollDelta >= 0.5;
@@ -874,12 +326,10 @@
                         video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
                     }
                 } else if (!gracePeriodOver && video.paused) {
-                    // During grace period: keep video playing so canvas stream stays live
                     fl.ignoreVideoPlayEvent = true;
                     video.play().catch(() => { fl.ignoreVideoPlayEvent = false; });
                 }
 
-                // Sync muted state
                 const adapter = fl.getActiveAdapter?.();
                 let isMuted = false;
                 if (adapter) {
@@ -905,20 +355,12 @@
             }
         }
 
-        // --- Optimization / Bounds Checking ---
-        // If the window is too small, the CSS overlay is showing and the canvas is hidden.
-        // OPT-6 (Universal): Sleep 500ms between checks to cut loop thrashing from 144Hz to 2Hz.
         if (fl.activePipType !== 'video' && (w < 140 || h < 140)) {
             const timerHost = fl.pipWin || window;
             timerHost.setTimeout(() => fl.queueNextFrame(fl.renderLoop), 500);
             return;
         }
 
-        // OPT-4 (Universal): Skip all drawing when the track is paused and scroll has settled.
-        // We draw exactly ONE idle frame to capture any seek or state change, then suspend
-        // the draw loop. The CPU cost during pause drops to ~0% in Eco Mode, and avoids
-        // redundant clears/redraws in Non-Eco Mode too.
-        // Uses fl.isWaitingState getter (defined in config.js) to avoid variable collision.
         const _isScrollSettled = Math.abs(fl.targetScroll - fl.scrollPos) < 0.1;
         const _isLoopIdle = _isScrollSettled && !fl.needsLayoutUpdate && !(fl.userGlowEnabled && !fl.ecoMode);
         const isStaticAlbumMode = fl.albumCoverMode && !fl.needsLayoutUpdate;
@@ -949,180 +391,39 @@
         }
 
         fl.ctx.clearRect(0, 0, w, h);
-        fl.drawCanvasBackground(w, h);
+        if (typeof fl.drawCanvasBackground === 'function') fl.drawCanvasBackground(w, h);
 
         let activeIdx = fl.lyricLines.findIndex((l, i) =>
             state.currentTime >= l.time && (!fl.lyricLines[i + 1] || state.currentTime < fl.lyricLines[i + 1].time)
         );
         if (activeIdx === -1) activeIdx = 0;
 
-        // --- LAYOUT CACHE ---
-        // Recompute line offsets only when something meaningful changes:
-        // song loaded/changed, window resized, or active line moved (different font size).
-        if (fl.needsLayoutUpdate || activeIdx !== fl.lastActiveIdx || fl.lyricLines.length !== fl.lastLyricsLen) {
-            const baseSpacing = vmin * (fl.userLineSpacing ?? 8);
-            let currentYOffset = 0;
-            const lineOffsets = [];
-
-            // Scale factor derived from the user font size slider.
-            // Default slider value (18) yields scale = 1.0.
-            // Range 10–36 gives roughly 0.56x to 2.0x.
-
-            // OPT-1: O(1) Set lookup instead of Array.includes() for system message detection.
-            const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(fl.lyricLines[0].text);
-            const isWaitForIt = fl.lyricLines.length === 1 && fl.lyricLines[0].text === "Wait for it...";
-            const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
-
-            // Target width for the active line fit
-            const fitWidth = maxWidth * 0.75;
-            const displayFontFamily = ((isSystemMessage && !isWaitForIt) || (fl.galaxyMode === false && !isWaitForIt)) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
-            const activeSizeMin = vmin * 6.5 * fontScale;
-            const activeSizeMax = vmin * 9.5 * fontScale;
-
-            for (let i = 0; i < fl.lyricLines.length; i++) {
-                const line = fl.lyricLines[i];
-
-                // Inactive lines: fixed vmin-based size (unchanged behaviour).
-                // Active line: scale to fill horizontal space, then clamp.
-                // OPT-2: Store computed mainSize in the layout object so the draw
-                // pass can reuse it — eliminating the duplicate calculateFitSize /
-                // measureText call that previously happened every frame for the active line.
-                let mainSize;
-                if (i === activeIdx) {
-                    mainSize = fl.calculateFitSize(
-                        fl.ctx,
-                        line.text,
-                        `700 {SIZE}px ${displayFontFamily}`,
-                        fitWidth,
-                        vmin * 7.5 * fontScale, // baseline measurement size
-                        activeSizeMin,
-                        activeSizeMax
-                    );
-                } else {
-                    mainSize = vmin * 6.0 * fontScale; // Bumped from 5.2 for better readability
-                }
-
-                // Romaji and translation for the active line scale with mainSize
-                // so they feel proportionally cohesive rather than jumping to a
-                // fixed vmin value that may be much smaller than the main text.
-                // NOTE: fontScale applied here to stay in sync with the draw pass.
-                const romajiSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-                const transSize = (i === activeIdx) ? mainSize * 0.86 : vmin * 5.2 * fontScale;
-
-                let romajiHeight = 0;
-                if (line.romaji) {
-                    fl.ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
-                    romajiHeight = fl.getWrapLines(fl.ctx, line.romaji, maxWidth).length * (romajiSize * 1.2);
-                }
-
-                fl.ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                let mainHeight = fl.getWrapLines(fl.ctx, line.text, maxWidth).length * (mainSize * 1.2);
-
-                let transHeight = 0;
-                if (fl.showTranslation && line.translation) {
-                    fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
-                    transHeight = fl.getWrapLines(fl.ctx, `(${line.translation})`, maxWidth).length * (transSize * 1.2);
-                }
-
-                // --- ASYMMETRIC BOUNDARY CALCULATION ---
-                // Text always grows DOWNWARD when it wraps, never upward.
-                // So topBoundary is fixed to a single-line anchor, and
-                // bottomBoundary expands to cover any extra wrapped rows.
-                fl.ctx.font = (i === activeIdx) ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
-                // Extra downward shift when the main lyric wraps beyond one line
-                const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-
-                // Top boundary: fixed at half a single line height (anchors the drawn Y position).
-                // When romaji is present, it uses a proportional gap from romajiSize instead of a fixed vmin offset.
-                // Reduced from 0.6 to 0.45 to shift the active line anchor upward
-                const singleLineHalf = mainSize * 0.45;
-                const topBoundary = line.romaji
-                    ? (romajiSize * 1.5) + romajiHeight
-                    : singleLineHalf;
-
-                // Bottom boundary: extends downward to cover wrapped rows + translation gap.
-                let bottomBoundary = singleLineHalf + mainWrapShift;
-                if (fl.showTranslation && line.translation) {
-                    bottomBoundary = mainWrapShift + (transSize * 1.5) + transHeight;
-                }
-
-                const baseY = currentYOffset + topBoundary;
-                // OPT-2: store {y, mainSize} so the draw pass can read mainSize directly.
-                lineOffsets.push({ y: baseY, mainSize });
-
-                const totalBlockHeight = topBoundary + bottomBoundary;
-
-                // --- SMART AUTO-SCALING (PLAN B) ---
-                // Shrink the gap proportionally if the block has fewer layers
-                // so the visual density remains constant across all songs.
-                const hasRomaji = !!line.romaji;
-                const hasTl = fl.showTranslation && !!line.translation;
-                const layerCount = 1 + (hasRomaji ? 1 : 0) + (hasTl ? 1 : 0);
-
-                let dynamicGap = baseSpacing;
-                if (layerCount === 2) dynamicGap = baseSpacing * 2.0;
-                if (layerCount === 1) dynamicGap = baseSpacing * 3.0;
-
-                currentYOffset += totalBlockHeight + dynamicGap;
-            }
-
-            fl.cachedLayout = lineOffsets;
-            // Update scroll target inside the invalidation block so the lerp always
-            // chases the new position, even when scrollPos is mid-animation.
-            fl.targetScroll = (fl.cachedLayout[activeIdx]?.y) || 0;
-
-            // Instantly snap scroll position on initial track load/reset to prevent slide transition
-            if (fl.needsLayoutUpdate && (fl.scrollPos === 0 || fl.lyricLines.length === 1)) {
-                fl.scrollPos = fl.targetScroll;
-                fl.lastAnimationTimeMs = null;
-            }
-
-            fl.lastActiveIdx = activeIdx;
-            fl.lastLyricsLen = fl.lyricLines.length;
-            fl.needsLayoutUpdate = false;
+        // Dynamic Layout Calculation
+        if (typeof fl.updateLyricLayout === 'function') {
+            fl.updateLyricLayout(w, h, vmin, maxWidth, activeIdx);
         }
 
-        // Calculate frame-rate independent delta time (dt) in seconds
         const now = performance.now();
         const dt = fl.lastAnimationTimeMs ? (now - fl.lastAnimationTimeMs) / 1000 : 0.0166;
         fl.lastAnimationTimeMs = now;
-
-        // Clamp dt to a maximum value to avoid physics jumps when the tab or window is suspended/backgrounded
         const clippedDt = Math.min(dt, 0.1);
-
         const scrollDelta = fl.targetScroll - fl.scrollPos;
 
         if (!fl.fluidScrolling) {
             fl.scrollPos = fl.targetScroll;
         } else {
-            // --- OPTIMIZATION: Cinematic "Teleport and Glide" for Large Jumps ---
-            // If the user clicks the seeker bar and jumps 40 lines away, lerping across
-            // the entire history forces the GPU to render dozens of heavy text shadows per frame, causing massive lag.
-            // Instead of a hard, ugly instant snap, we teleport the scroll position to just slightly before 
-            // the destination (0.1x screen height), then let the normal easing smoothly slide it the rest of the way.
             if (Math.abs(scrollDelta) > h * 0.8) {
                 fl.scrollPos = fl.targetScroll - (Math.sign(scrollDelta) * (h * 0.1));
-                fl.lastAnimationTimeMs = null; // Reset timing on teleport to keep subsequent glide smooth
+                fl.lastAnimationTimeMs = null;
             } else {
-                // Easing constant (k = 15.0 yields a highly responsive, fast snap ease curve)
-                const k = fl.ecoMode ? 15.0 : 15.0;
+                const k = 15.0;
                 const decay = 1 - Math.exp(-k * clippedDt);
                 fl.scrollPos += scrollDelta * Math.min(1, decay);
             }
         }
 
         const isFastScroll = Math.abs(scrollDelta) > (h * 0.05);
-
-        // --- OPT-3: IDLE THROTTLE ---
-        // When the scroll animation has fully settled AND we are either paused OR
-        // the active index hasn't changed (static rendering), the canvas content is static.
-        // Drop to ~4fps to save CPU/battery. The threshold of 0.1px is imperceptible.
         const absScrollDelta = Math.abs(fl.targetScroll - fl.scrollPos);
-        // isGlowDynamic: glow only produces a continuously-changing canvas (via sine-wave shadowBlur pulse)
-        // when ALL THREE are true: glow is enabled, shadow blur is on, AND eco mode is off.
-        // If any of those is false, the active line is rendered with a static shadow value and the
-        // canvas can be considered idle — allowing the 250ms sleep throttle to fire.
         const isGlowDynamic = fl.userGlowEnabled && fl.userLyricShadowEnabled && !fl.ecoMode;
         const isIdle = fl.ecoMode && (absScrollDelta < 0.1 && !fl.needsLayoutUpdate) && !isGlowDynamic;
 
@@ -1132,12 +433,13 @@
 
         fl.ctx.save();
         if (shouldShowLoadingPlaceholder || isWaiting) {
-            // Draw waiting state centered, unaffected by vertical anchor / scroll position / sliders
             fl.ctx.translate(w / 2, h / 2);
             if (fl.lyricLines && fl.lyricLines[0]) {
                 fl.lyricLines[0].isWaitingPlaceholder = true;
             }
-            fl.drawWaitingState(w, h, vmin, maxWidth, 0);
+            if (typeof fl.drawWaitingState === 'function') {
+                fl.drawWaitingState(w, h, vmin, maxWidth, 0);
+            }
         } else {
             fl.ctx.translate(w / 2, (h / 2) - fl.scrollPos + anchorOffset);
             if (!fl.albumCoverMode) {
@@ -1146,22 +448,14 @@
                     if (!entry) return;
                     const y = entry.y;
 
-                    // --- CULLING: Skip drawing off-screen lines ---
-                    // Calculate where this line will actually render on the screen
+                    // Culling: Skip drawing off-screen lines
                     const screenY = (h / 2) - fl.scrollPos + anchorOffset + y;
-
-                    // If it's more than half a full screen-height above or below the view, ignore it.
-                    // We give it a generous buffer window so shadows don't abruptly pop in.
-                    if (screenY < -h * 0.5 || screenY > h * 1.5) {
-                        return;
-                    }
+                    if (screenY < -h * 0.5 || screenY > h * 1.5) return;
 
                     const dist = Math.abs(i - activeIdx);
-                    // Increase alpha floor from 0.1 to 0.3 for better visibility of distant lines
                     fl.ctx.globalAlpha = Math.max(0.3, 1 - dist * 0.3);
 
-                    // OPT-1: O(1) Set lookup for system message detection in the draw pass.
-                    const isSystemMessage = fl.lyricLines.length === 1 && fl.SYSTEM_MSG_SET.has(line.text);
+                    const isSystemMessage = fl.lyricLines.length === 1 && (fl.SYSTEM_MSG_SET ? fl.SYSTEM_MSG_SET.has(line.text) : false);
                     const isWaitForIt = fl.lyricLines.length === 1 && line.text === "Wait for it...";
                     let drawX = 0;
                     if (isSystemMessage) {
@@ -1178,306 +472,105 @@
 
                     const isCurrent = (i === activeIdx);
                     const displayFontFamily = (isSystemMessage && !isWaitForIt) ? "'Noto Sans', 'Segoe UI', sans-serif" : fl.userFontFamily;
-
-                    // Universal Dark Shadow for all text.
-                    // Controlled by the Lyric Shadow toggle — independent of Eco Mode.
-                    // When shadow is OFF, wrapText (utils.js) draws a cheap vector outline instead.
-                    if (fl.userLyricShadowEnabled) {
-                        fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                        fl.ctx.shadowBlur = 8;
-                    } else {
-                        fl.ctx.shadowBlur = 0;
-                        fl.ctx.shadowColor = 'transparent';
-                    }
-
-                    // Mirror the layout block's sizing logic exactly so draw positions
-                    // match the pre-computed offsets in cachedLayout.
                     const fontScale = isSystemMessage ? 1 : (fl.userFontSize / 18);
 
-                    // OPT-2: Reuse the mainSize already computed in the layout pass.
-                    // For the active line this avoids a second calculateFitSize → measureText call.
-                    const mainSize = entry.mainSize;
+                    const mainSize = entry.mainSize || (isCurrent ? vmin * 7.5 * fontScale : vmin * 6.0 * fontScale);
                     const romajiSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
                     const transSize = isCurrent ? mainSize * 0.86 : vmin * 5.2 * fontScale;
 
-                    // 1. Romaji (Top)
+                    fl.ctx.font = (isCurrent ? `700 ` : `600 `) + `${mainSize}px ${displayFontFamily}`;
+                    const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
+                    const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
+
+                    // Draw Romaji
                     if (line.romaji) {
                         fl.ctx.font = `italic 600 ${romajiSize}px ${displayFontFamily}`;
-                        // Revert inactive romaji to light gray for readability
-                        fl.ctx.fillStyle = isCurrent ? fl.currentPalette.romaji : "#DDDDDD";
-                        // Shift up to make room
+                        fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#FFEAA7" : "rgba(255, 255, 255, 0.9)") : "rgba(255, 255, 255, 0.7)";
+                        if (isCurrent && fl.userLyricShadowEnabled) {
+                            fl.ctx.shadowColor = fl.userGlowEnabled ? (fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)") : "rgba(0, 0, 0, 0.8)";
+                            fl.ctx.shadowBlur = 10;
+                        } else {
+                            fl.ctx.shadowBlur = 0;
+                        }
                         fl.wrapText(fl.ctx, line.romaji, drawX, y - (romajiSize * 1.5), maxWidth, romajiSize * 1.2, true);
                     }
 
-                    // 2. Original Text (Middle)
-                    fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                    // Inactive main text stays white, active main text is highlighted white (if Spotlight is on) or theme-colored
-                    fl.ctx.fillStyle = isCurrent ? (fl.userSpotlightEnabled ? "#FFFFFF" : fl.currentPalette.vibrant) : "#FFFFFF";
+                    // Draw Main Lyric
+                    fl.ctx.font = (isCurrent ? `700 ` : `600 `) + `${mainSize}px ${displayFontFamily}`;
+                    fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#FFFFFF" : "#FFFFFF") : "rgba(255, 255, 255, 0.6)";
 
-                    // Draw main text
-                    fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false);
-
-                    // Draw glow pass for the active line:
-                    // If glowEnabled, pulse the shadowBlur via a sine wave; otherwise use the
-                    // fixed vibrant glow that already existed (subtle, palette-matched).
                     if (isCurrent) {
-                        // Shadow color for the glow stroke is controlled by Lyric Shadow toggle.
-                        if (fl.userGlowEnabled && fl.userGlowStyle === 'rainbow') {
-                            const timeSec = performance.now() / 1000;
-                            const hue = (timeSec * 60) % 360;
-                            if (fl.userLyricShadowEnabled) fl.ctx.shadowColor = `hsl(${hue}, 100%, 65%)`;
-                            fl.ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
-                        } else {
-                            if (fl.userLyricShadowEnabled) fl.ctx.shadowColor = fl.currentPalette.vibrant;
-                            fl.ctx.strokeStyle = fl.currentPalette.vibrant;
-                        }
-
-                        if (fl.userGlowEnabled && !isFastScroll) {
-                            fl.ctx.lineWidth = Math.max(2, mainSize * 0.04);
-                            if (!fl.userLyricShadowEnabled) {
-                                // Shadow OFF: static colored stroke with no blur.
-                                fl.ctx.shadowBlur = 0;
-                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
-                            } else if (fl.ecoMode) {
-                                // ECO-3 + Shadow ON: static shadowBlur (no expensive sine-wave pulse).
-                                fl.ctx.shadowBlur = 15;
-                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
-                            } else {
-                                // Full: pulse between 10 and 40 shadow blur over ~2s cycle.
-                                const glowTime = performance.now() / 1000;
-                                const pulsedBlur = 10 + 30 * (0.5 + 0.5 * Math.sin(glowTime * Math.PI));
-                                fl.ctx.shadowBlur = pulsedBlur;
-                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
-                            }
-                        } else {
-                            if (!fl.userLyricShadowEnabled) {
-                                // Shadow OFF: no blur, no vibrant stroke in non-glow mode.
-                                fl.ctx.shadowBlur = 0;
-                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                            } else {
-                                // Shadow ON: fixed 15px shadow. wrapText draws fill; no extra stroke.
-                                fl.ctx.shadowBlur = 15;
-                                fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
-                            }
-                        }
-                    }
-
-                    // 3. Translation (Bottom)
-                    if (fl.showTranslation && line.translation) {
-                        // Calculate downward baseline shift for wrapped lyrics
-                        fl.ctx.font = isCurrent ? `700 ${mainSize}px ${displayFontFamily}` : `600 ${mainSize}px ${displayFontFamily}`;
-                        const mainLineCount = fl.getWrapLines(fl.ctx, line.text, maxWidth).length;
-                        const mainWrapShift = (mainLineCount > 1 ? mainLineCount - 1 : 0) * (mainSize * 1.2);
-
-                        // Translation shadow controlled by Lyric Shadow toggle.
-                        if (fl.userLyricShadowEnabled) {
-                            fl.ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-                            fl.ctx.shadowBlur = 8;
-                        } else {
+                        if (!fl.userLyricShadowEnabled) {
                             fl.ctx.shadowBlur = 0;
                             fl.ctx.shadowColor = 'transparent';
+                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, true);
+                        } else {
+                            if (fl.userGlowEnabled) {
+                                fl.ctx.shadowColor = fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)";
+                                fl.ctx.shadowBlur = fl.ecoMode ? 15 : (15 + Math.sin(now * 0.003) * 5);
+                            } else {
+                                fl.ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+                                fl.ctx.shadowBlur = 15;
+                            }
+                            fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
                         }
+                    } else {
+                        fl.ctx.shadowBlur = 0;
+                        fl.ctx.shadowColor = 'transparent';
+                        fl.wrapText(fl.ctx, line.text, drawX, y, maxWidth, mainSize * 1.2, false, false);
+                    }
 
+                    // Draw Translation
+                    if (fl.showTranslation && line.translation) {
                         fl.ctx.font = `600 ${transSize}px ${displayFontFamily}`;
-                        fl.ctx.fillStyle = isCurrent ? fl.currentPalette.trans : "#CCCCCC";
-
+                        fl.ctx.fillStyle = isCurrent ? (fl.galaxyMode ? "#81ECEC" : "rgba(255, 255, 255, 0.85)") : "rgba(255, 255, 255, 0.5)";
+                        if (isCurrent && fl.userLyricShadowEnabled) {
+                            fl.ctx.shadowColor = fl.userGlowEnabled ? (fl.currentPalette.vibrant || "rgba(0, 210, 255, 0.8)") : "rgba(0, 0, 0, 0.8)";
+                            fl.ctx.shadowBlur = 10;
+                        } else {
+                            fl.ctx.shadowBlur = 0;
+                        }
                         fl.wrapText(fl.ctx, `(${line.translation})`, drawX, y + mainWrapShift + (transSize * 1.5), maxWidth, transSize * 1.2, false);
                     }
+
+                    fl.ctx.shadowBlur = 0;
                 });
             }
         }
         fl.ctx.restore();
 
-        // Draw video PiP sync status badge directly onto the canvas
-        if (fl.activePipType === 'video') {
-            fl.drawVideoPipSyncStatus(w, h);
-        }
-
-        // Clear the frame push flag now that we have drawn the updated content on the canvas
-        if (fl.needsVideoFramePush) {
+        // Push frame to video stream if needed
+        if (fl.activePipType === 'video' && fl.needsVideoFramePush) {
+            const video = document.getElementById('fl-video-pip-element');
+            if (video && video.paused) {
+                fl.ignoreVideoPlayEvent = true;
+                video.play().then(() => {
+                    fl.ignoreVideoPauseEvent = true;
+                    video.pause();
+                }).catch(() => {});
+            }
             fl.needsVideoFramePush = false;
         }
 
-        // OPT-3: If truly idle (paused + scroll settled + no layout dirty OR static Album Cover Mode), sleep
-        // before the next tick. This cuts CPU wakeups.
-        const isReallyIdle = (isIdle && !fl.userGlowEnabled && !isWaitingState) || isStaticAlbumMode;
-        if (isReallyIdle) {
-            if (state.paused || isStaticAlbumMode) fl.hasDrawnIdleFrame = true;
-            const throttleDelay = fl.albumCoverMode
-                ? (fl.activePipType === 'video' ? 250 : 100)
-                : 250;
+        // Draw Video PiP Sync Status Badge
+        if (typeof fl.drawVideoPipSyncStatus === 'function') {
+            fl.drawVideoPipSyncStatus(w, h);
+        }
+
+        // Idle frame tracking
+        if (_isLoopIdle && state.paused && !fl.isWaitingState) {
+            fl.hasDrawnIdleFrame = true;
+        }
+
+        if (isIdle) {
             const timerHost = fl.activePipType === 'video' ? window : fl.pipWin;
             timerHost.setTimeout(() => {
-                fl.lastAnimationTimeMs = null; // Reset timing after waking up from sleep throttle
+                fl.lastAnimationTimeMs = null;
                 fl.queueNextFrame(fl.renderLoop);
-            }, throttleDelay);
+            }, 250);
         } else {
-            // Not idle — clear the latch so next pause starts fresh.
-            fl.hasDrawnIdleFrame = false;
             fl.queueNextFrame(fl.renderLoop);
         }
-    }
-
-    // --- VIDEO PIP SYNC STATUS BADGE ---
-    // Draws a rounded pill badge in the top-right corner of the canvas showing
-    // the current sync status (SYNCED / UNSYNCED / NO LYRICS / retrying spinner).
-    // Mirrors the Document PiP DOM indicator but rendered via Canvas 2D API.
-    fl.drawVideoPipSyncStatus = function (w, h) {
-        if (fl.activePipType !== 'video') return;
-
-        // Determine status, colors — same logic as the DOM version in ui.js
-        let statusText;
-        let dotColor;
-        let borderColor;
-        let textColor;
-        let spinnerTrackColor;
-        let spinnerHeadColor;
-        let dotGlowColor;
-        let dotGlowBlur = 0;
-        const isRetrying = fl.isRetrying || false;
-
-        const isEmpty = fl.activeLyricSource && fl.activeLyricSource.isEmpty;
-
-        if (fl.isBackgroundSearchFailed && !isRetrying) {
-            statusText = 'FAILED';
-            borderColor = 'rgba(239, 68, 68, 0.35)';
-            textColor = '#FEE2E2';
-            dotColor = '#EF4444';
-            dotGlowColor = 'rgba(239, 68, 68, 0.5)';
-            dotGlowBlur = 8;
-        } else if (fl.isMissingLyrics || isEmpty) {
-            if (fl.isMissingLyrics && isRetrying) {
-                statusText = 'SEARCHING';
-                borderColor = 'rgba(0, 210, 255, 0.35)';
-                textColor = '#E0F7FA';
-                spinnerTrackColor = 'rgba(0, 210, 255, 0.2)';
-                spinnerHeadColor = '#00D2FF';
-            } else {
-                statusText = 'NO LYRICS';
-                dotColor = '#F59E0B';
-                borderColor = 'rgba(245, 158, 11, 0.25)';
-                textColor = '#FEF3C7';
-                dotGlowColor = 'rgba(245, 158, 11, 0.4)';
-                dotGlowBlur = 6;
-            }
-        } else if (fl.isCurrentLyricSynced) {
-            statusText = 'SYNCED';
-            dotColor = '#10B981';
-            borderColor = 'rgba(16, 185, 129, 0.25)';
-            textColor = '#E6F4EA';
-            dotGlowColor = 'rgba(16, 185, 129, 0.5)';
-            dotGlowBlur = 8;
-        } else {
-            statusText = 'UNSYNCED';
-            dotColor = '#94A3B8';
-            borderColor = 'rgba(255, 255, 255, 0.1)';
-            textColor = 'rgba(255, 255, 255, 0.7)';
-        }
-
-        fl.ctx.save();
-
-        // Mirror Doc PiP's: transform: scale(0.6); transform-origin: top right
-        // Translate origin to the top-right corner then scale — all raw values
-        // below intentionally match the Doc PiP CSS numbers exactly.
-        const margin = 15; // matches Doc PiP: top: 15px; right: 15px
-        fl.ctx.translate(w - margin, margin);
-        fl.ctx.scale(0.6, 0.6);
-
-        // Raw values — identical to Doc PiP CSS (pre-scale)
-        const fontName = "'Noto Sans', 'Segoe UI', sans-serif";
-        const fontSize = 10;  // matches font-size: 10px
-        const paddingX = 8;   // matches padding: 4px 8px
-        const paddingY = 4;   // matches padding: 4px 8px
-        const gap = 6;   // matches gap: 6px
-        const dotRadius = 3;   // matches .sync-dot: width/height 6px → radius 3px
-        const cornerR = 4;   // matches border-radius: 4px
-
-        fl.ctx.font = `700 ${fontSize}px ${fontName}`;
-        fl.ctx.textBaseline = 'middle';
-        fl.ctx.textAlign = 'left';
-
-        const textWidth = fl.ctx.measureText(statusText).width;
-        const badgeHeight = fontSize + paddingY * 2;
-        const badgeWidth = paddingX * 2 + dotRadius * 2 + gap + textWidth;
-
-        // Origin is at top-right; badge grows leftward (negative x)
-        const bx = -badgeWidth;
-        const by = 0;
-
-        // Background fill
-        fl.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        fl.ctx.beginPath();
-        fl.ctx.moveTo(bx + cornerR, by);
-        fl.ctx.lineTo(bx + badgeWidth - cornerR, by);
-        fl.ctx.quadraticCurveTo(bx + badgeWidth, by, bx + badgeWidth, by + cornerR);
-        fl.ctx.lineTo(bx + badgeWidth, by + badgeHeight - cornerR);
-        fl.ctx.quadraticCurveTo(bx + badgeWidth, by + badgeHeight, bx + badgeWidth - cornerR, by + badgeHeight);
-        fl.ctx.lineTo(bx + cornerR, by + badgeHeight);
-        fl.ctx.quadraticCurveTo(bx, by + badgeHeight, bx, by + badgeHeight - cornerR);
-        fl.ctx.lineTo(bx, by + cornerR);
-        fl.ctx.quadraticCurveTo(bx, by, bx + cornerR, by);
-        fl.ctx.closePath();
-        fl.ctx.fill();
-
-        // Border stroke (lineWidth is also scaled by 0.6 — intentional)
-        fl.ctx.strokeStyle = borderColor;
-        fl.ctx.lineWidth = 1;
-        fl.ctx.stroke();
-
-        const dotX = bx + paddingX + dotRadius;
-        const dotY = by + badgeHeight / 2;
-
-        if (isRetrying) {
-            // Animated spinner — mirrors .sync-spinner CSS animation (spin 0.8s linear)
-            fl.ctx.save();
-            fl.ctx.translate(dotX, dotY);
-            const angle = (performance.now() / 150) % (Math.PI * 2);
-            fl.ctx.rotate(angle);
-
-            // Spinner track
-            fl.ctx.beginPath();
-            fl.ctx.arc(0, 0, dotRadius, 0, Math.PI * 2);
-            fl.ctx.strokeStyle = spinnerTrackColor || 'rgba(0, 210, 255, 0.2)';
-            fl.ctx.lineWidth = 1.5;
-            fl.ctx.stroke();
-
-            // Spinner head
-            fl.ctx.beginPath();
-            fl.ctx.arc(0, 0, dotRadius, -Math.PI / 2, 0);
-            fl.ctx.strokeStyle = spinnerHeadColor || '#00D2FF';
-            fl.ctx.stroke();
-            fl.ctx.restore();
-        } else {
-            if (fl.isBackgroundSearchFailed && !isRetrying) {
-                // Draw a red 'X' cross instead of a circular dot
-                fl.ctx.strokeStyle = '#EF4444';
-                fl.ctx.lineWidth = 1.5;
-                fl.ctx.beginPath();
-                fl.ctx.moveTo(dotX - 2.5, dotY - 2.5);
-                fl.ctx.lineTo(dotX + 2.5, dotY + 2.5);
-                fl.ctx.moveTo(dotX + 2.5, dotY - 2.5);
-                fl.ctx.lineTo(dotX - 2.5, dotY + 2.5);
-                fl.ctx.stroke();
-            } else {
-                // Static colored dot — matches box-shadow glow on .sync-dot
-                fl.ctx.beginPath();
-                fl.ctx.arc(dotX, dotY, dotRadius, 0, Math.PI * 2);
-                fl.ctx.fillStyle = dotColor;
-                // Sync badge dot glow controlled by Lyric Shadow toggle.
-                if (dotGlowBlur > 0 && fl.userLyricShadowEnabled) {
-                    fl.ctx.shadowColor = dotGlowColor;
-                    fl.ctx.shadowBlur = dotGlowBlur;
-                }
-                fl.ctx.fill();
-                fl.ctx.shadowBlur = 0;
-            }
-        }
-
-        // Status text
-        fl.ctx.fillStyle = textColor;
-        fl.ctx.fillText(statusText, dotX + dotRadius + gap, dotY);
-
-        fl.ctx.restore();
     };
 
 })();
