@@ -1057,8 +1057,14 @@
         const CHUNK_SIZE = 15;
         const DELIMITER = (dtMode === 'rm') ? ' ||| ' : '\n';
         const staggerMs = fl.devTranslateStagger || 150;
-        const skipGoogle = (fl.devSimulateTrans === 'force_gtrans_down' || fl.devSimulateTrans === 'force_all_trans_down');
-        const skipAllNetwork = (fl.devSimulateTrans === 'force_all_trans_down');
+        const transConfig = fl.devTransProviders || {
+            google: fl.devSimulateTrans !== 'force_gtrans_down' && fl.devSimulateTrans !== 'force_all_trans_down',
+            mymemory: fl.devSimulateTrans !== 'force_all_trans_down',
+            netease: fl.devSimulateTrans !== 'force_all_trans_down'
+        };
+        const skipGoogle = transConfig.google === false;
+        const skipMyMemory = transConfig.mymemory === false;
+        const skipNetEase = transConfig.netease === false;
 
         // Pre-parse NetEase community fallbacks if available on active track
         let neteaseLrcMap = null;
@@ -1135,7 +1141,7 @@
                 }
 
                 // Tier 2B: External Translation Fallback via MyMemory Translated API
-                if (!translatedCombo && dtMode === 't' && !skipAllNetwork) {
+                if (!translatedCombo && dtMode === 't' && !skipMyMemory) {
                     try {
                         // MyMemory requires a real ISO source code (does not support 'auto').
                         // 1. First attempt: built-in Chromium ML language classifier (supports 100+ languages)
@@ -1184,8 +1190,8 @@
                 }
 
                 // Tier 2C: NetEase Community Lyrics Fallback (0 network calls)
-                if (!translatedCombo && neteaseLrcMap && neteaseLrcMap.size > 0) {
-                    let neteaseMatchedAny = false;
+                let neteaseMatchedAny = false;
+                if (!translatedCombo && !skipNetEase && neteaseLrcMap && neteaseLrcMap.size > 0) {
                     for (let j = 0; j < chunk.length; j++) {
                         const itemIndex = chunk[j].index;
                         const itemTime = fl.lyricLines[itemIndex]?.time || 0;
@@ -1214,7 +1220,7 @@
                                 if (localRom) applyCallback(chunk[j].index, localRom.trim());
                             }
                         }
-                    } else if (typeof romanize === 'function') {
+                    } else if (!neteaseMatchedAny && typeof romanize === 'function') {
                         // Whole chunk fallback when all network tiers failed
                         for (let j = 0; j < chunk.length; j++) {
                             const localRom = romanize(chunk[j].text);

@@ -236,6 +236,14 @@ function getTitleSimilarity(query, candidateTitle) {
     );
 }
 
+function splitArtists(artistStr) {
+    if (!artistStr) return [];
+    return artistStr
+        .split(/[,;&/|、・]|\b(?:feat\.?|ft\.?|featuring|with|vs\.?)\b/i)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+}
+
 function getArtistSimilarity(query, candidateArtist) {
     const isObj = query && typeof query === 'object';
     const qArtistFull = isObj ? query.artistLower : cleanArtist(query || '').toLowerCase();
@@ -248,7 +256,7 @@ function getArtistSimilarity(query, candidateArtist) {
     const cArtistPrimary = extractPrimaryArtist(candidateArtist || '').toLowerCase();
     const cArtistPrimaryRomaji = romanize(cArtistPrimary);
 
-    return Math.max(
+    const baseScore = Math.max(
         titleSimilarity(qArtistPrimary, cArtistPrimary),
         titleSimilarity(qArtistPrimary, cArtistPrimaryRomaji),
         titleSimilarity(qArtistPrimaryRomaji, cArtistPrimary),
@@ -258,6 +266,32 @@ function getArtistSimilarity(query, candidateArtist) {
         titleSimilarity(qArtistFullRomaji, cArtistFull),
         titleSimilarity(qArtistFullRomaji, cArtistFullRomaji)
     );
+
+    // Cross-set component comparison for multi-artist collaborations
+    const qArtists = splitArtists(qArtistFull);
+    const cArtists = splitArtists(cArtistFull);
+    if (qArtists.length > 1 || cArtists.length > 1) {
+        let maxComponentSim = 0;
+        for (const qa of qArtists) {
+            const qaRomaji = romanize(qa);
+            for (const ca of cArtists) {
+                const caRomaji = romanize(ca);
+                const sim = Math.max(
+                    titleSimilarity(qa, ca),
+                    titleSimilarity(qa, caRomaji),
+                    titleSimilarity(qaRomaji, ca),
+                    titleSimilarity(qaRomaji, caRomaji)
+                );
+                if (sim > maxComponentSim) maxComponentSim = sim;
+            }
+        }
+        if (maxComponentSim >= 85) {
+            return Math.max(baseScore, 90, maxComponentSim);
+        }
+        return Math.max(baseScore, Math.round(maxComponentSim * 0.85));
+    }
+
+    return baseScore;
 }
 
 // ─── Scoring ─────────────────────────────────────────────────────────────────
@@ -403,6 +437,7 @@ function getCanonicalEndpoint(url) {
     if (url.includes('music.163.com/api/cloudsearch')) return 'netease_search';
     if (url.includes('lyrics.kugou.com/download')) return 'kugou_download';
     if (url.includes('lyrics.kugou.com/search')) return 'kugou_search';
+    if (url.includes('msearch.kugou.com') || url.includes('/api/v3/search/song')) return 'kugou_song_search';
     if (url.includes('translate.googleapis.com')) return 'google_translate';
 
     try {
@@ -508,6 +543,111 @@ function fetchKugouRaw(id, accesskey, timeoutMs) {
         .catch(() => ({ lyric: '', id }));
 }
 
+/**
+ * Two-tier search for KuGou:
+ * Tier 1: Direct lyric keyword lookup via lyrics.kugou.com/search (fast path for exact matches)
+ * Tier 2: Fuzzy song search via msearch.kugou.com/api/v3/search/song -> hash lookup via lyrics.kugou.com/search?hash=
+ * Concurrently executes both tiers and deduplicates results by candidate ID.
+ *
+ * @param {string} query
+ * @param {number} timeoutMs
+ * @returns {Promise<{candidates: object[], ok: boolean, timedOut: boolean}>}
+ */
+async function searchKugouCandidates(query, timeoutMs) {
+    if (!query) return { candidates: [], ok: false, timedOut: false };
+
+    let anyOk = false;
+    let anyTimeout = false;
+
+    // Tier 1: Direct lyric search (fast path for exact matches)
+    const directSearchPromise = fetchWithTimeout(
+        `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(query)}&hash=`,
+        timeoutMs
+    )
+        .then(r => {
+            if (r.ok) anyOk = true;
+            return r.ok ? r.json() : { candidates: [] };
+        })
+        .then(d => (Array.isArray(d?.candidates) ? d.candidates : []))
+        .catch(err => {
+            if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
+                anyTimeout = true;
+            }
+            return [];
+        });
+
+    // Tier 2: Fuzzy song search -> hash lookup
+    const songSearchPromise = fetchWithTimeout(
+        `https://msearch.kugou.com/api/v3/search/song?keyword=${encodeURIComponent(query)}&page=1&pagesize=4`,
+        timeoutMs
+    )
+        .then(r => {
+            if (r.ok) anyOk = true;
+            return r.ok ? r.json() : null;
+        })
+        .then(async data => {
+            const songs = data?.data?.info || [];
+            const hashes = [];
+            for (const s of songs) {
+                if (s?.hash && !hashes.includes(s.hash)) {
+                    hashes.push(s.hash);
+                    if (hashes.length >= 2) break;
+                }
+            }
+            if (hashes.length === 0) return [];
+
+            const hashPromises = hashes.map(hash =>
+                fetchWithTimeout(
+                    `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=&hash=${encodeURIComponent(hash)}`,
+                    timeoutMs
+                )
+                    .then(r => {
+                        if (r.ok) anyOk = true;
+                        return r.ok ? r.json() : { candidates: [] };
+                    })
+                    .then(d => (Array.isArray(d?.candidates) ? d.candidates : []))
+                    .catch(err => {
+                        if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
+                            anyTimeout = true;
+                        }
+                        return [];
+                    })
+            );
+
+            const hashResults = await Promise.all(hashPromises);
+            return hashResults.flat();
+        })
+        .catch(err => {
+            if (err?.name === 'AbortError' || err?.message?.includes('timeout')) {
+                anyTimeout = true;
+            }
+            return [];
+        });
+
+    const [directRes, songRes] = await Promise.allSettled([directSearchPromise, songSearchPromise]);
+
+    const candidates = [];
+    const seen = new Set();
+    const lists = [
+        directRes.status === 'fulfilled' ? directRes.value : [],
+        songRes.status === 'fulfilled' ? songRes.value : []
+    ];
+
+    for (const list of lists) {
+        if (Array.isArray(list)) {
+            for (const item of list) {
+                const key = String(item.id || '');
+                if (key && !seen.has(key)) {
+                    seen.add(key);
+                    candidates.push(item);
+                }
+            }
+        }
+    }
+
+    return { candidates, ok: anyOk, timedOut: anyTimeout && !anyOk };
+}
+
 const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
 
 // ─── Core search ─────────────────────────────────────────────────────────────
@@ -515,10 +655,10 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
 /**
  * The unified search function.
  *
- * Fires LRCLIB and Netease search requests concurrently and returns an array
+ * Fires LRCLIB, Netease and KuGou search requests concurrently and returns an array
  * of normalised candidates sorted best-first by score.
  *
- * Netease candidates have synced=null / rawLyric=null at this stage.
+ * Netease & KuGou candidates have synced=null / rawLyric=null at this stage.
  * For Manual Search this is fine — the popup shows the metadata list and
  * only fetches the raw lyric when the user clicks a result.
  * For Auto Search, getBestAutoMatch() handles Lazy Evaluation on top.
@@ -529,7 +669,7 @@ const LRC_TIMESTAMP_RE = /\[\d{2}:\d{2}\.\d{2,3}\]/;
  * @param {string} cleanArtist     – Primary artist for scoring
  * @returns {Promise<object[]>}    – Sorted candidate array
  */
-async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs, sim) {
+async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, timeoutMs, simOrProviders) {
     const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
 
     let lrcTimedOut = false;
@@ -539,20 +679,32 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
     let neteaseOk = false;
     let kugouOk = false;
 
-    const skipLrc = (sim === 'force_lrclib_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down');
+    let skipLrc = false;
+    let skipNetease = false;
+    let skipKugou = false;
+
+    if (simOrProviders && typeof simOrProviders === 'object') {
+        skipLrc = simOrProviders.lrclib === false;
+        skipNetease = simOrProviders.netease === false;
+        skipKugou = simOrProviders.kugou === false;
+    } else if (typeof simOrProviders === 'string') {
+        skipLrc = (simOrProviders === 'force_lrclib_down' || simOrProviders === 'force_lrclib_netease_down' || simOrProviders === 'force_all_down');
+        skipNetease = (simOrProviders === 'force_netease_down' || simOrProviders === 'force_lrclib_netease_down' || simOrProviders === 'force_all_down');
+        skipKugou = (simOrProviders === 'force_kugou_down' || simOrProviders === 'force_all_down');
+    }
+
     const lrcPromise = skipLrc
         ? Promise.resolve({ ok: false, json: () => Promise.resolve([]) })
         : fetchWithTimeout(`https://lrclib.net/api/search?q=${encodeURIComponent(query)}`, activeTimeout);
 
-    const skipNetease = (sim === 'force_netease_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down');
     const neteasePromise = skipNetease
         ? Promise.resolve({ ok: false, json: () => Promise.resolve({ result: { songs: [] } }) })
         : fetchWithTimeout(`https://music.163.com/api/cloudsearch/pc?s=${encodeURIComponent(query)}&type=1`, activeTimeout);
 
-    const skipKugou = (sim === 'force_kugou_down' || sim === 'force_all_down');
-    const kugouPromise = skipKugou
-        ? Promise.resolve({ ok: false, json: () => Promise.resolve({ candidates: [] }) })
-        : fetchWithTimeout(`https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(query)}&hash=`, activeTimeout);
+    const skipKugouActual = skipKugou;
+    const kugouPromise = skipKugouActual
+        ? Promise.resolve({ candidates: [], ok: false, timedOut: false })
+        : searchKugouCandidates(query, activeTimeout);
 
     const [lrcRes, neteaseRes, kugouRes] = await Promise.allSettled([
         lrcPromise
@@ -587,14 +739,15 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
             }),
 
         kugouPromise
-            .then(r => {
-                if (r.ok) {
+            .then(res => {
+                if (res?.ok) {
                     kugouOk = true;
-                    return r.json();
                 }
-                return { candidates: [] };
+                if (res?.timedOut) {
+                    kugouTimedOut = true;
+                }
+                return res?.candidates || [];
             })
-            .then(data => data?.candidates || [])
             .catch((err) => {
                 if (err.name === 'AbortError' || err.message?.includes('timeout')) {
                     kugouTimedOut = true;
@@ -655,7 +808,7 @@ async function unifiedSearch(query, actualDuration, cleanTitle, cleanArtist, tim
  * @param {number} duration     – Player duration in seconds
  * @returns {Promise<{rawLyric:string, source:object, synced:boolean}|null>}
  */
-async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
+async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, simOrProviders) {
     const cPrimaryArtist = extractPrimaryArtist(rawArtist || '');
     const cArtistFull    = cleanArtist(rawArtist || '');
     const cTitleFull     = cleanTitle(rawTitle || '');
@@ -703,7 +856,7 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
     const uniquePasses = [...new Set(passes.map(p => p.trim()).filter(Boolean))];
 
     // 1. Run all searches concurrently
-    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs, sim));
+    const searchPromises = uniquePasses.map(query => unifiedSearch(query, duration, cTitleFull, cPrimaryArtist, timeoutMs, simOrProviders));
     const results = await Promise.all(searchPromises);
 
     // 2. Combine and deduplicate candidates by source & id
@@ -914,8 +1067,8 @@ async function getBestAutoMatch(rawArtist, rawTitle, duration, timeoutMs, sim) {
  * @param {string} cleanTitleStr – Noise-stripped title for scoring (may be empty)
  * @returns {Promise<object[]>}  – UI-ready candidate list
  */
-async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs, sim) {
-    const { candidates, hasTimeout, isNetworkError } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, sim);
+async function manualSearch(query, duration, cleanArtist, cleanTitleStr, timeoutMs, simOrProviders) {
+    const { candidates, hasTimeout, isNetworkError } = await unifiedSearch(query, duration, cleanTitleStr, cleanArtist, timeoutMs, simOrProviders);
 
     // Map to a UI-friendly format (popup.js will render this directly)
     const results = candidates.map(c => ({

@@ -25,7 +25,7 @@
     "https://*.spotifycdn.com/*",
     "https://www.google-analytics.com/*",
     "https://api.mymemory.translated.net/*",
-    "https://lyrics.kugou.com/*"
+    "https://*.kugou.com/*"
   ],
   "content_scripts": [
     {
