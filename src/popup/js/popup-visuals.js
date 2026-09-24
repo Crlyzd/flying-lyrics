@@ -828,7 +828,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const pipDefaults = {
                 customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-                coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
+                coverMode: 'fill', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
                 lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false,
                 lastPipWidth: 200, lastPipHeight: 250
             };
@@ -855,7 +855,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.darknessValue.textContent = 5;
 
             document.querySelectorAll('.cover-mode-option').forEach(o => {
-                o.classList.toggle('selected', o.dataset.mode === 'default');
+                o.classList.toggle('selected', o.dataset.mode === 'fill');
             });
 
             el.toggleAlbumCoverMode.checked = false;
@@ -893,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             el.toggleBgAnimation.checked = popupDefaults.popupBgAnimation;
-            if (el.popupWindowContainer) el.popupWindowContainer.classList.remove('bg-frozen');
+            if (el.popupWindowContainer) el.popupWindowContainer.classList.add('bg-frozen');
 
             if (el.toggleGalaxyMode) {
                 el.toggleGalaxyMode.checked = popupDefaults.galaxyMode;

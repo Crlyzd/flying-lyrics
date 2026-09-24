@@ -125,7 +125,7 @@
         }
 
         const isAlbumCoverForced = fl.isMissingLyrics || fl.albumCoverMode;
-        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : (fl.userCoverMode || 'centered');
+        const effectiveCoverMode = isAlbumCoverForced ? 'centered' : (fl.userCoverMode || 'fill');
         const blurPx = isAlbumCoverForced ? 0 : (fl.userBgBlur || 0);
         const effectiveDarkness = isAlbumCoverForced ? 0 : (fl.userBgDarkness || 0);
 

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  THEME / ACCENT COLOR REFLECTION
     // =========================================================
     const themeDefaults = {
-        popupBgAnimation: true,
+        popupBgAnimation: false,
         popupColor1: '#ff007f',
         popupColor2: '#00b4d8',
         popupColor3: '#1DB954',

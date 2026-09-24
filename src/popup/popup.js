@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fallbackDefaults = {
         showTranslation: true, translationLang: popup.getBrowserDefaultLanguage(), globalSyncOffset: 1000, autoLaunch: false,
         customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-        coverMode: 'centered', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
+        coverMode: 'fill', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
         lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false, telemetryConsent: true,
         pipMode: 'document', cloudSyncEnabled: true, ecoMode: true, fluidScrolling: false,
         lastPipWidth: 200, lastPipHeight: 250,
