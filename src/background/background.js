@@ -73,15 +73,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ status: 'ok' });
     }
 
+    // ── Helper: Resolve search simulator config (pills or legacy fallback) ──
+    function getDevSearchSimulatorConfig(callback) {
+        chrome.storage.local.get({
+            devSearchProviders: null,
+            devSearchLatency: false,
+            devSimulateSearch: 'none'
+        }, (items) => {
+            let providers = items.devSearchProviders;
+            let latency = !!items.devSearchLatency;
+
+            if (!providers && items.devSimulateSearch) {
+                const sim = items.devSimulateSearch;
+                providers = {
+                    lrclib: sim !== 'force_lrclib_down' && sim !== 'force_lrclib_netease_down' && sim !== 'force_all_down',
+                    netease: sim !== 'force_netease_down' && sim !== 'force_lrclib_netease_down' && sim !== 'force_all_down',
+                    kugou: sim !== 'force_kugou_down' && sim !== 'force_all_down'
+                };
+                if (sim === 'simulate_latency') latency = true;
+            }
+
+            callback({
+                providers: {
+                    lrclib: providers?.lrclib !== false,
+                    netease: providers?.netease !== false,
+                    kugou: providers?.kugou !== false
+                },
+                latency
+            });
+        });
+    }
+
     // ── Direct Netease ID lookup (used by manual override resolution in services.js) ──
     if (message.type === 'FETCH_NETEASE') {
         const { id, timeoutMs } = message.payload;
         if (!id) { sendResponse(null); return false; }
 
         if (IS_DEV_MODE) {
-            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
-                const sim = items.devSimulateSearch || 'none';
-                if (sim === 'force_netease_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down') {
+            getDevSearchSimulatorConfig(({ providers }) => {
+                if (!providers.netease) {
                     sendResponse(null);
                     return;
                 }
@@ -114,9 +144,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!id) { sendResponse(null); return false; }
 
         if (IS_DEV_MODE) {
-            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
-                const sim = items.devSimulateSearch || 'none';
-                if (sim === 'force_lrclib_down' || sim === 'force_lrclib_netease_down' || sim === 'force_all_down') {
+            getDevSearchSimulatorConfig(({ providers }) => {
+                if (!providers.lrclib) {
                     sendResponse(null);
                     return;
                 }
@@ -139,9 +168,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!id || !accesskey) { sendResponse(null); return false; }
 
         if (IS_DEV_MODE) {
-            chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
-                const sim = items.devSimulateSearch || 'none';
-                if (sim === 'force_kugou_down' || sim === 'force_all_down') {
+            getDevSearchSimulatorConfig(({ providers }) => {
+                if (!providers.kugou) {
                     sendResponse(null);
                     return;
                 }
@@ -167,15 +195,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 .catch(() => sendResponse({ results: [], hasTimeout: false, isNetworkError: true }));
             return true;
         }
-        chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
-            const sim = items.devSimulateSearch || 'none';
-            if (sim === 'force_all_down') {
+        getDevSearchSimulatorConfig(({ providers, latency }) => {
+            if (!providers.lrclib && !providers.netease && !providers.kugou) {
                 sendResponse({ results: [], hasTimeout: false, isNetworkError: true });
                 return;
             }
-            const delay = (sim === 'simulate_latency') ? 5000 : 0;
+            const delay = latency ? 5000 : 0;
             setTimeout(() => {
-                manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs, sim)
+                manualSearch(query, duration || 0, cleanArtist || '', cleanTitle || '', timeoutMs, providers)
                     .then(({ results, hasTimeout, isNetworkError }) => sendResponse({ results, hasTimeout, isNetworkError }))
                     .catch(() => sendResponse({ results: [], hasTimeout: false, isNetworkError: true }));
             }, delay);
@@ -192,45 +219,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 .catch(() => sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } }));
             return true;
         }
-        chrome.storage.local.get({ devSimulateSearch: 'none' }, (items) => {
-            const sim = items.devSimulateSearch || 'none';
-            if (sim === 'force_all_down') {
+        getDevSearchSimulatorConfig(({ providers, latency }) => {
+            if (!providers.lrclib && !providers.netease && !providers.kugou) {
                 sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } });
                 return;
             }
-            const delay = (sim === 'simulate_latency') ? 5000 : 0;
+            const delay = latency ? 5000 : 0;
             setTimeout(() => {
-                getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs, sim)
+                getBestAutoMatch(rawArtist || '', rawTitle || '', duration || 0, timeoutMs, providers)
                     .then(result => sendResponse({ result }))
                     .catch(() => sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } }));
             }, delay);
         });
         return true;
-    }
-
-    // ── Diagnostic Provider Ping (used by popup-dev.js) ──
-    if (message.type === 'DEV_PING_PROVIDER') {
-        const provider = message.payload?.provider || 'kugou';
-        const startTime = performance.now();
-        if (provider === 'kugou') {
-            const testQuery = 'Adele - Hello';
-            fetchWithTimeout(`https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(testQuery)}&hash=`, 6000)
-                .then(r => {
-                    const latency = Math.round(performance.now() - startTime);
-                    if (r.ok) {
-                        return r.json().then(data => {
-                            const count = Array.isArray(data?.candidates) ? data.candidates.length : 0;
-                            sendResponse({ ok: true, latency, count, status: r.status });
-                        });
-                    }
-                    sendResponse({ ok: false, latency, count: 0, status: r.status, error: `HTTP ${r.status}` });
-                })
-                .catch(err => {
-                    const latency = Math.round(performance.now() - startTime);
-                    sendResponse({ ok: false, latency, count: 0, error: err.name === 'AbortError' ? 'Timeout (>6s)' : (err.message || 'Network Error') });
-                });
-            return true;
-        }
     }
 });
 

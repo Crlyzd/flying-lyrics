@@ -121,54 +121,61 @@
 
             <!-- SECTION 3: LYRICS SEARCH SIMULATOR -->
             <div class="control-group dev-card">
-                <label class="dev-card-label" for="select-dev-simulate-search">Lyrics Search Simulator</label>
-                <select id="select-dev-simulate-search" style="margin-bottom: 6px;">
-                    <option value="none">Normal (Live Providers: LRCLIB, NetEase, KuGou)</option>
-                    <option value="force_lrclib_netease_down">Force LRCLIB &amp; NetEase Down (Test KuGou Only)</option>
-                    <option value="force_kugou_down">Force KuGou Down (Test LRCLIB &amp; NetEase)</option>
-                    <option value="force_lrclib_down">Force LRCLIB Down (Test NetEase &amp; KuGou Fallback)</option>
-                    <option value="force_netease_down">Force NetEase Down (Test LRCLIB &amp; KuGou)</option>
-                    <option value="force_all_down">Force All Search Down (Test Red ✕ Badge)</option>
-                    <option value="simulate_latency">Simulate Slow Search (5s Latency)</option>
-                </select>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px; margin-bottom: 6px;">
-                    <button class="search-btn dev-action-btn" id="btn-dev-ping-kugou" style="font-size: 11px; padding: 4px 10px; width: auto; margin: 0;">
-                        Ping KuGou API
+                <label class="dev-card-label" style="margin-bottom: 2px;">Lyrics Search Simulator</label>
+                <div class="dev-card-footnote" id="dev-sim-status-footnote">3/3 providers allowed to connect</div>
+
+                <!-- 3 Equal Symmetrical Provider Buttons -->
+                <div class="dev-provider-grid" id="dev-provider-pills">
+                    <button type="button" class="dev-pill active" data-provider="lrclib" title="LRCLIB (Primary International) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">LRCLIB</span>
                     </button>
-                    <span id="dev-kugou-ping-status" class="dev-subtext" style="font-size: 11px;">Not tested</span>
+                    <button type="button" class="dev-pill active" data-provider="netease" title="NetEase (CloudMusic Fallback) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">NetEase</span>
+                    </button>
+                    <button type="button" class="dev-pill active" data-provider="kugou" title="KuGou (Chinese Fallback) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">KuGou</span>
+                    </button>
                 </div>
-                <span class="dev-subtext">Mocks lyrics provider responses &amp; network latency</span>
+
+                <!-- 5s Latency Checkbox -->
+                <label class="dev-checkbox-row">
+                    <input type="checkbox" id="toggle-dev-simulate-latency">
+                    <span>Simulate 5s search latency (slow network)</span>
+                </label>
             </div>
 
             <!-- SECTION 4: TRANSLATION & ROMAJI CONTROLS -->
             <div class="control-group dev-card">
-                <label class="dev-card-label">Translation &amp; Romaji Controls</label>
-                
-                <!-- DISABLE TRANSLATION TOGGLE -->
-                <div class="row" style="margin-bottom: 8px;">
-                    <label for="toggle-dev-disable-trans" style="display: flex; flex-direction: column; gap: 2px; margin: 0; cursor: pointer;">
-                        <span style="font-size: 12px; font-weight: 600;">Disable Translation Calls</span>
-                        <span class="dev-subtext">Skips network translation queries to save quotas</span>
-                    </label>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-dev-disable-trans">
-                        <span class="slider"></span>
-                    </label>
+                <label class="dev-card-label" style="margin-bottom: 2px;">Translation &amp; Romaji Controls</label>
+                <div class="dev-card-footnote" id="dev-trans-status-footnote">Full Waterfall: Google → MyMemory → NetEase</div>
+
+                <!-- 3 Equal Symmetrical Provider Buttons -->
+                <div class="dev-provider-grid" id="dev-trans-pills">
+                    <button type="button" class="dev-pill active" data-trans-provider="google" title="Google Translate (Tier 1 &amp; Tier 2A) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">Google</span>
+                    </button>
+                    <button type="button" class="dev-pill active" data-trans-provider="mymemory" title="MyMemory Translated API (Tier 2B) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">MyMemory</span>
+                    </button>
+                    <button type="button" class="dev-pill active" data-trans-provider="netease" title="NetEase Community Lyrics (Tier 2C) — click to toggle">
+                        <span class="dev-pill-dot"></span>
+                        <span class="dev-pill-text">NetEase</span>
+                    </button>
                 </div>
 
-                <!-- TRANSLATION FALLBACK SIMULATOR -->
-                <div style="margin-bottom: 8px;">
-                    <label for="select-dev-simulate-trans" style="font-size: 11px; color: rgba(255,255,255,0.8); display: block; margin-bottom: 3px;">Simulation Mode:</label>
-                    <select id="select-dev-simulate-trans" style="margin-bottom: 3px;">
-                        <option value="none">Normal (Full Waterfall: Google → MyMemory → NetEase)</option>
-                        <option value="force_gtrans_down">Force Google Translate Down (Test MyMemory &amp; NetEase)</option>
-                        <option value="force_all_trans_down">Force All Translation Down (Test Local Offline Romaji)</option>
-                    </select>
-                    <span class="dev-subtext">Tests fallback tiers without disconnecting internet</span>
-                </div>
+                <!-- DISABLE TRANSLATION CHECKBOX -->
+                <label class="dev-checkbox-row">
+                    <input type="checkbox" id="toggle-dev-disable-trans">
+                    <span>Disable Translation Calls</span>
+                </label>
 
                 <!-- BATCH CHUNK STAGGER SELECT -->
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
                     <label for="select-dev-trans-stagger" style="font-size: 11px; color: rgba(255,255,255,0.7);">Stagger Delay:</label>
                     <select id="select-dev-trans-stagger" style="width: 140px; padding: 4px 24px 4px 8px; font-size: 11px;">
                         <option value="150">150ms (Default)</option>
@@ -226,9 +233,9 @@
                     </div>
                     <div class="dev-inspect-row">
                         <span class="dev-inspect-key">Extracted Palette:</span>
-                        <span class="dev-inspect-val" id="dev-env-palette" style="display: flex; align-items: center; gap: 6px;">
-                            <span id="dev-palette-swatch" style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent); display: inline-block; border: 1px solid rgba(255,255,255,0.4);"></span>
-                            <span id="dev-palette-hex">Active Accent</span>
+                        <span class="dev-inspect-val" id="dev-env-palette" style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                            <span id="dev-palette-swatch" style="width: 10px; height: 10px; border-radius: 50%; background: var(--accent); display: inline-block; border: 1px solid rgba(255,255,255,0.4); flex-shrink: 0;"></span>
+                            <span id="dev-palette-hex" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Active Accent</span>
                         </span>
                     </div>
                 </div>
@@ -241,8 +248,11 @@
         const toggleBypassCache = document.getElementById('toggle-dev-bypass-cache');
         const btnClearCache = document.getElementById('btn-dev-clear-cache');
         const btnForceRefetch = document.getElementById('btn-dev-force-refetch');
-        const selectSimulateSearch = document.getElementById('select-dev-simulate-search');
-        const selectSimulateTrans = document.getElementById('select-dev-simulate-trans');
+        const providerPills = document.querySelectorAll('#dev-provider-pills [data-provider]');
+        const checkboxLatency = document.getElementById('toggle-dev-simulate-latency');
+        const simStatusFootnote = document.getElementById('dev-sim-status-footnote');
+        const transPills = document.querySelectorAll('#dev-trans-pills [data-trans-provider]');
+        const transStatusFootnote = document.getElementById('dev-trans-status-footnote');
         const toggleSuppressOnboarding = document.getElementById('toggle-dev-suppress-onboarding');
         const btnReplayTour = document.getElementById('btn-dev-replay-tour');
         const btnOpenWelcome = document.getElementById('btn-dev-open-welcome');
@@ -252,19 +262,166 @@
         const toggleDisableTrans = document.getElementById('toggle-dev-disable-trans');
         const selectTransStagger = document.getElementById('select-dev-trans-stagger');
 
+        // State for search simulator pills
+        let currentProviders = { lrclib: true, netease: true, kugou: true };
+        let currentLatency = false;
+
+        // State for translation simulator pills
+        let currentTransProviders = { google: true, mymemory: true, netease: true };
+
+        function resolveProviderConfig(items) {
+            let providers = items.devSearchProviders;
+            let latency = items.devSearchLatency;
+
+            if (!providers && items.devSimulateSearch) {
+                const sim = items.devSimulateSearch;
+                providers = {
+                    lrclib: sim !== 'force_lrclib_down' && sim !== 'force_lrclib_netease_down' && sim !== 'force_all_down',
+                    netease: sim !== 'force_netease_down' && sim !== 'force_lrclib_netease_down' && sim !== 'force_all_down',
+                    kugou: sim !== 'force_kugou_down' && sim !== 'force_all_down'
+                };
+                if (sim === 'simulate_latency') latency = true;
+            }
+
+            return {
+                providers: {
+                    lrclib: providers?.lrclib !== false,
+                    netease: providers?.netease !== false,
+                    kugou: providers?.kugou !== false
+                },
+                latency: !!latency
+            };
+        }
+
+        function resolveTransProviderConfig(items) {
+            let providers = items.devTransProviders;
+            if (!providers && items.devSimulateTrans) {
+                const sim = items.devSimulateTrans;
+                providers = {
+                    google: sim !== 'force_gtrans_down' && sim !== 'force_all_trans_down',
+                    mymemory: sim !== 'force_all_trans_down',
+                    netease: sim !== 'force_all_trans_down'
+                };
+            }
+            return {
+                google: providers?.google !== false,
+                mymemory: providers?.mymemory !== false,
+                netease: providers?.netease !== false
+            };
+        }
+
+        function renderSimulatorPillsUI() {
+            let liveCount = 0;
+            providerPills.forEach(pill => {
+                const prov = pill.getAttribute('data-provider');
+                const isAllowed = currentProviders[prov] !== false;
+                if (isAllowed) liveCount++;
+                pill.classList.toggle('active', isAllowed);
+                pill.setAttribute('aria-pressed', isAllowed ? 'true' : 'false');
+            });
+
+            if (checkboxLatency) {
+                checkboxLatency.checked = !!currentLatency;
+            }
+
+            if (simStatusFootnote) {
+                simStatusFootnote.className = 'dev-card-footnote';
+                if (liveCount === 3) {
+                    simStatusFootnote.textContent = '3/3 providers allowed to connect';
+                    simStatusFootnote.classList.add('live');
+                } else if (liveCount === 0) {
+                    simStatusFootnote.textContent = 'All providers disconnected (Simulating outage / Red ✕)';
+                    simStatusFootnote.classList.add('offline');
+                } else {
+                    const activeNames = [];
+                    if (currentProviders.lrclib !== false) activeNames.push('LRCLIB');
+                    if (currentProviders.netease !== false) activeNames.push('NetEase');
+                    if (currentProviders.kugou !== false) activeNames.push('KuGou');
+                    simStatusFootnote.textContent = `${liveCount}/3 allowed (${activeNames.join(', ')} only)`;
+                    simStatusFootnote.classList.add('partial');
+                }
+            }
+        }
+
+        function renderTransPillsUI() {
+            let liveCount = 0;
+            transPills.forEach(pill => {
+                const prov = pill.getAttribute('data-trans-provider');
+                const isAllowed = currentTransProviders[prov] !== false;
+                if (isAllowed) liveCount++;
+                pill.classList.toggle('active', isAllowed);
+                pill.setAttribute('aria-pressed', isAllowed ? 'true' : 'false');
+            });
+
+            if (transStatusFootnote) {
+                transStatusFootnote.className = 'dev-card-footnote';
+                if (liveCount === 3) {
+                    transStatusFootnote.textContent = 'Full Waterfall: Google → MyMemory → NetEase';
+                    transStatusFootnote.classList.add('live');
+                } else if (liveCount === 0) {
+                    transStatusFootnote.textContent = 'All network offline (Testing Local Offline Romaji)';
+                    transStatusFootnote.classList.add('offline');
+                } else {
+                    const activeNames = [];
+                    if (currentTransProviders.google !== false) activeNames.push('Google');
+                    if (currentTransProviders.mymemory !== false) activeNames.push('MyMemory');
+                    if (currentTransProviders.netease !== false) activeNames.push('NetEase');
+                    transStatusFootnote.textContent = `${liveCount}/3 allowed (${activeNames.join(', ')} only)`;
+                    transStatusFootnote.classList.add('partial');
+                }
+            }
+        }
+
+        function saveSimulatorConfig(toastMessage) {
+            renderSimulatorPillsUI();
+            storage.set({
+                devSearchProviders: currentProviders,
+                devSearchLatency: currentLatency
+            }, () => {
+                notifyTabs({
+                    devSearchProviders: currentProviders,
+                    devSearchLatency: currentLatency
+                });
+                if (toastMessage) showToast(toastMessage);
+                triggerForceRefetch(true);
+            });
+        }
+
+        function saveTransSimulatorConfig(toastMessage) {
+            renderTransPillsUI();
+            storage.set({
+                devTransProviders: currentTransProviders
+            }, () => {
+                notifyTabs({
+                    devTransProviders: currentTransProviders
+                });
+                if (toastMessage) showToast(toastMessage);
+                triggerForceRefetch(true);
+            });
+        }
+
         // Initialize state from storage
         storage.get({
             devBypassCache: false,
             devSimulateSearch: 'none',
+            devSearchProviders: null,
+            devSearchLatency: false,
             devSimulateTrans: 'none',
+            devTransProviders: null,
             devSuppressOnboarding: true,
             devDisableTranslation: false,
             devTranslateStagger: 150,
             lyricsCache: null
         }, (items) => {
             if (toggleBypassCache) toggleBypassCache.checked = !!items.devBypassCache;
-            if (selectSimulateSearch) selectSimulateSearch.value = items.devSimulateSearch || 'none';
-            if (selectSimulateTrans) selectSimulateTrans.value = items.devSimulateTrans || 'none';
+            const resolvedSim = resolveProviderConfig(items);
+            currentProviders = resolvedSim.providers;
+            currentLatency = resolvedSim.latency;
+            renderSimulatorPillsUI();
+
+            currentTransProviders = resolveTransProviderConfig(items);
+            renderTransPillsUI();
+
             if (toggleSuppressOnboarding) toggleSuppressOnboarding.checked = items.devSuppressOnboarding !== false;
             if (toggleDisableTrans) toggleDisableTrans.checked = !!items.devDisableTranslation;
             if (selectTransStagger) selectTransStagger.value = String(items.devTranslateStagger || 150);
@@ -323,59 +480,34 @@
             });
         }
 
-        // ── Lyrics Search Simulator Dropdown ──
-        if (selectSimulateSearch) {
-            selectSimulateSearch.addEventListener('change', () => {
-                const val = selectSimulateSearch.value;
-                storage.set({ devSimulateSearch: val }, () => {
-                    notifyTabs({ devSimulateSearch: val });
-                    showToast(`Search mode: ${selectSimulateSearch.options[selectSimulateSearch.selectedIndex].text}`);
-                    triggerForceRefetch(true);
-                });
+        // ── Lyrics Search Simulator Pill Buttons ──
+        providerPills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                const prov = pill.getAttribute('data-provider');
+                const willAllow = currentProviders[prov] === false;
+                currentProviders[prov] = willAllow;
+                const provName = prov === 'lrclib' ? 'LRCLIB' : (prov === 'netease' ? 'NetEase' : 'KuGou');
+                saveSimulatorConfig(`${provName} ${willAllow ? 'connected' : 'blocked'}`);
+            });
+        });
+
+        if (checkboxLatency) {
+            checkboxLatency.addEventListener('change', () => {
+                currentLatency = checkboxLatency.checked;
+                saveSimulatorConfig(`5s latency ${currentLatency ? 'enabled' : 'disabled'}`);
             });
         }
 
-        // ── Ping KuGou API ──
-        const btnPingKugou = document.getElementById('btn-dev-ping-kugou');
-        const kugouPingStatus = document.getElementById('dev-kugou-ping-status');
-        if (btnPingKugou) {
-            btnPingKugou.addEventListener('click', () => {
-                btnPingKugou.disabled = true;
-                btnPingKugou.textContent = 'Pinging...';
-                if (kugouPingStatus) {
-                    kugouPingStatus.textContent = 'Testing...';
-                    kugouPingStatus.style.color = '#e2e8f0';
-                }
-                chrome.runtime.sendMessage({
-                    type: 'DEV_PING_PROVIDER',
-                    payload: { provider: 'kugou' }
-                }, (res) => {
-                    btnPingKugou.disabled = false;
-                    btnPingKugou.textContent = 'Ping KuGou API';
-                    if (kugouPingStatus) {
-                        if (res?.ok) {
-                            kugouPingStatus.textContent = `200 OK (${res.latency}ms, ${res.count} hits)`;
-                            kugouPingStatus.style.color = '#10b981';
-                        } else {
-                            kugouPingStatus.textContent = `${res?.error || 'Failed'} (${res?.latency || 0}ms)`;
-                            kugouPingStatus.style.color = '#ef4444';
-                        }
-                    }
-                });
+        // ── Translation & Romaji Simulator Pill Buttons ──
+        transPills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                const prov = pill.getAttribute('data-trans-provider');
+                const willAllow = currentTransProviders[prov] === false;
+                currentTransProviders[prov] = willAllow;
+                const provName = prov === 'google' ? 'Google' : (prov === 'mymemory' ? 'MyMemory' : 'NetEase');
+                saveTransSimulatorConfig(`${provName} ${willAllow ? 'connected' : 'blocked'}`);
             });
-        }
-
-        // ── Translation & Romaji Simulator Dropdown ──
-        if (selectSimulateTrans) {
-            selectSimulateTrans.addEventListener('change', () => {
-                const val = selectSimulateTrans.value;
-                storage.set({ devSimulateTrans: val }, () => {
-                    notifyTabs({ devSimulateTrans: val });
-                    showToast(`Translation mode: ${selectSimulateTrans.options[selectSimulateTrans.selectedIndex].text}`);
-                    triggerForceRefetch(true);
-                });
-            });
-        }
+        });
 
         // ── Clear Lyrics Cache ──
         if (btnClearCache) {
@@ -563,22 +695,44 @@
                 }
 
                 const activeTab = tabs.find(t => t.audible) || tabs.find(t => t.active) || tabs[0];
-                const hostName = activeTab.url.includes('spotify') ? 'Spotify Web Player' : 'YouTube Music';
-                if (playerEl) playerEl.textContent = `${hostName} (Tab ${activeTab.id}${activeTab.audible ? ' · Playing' : ''})`;
+                const hostName = activeTab.url.includes('spotify') ? 'Spotify' : 'YouTube Music';
+                const status = activeTab.audible ? 'Playing' : 'Paused';
+                if (playerEl) {
+                    playerEl.textContent = `${hostName} (${status})`;
+                    playerEl.title = `Host: ${hostName} | Tab #${activeTab.id} | Status: ${status}`;
+                }
 
                 chrome.tabs.sendMessage(activeTab.id, { type: 'GET_CURRENT_TRACK' }, (res) => {
                     if (chrome.runtime.lastError || !res || res.error) {
-                        if (trackNameEl) trackNameEl.textContent = 'No track playing';
-                        if (trackSourceEl) trackSourceEl.textContent = '—';
-                        if (trackCacheTierEl) trackCacheTierEl.textContent = '—';
-                        if (trackLinesEl) trackLinesEl.textContent = '—';
-                        if (trackTransEl) trackTransEl.textContent = '—';
+                        if (trackNameEl) {
+                            trackNameEl.textContent = 'No track playing';
+                            trackNameEl.title = '';
+                        }
+                        if (trackSourceEl) {
+                            trackSourceEl.textContent = '—';
+                            trackSourceEl.title = '';
+                        }
+                        if (trackCacheTierEl) {
+                            trackCacheTierEl.textContent = '—';
+                            trackCacheTierEl.title = '';
+                        }
+                        if (trackLinesEl) {
+                            trackLinesEl.textContent = '—';
+                            trackLinesEl.title = '';
+                        }
+                        if (trackTransEl) {
+                            trackTransEl.textContent = '—';
+                            trackTransEl.title = '';
+                        }
                         return;
                     }
 
                     try {
                         const trackKey = `${res.artist} - ${res.title}`;
-                        if (trackNameEl) trackNameEl.textContent = trackKey;
+                        if (trackNameEl) {
+                            trackNameEl.textContent = trackKey;
+                            trackNameEl.title = trackKey;
+                        }
 
                         let sourceStr = 'NONE';
                         const rawSource = res.lyricSource;
@@ -591,6 +745,7 @@
 
                         if (trackSourceEl) {
                             trackSourceEl.textContent = sourceStr;
+                            trackSourceEl.title = `Source: ${sourceStr}`;
                             if (sourceStr.includes('NETEASE')) {
                                 trackSourceEl.style.color = '#ffaa00';
                             } else if (sourceStr.includes('LRCLIB')) {
@@ -605,11 +760,14 @@
                         }
 
                         if (trackLinesEl) {
-                            trackLinesEl.textContent = res.lineCount ? `${res.lineCount} lines (${res.isSynced ? 'Synced' : 'Plain'})` : 'None';
+                            const linesStr = res.lineCount ? `${res.lineCount} lines (${res.isSynced ? 'Synced' : 'Plain'})` : 'None';
+                            trackLinesEl.textContent = linesStr;
+                            trackLinesEl.title = linesStr;
                         }
 
                         if (trackTransEl) {
                             trackTransEl.textContent = res.translationTier || '—';
+                            trackTransEl.title = `Translation: ${res.translationTier || '—'}`;
                             if (res.translationTier === 'Translating...' || res.translationTier === 'Refetching...') {
                                 trackTransEl.style.color = '#e2e8f0';
                             } else if (res.translationTier?.includes('Tier 1') || res.translationTier?.includes('Google')) {
@@ -659,6 +817,7 @@
                 const swatchEl = document.getElementById('dev-palette-swatch');
                 if (items.currentVibrantColor && hexEl && swatchEl) {
                     hexEl.textContent = items.currentVibrantColor;
+                    hexEl.title = `Extracted Accent: ${items.currentVibrantColor}`;
                     swatchEl.style.backgroundColor = items.currentVibrantColor;
                 }
             });

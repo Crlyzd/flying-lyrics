@@ -240,8 +240,11 @@
         fl.devBypassCache = items.devBypassCache ?? false;
         fl.devDisableTranslation = items.devDisableTranslation ?? false;
         fl.devTranslateStagger = items.devTranslateStagger || 150;
+        fl.devSearchProviders = items.devSearchProviders || null;
+        fl.devSearchLatency = items.devSearchLatency ?? false;
         fl.devSimulateSearch = items.devSimulateSearch || 'none';
         fl.devSimulateTrans = items.devSimulateTrans || 'none';
+        fl.devTransProviders = items.devTransProviders || null;
 
         fl.needsLayoutUpdate = true;
         if (typeof fl.applyVisualSettings === 'function') {
@@ -482,11 +485,20 @@
             if (p.devTranslateStagger !== undefined) {
                 fl.devTranslateStagger = p.devTranslateStagger;
             }
+            if (p.devSearchProviders !== undefined) {
+                fl.devSearchProviders = p.devSearchProviders;
+            }
+            if (p.devSearchLatency !== undefined) {
+                fl.devSearchLatency = p.devSearchLatency;
+            }
             if (p.devSimulateSearch !== undefined) {
                 fl.devSimulateSearch = p.devSimulateSearch;
             }
             if (p.devSimulateTrans !== undefined) {
                 fl.devSimulateTrans = p.devSimulateTrans;
+            }
+            if (p.devTransProviders !== undefined) {
+                fl.devTransProviders = p.devTransProviders;
             }
             // If any visual settings were changed, trigger a single-frame redraw
             // and force-push the frame to the video PiP window if it is currently paused.

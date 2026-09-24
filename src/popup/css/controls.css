@@ -1329,20 +1329,153 @@ select option[value="request_language"] {
     justify-content: space-between;
     align-items: center;
     font-size: 10.5px;
+    gap: 8px;
 }
 
 .dev-inspect-key {
     color: rgba(255, 255, 255, 0.5);
     font-weight: 500;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .dev-inspect-val {
     color: #fff;
     font-weight: 600;
-    max-width: 170px;
+    min-width: 0;
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     text-align: right;
+    justify-content: flex-end;
+}
+
+/* ─── Lyrics Search Simulator Card ─── */
+.dev-card-footnote {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-top: 1px;
+    margin-bottom: 9px;
+    line-height: 1.3;
+    transition: color 0.2s ease;
+}
+
+.dev-card-footnote.offline {
+    color: #f87171;
+}
+
+.dev-card-footnote.partial {
+    color: #38bdf8;
+}
+
+.dev-card-footnote.live {
+    color: #34d399;
+}
+
+/* Equal 3-Column Provider Switcher Grid */
+.dev-provider-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.dev-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 4px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.45);
+    transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dev-pill:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.dev-pill:active {
+    transform: scale(0.97);
+}
+
+.dev-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+/* Active State (Allowed to connect / Live) */
+.dev-pill.active {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: #34d399;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.dev-pill.active:hover {
+    background: rgba(16, 185, 129, 0.18);
+    border-color: rgba(16, 185, 129, 0.6);
+    color: #6ee7b7;
+}
+
+.dev-pill.active .dev-pill-dot {
+    background: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+/* Inactive State (Simulated Outage / Blocked) */
+.dev-pill:not(.active) {
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: rgba(255, 255, 255, 0.38);
+}
+
+.dev-pill:not(.active):hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* 5s Latency Checkbox Row */
+.dev-checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.65);
+    transition: color 0.15s ease;
+}
+
+.dev-checkbox-row:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.dev-checkbox-row input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent, #10b981);
+    cursor: pointer;
+    margin: 0;
 }
 
