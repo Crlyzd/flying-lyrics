@@ -110,9 +110,9 @@ Most lyrics extensions claim to work until you play an anime opening, a foreign 
 
 > [!TIP]
 > **Why Flying Lyrics Just Works:**
-> * 🎯 **98.4% Global Match Rate** across 42 international music markets (2,067 / 2,100 tracks matched).
-> * ⚡ **~500ms Instant Speed** — lyrics load practically the instant your track starts.
-> * 🗾 **98.7% Anime & Asian Music Accuracy** tested across **1,000 all-time top Japanese & Korean songs** (Kanji, Kana, Hangul, Romaji, and dual-language titles).
+> * 🎯 **97.3% Global Match Rate** across 43 international music markets (2,091 / 2,150 tracks matched).
+> * ⚡ **~1.7s Cold Search Latency** — instant cached loading & sub-2s multi-provider lookups.
+> * 🗾 **99.6% Anime & Asian Music Accuracy** tested across **1,000 all-time top Japanese & Korean songs** (996 / 1,000 tracks matched across Kanji, Kana, Hangul, Romaji, and dual-language titles).
 > * 🛡️ **3-Tier Safety Net**: Automatic search waterfall (**LRCLIB** $\to$ **NetEase** $\to$ **KuGou**) so you always get the right track.
 
 <details>
@@ -126,25 +126,49 @@ Results from automated test runs across major Spotify Top 50 country charts:
 
 | Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | Providers (LRCLIB / NetEase / KuGou) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Global Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 / 0 |
-| USA Top 50 | **100%** | 50 | 0 | 0 | 446ms | 50 / 0 / 0 |
-| UK Top 50 | **100%** | 50 | 0 | 0 | 474ms | 50 / 0 / 0 |
-| Japan Top 50 | **100%** | 50 | 0 | 0 | 618ms | 44 / 6 / 0 |
-| South Korea Top 50 | **100%** | 50 | 0 | 0 | 531ms | 50 / 0 / 0 |
-| Germany Top 50 | **100%** | 50 | 0 | 0 | 533ms | 49 / 1 / 0 |
-| France Top 50 | **100%** | 50 | 0 | 0 | 524ms | 50 / 0 / 0 |
-| Spain Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 / 0 |
-| Australia Top 50 | **100%** | 50 | 0 | 0 | 469ms | 50 / 0 / 0 |
-| Canada Top 50 | **100%** | 50 | 0 | 0 | 452ms | 50 / 0 / 0 |
-| Italy Top 50 | **100%** | 50 | 0 | 0 | 563ms | 50 / 0 / 0 |
-| Mexico Top 50 | **100%** | 50 | 0 | 0 | 516ms | 50 / 0 / 0 |
-| Indonesia Top 50 | **100%** | 50 | 0 | 0 | 533ms | 50 / 0 / 0 |
-| Netherlands Top 50 | **98%** | 49 | 1 | 0 | 596ms | 45 / 4 / 0 |
-| India Top 50 | **98%** | 49 | 1 | 0 | 605ms | 48 / 1 / 0 |
-| Taiwan Top 50 | **98%** | 49 | 1 | 0 | 575ms | 49 / 0 / 0 |
-| Brazil Top 50 | **96%** | 48 | 1 | 1 | 713ms | 47 / 1 / 0 |
-| Norway Top 50 | **96%** | 48 | 2 | 0 | 713ms | 48 / 0 / 0 |
-| Hong Kong Top 50 | **94%** | 47 | 3 | 0 | 800ms | 43 / 4 / 0 |
+| Global Top 50 | **92%** | 46 | 0 | 4 | 2644ms | 40 / 6 / 0 |
+| USA Top 50 | **100%** | 50 | 0 | 0 | 2091ms | 36 / 14 / 0 |
+| UK Top 50 | **96%** | 48 | 2 | 0 | 1865ms | 39 / 9 / 0 |
+| Japan Top 50 | **100%** | 50 | 0 | 0 | 2221ms | 33 / 16 / 1 |
+| South Korea Top 50 | **98%** | 49 | 1 | 0 | 2148ms | 29 / 10 / 10 |
+| Indonesia Top 50 | **100%** | 50 | 0 | 0 | 1721ms | 40 / 10 / 0 |
+| Brazil Top 50 | **88%** | 44 | 6 | 0 | 2908ms | 42 / 2 / 0 |
+| Germany Top 50 | **98%** | 49 | 1 | 0 | 1897ms | 38 / 11 / 0 |
+| France Top 50 | **98%** | 49 | 1 | 0 | 2352ms | 36 / 13 / 0 |
+| Spain Top 50 | **96%** | 48 | 2 | 0 | 2269ms | 41 / 7 / 0 |
+| Australia Top 50 | **100%** | 50 | 0 | 0 | 2138ms | 42 / 8 / 0 |
+| Canada Top 50 | **100%** | 50 | 0 | 0 | 1510ms | 41 / 9 / 0 |
+| Argentina Top 50 | **98%** | 49 | 1 | 0 | 1644ms | 41 / 7 / 1 |
+| Mexico Top 50 | **96%** | 48 | 2 | 0 | 1667ms | 38 / 7 / 3 |
+| Italy Top 50 | **100%** | 50 | 0 | 0 | 1861ms | 36 / 13 / 1 |
+| India Top 50 | **100%** | 50 | 0 | 0 | 2725ms | 44 / 4 / 2 |
+| Philippines Top 50 | **98%** | 49 | 1 | 0 | 1715ms | 38 / 10 / 1 |
+| Thailand Top 50 | **100%** | 50 | 0 | 0 | 1786ms | 29 / 15 / 6 |
+| Vietnam Top 50 | **100%** | 50 | 0 | 0 | 1559ms | 40 / 9 / 1 |
+| Taiwan Top 50 | **100%** | 50 | 0 | 0 | 1510ms | 35 / 12 / 3 |
+| Netherlands Top 50 | **98%** | 49 | 1 | 0 | 2033ms | 38 / 11 / 0 |
+| Sweden Top 50 | **94%** | 47 | 3 | 0 | 2009ms | 35 / 11 / 1 |
+| Norway Top 50 | **98%** | 49 | 1 | 0 | 1533ms | 36 / 13 / 0 |
+| Denmark Top 50 | **96%** | 48 | 2 | 0 | 1540ms | 29 / 19 / 0 |
+| Finland Top 50 | **98%** | 49 | 1 | 0 | 1589ms | 20 / 29 / 0 |
+| Belgium Top 50 | **100%** | 50 | 0 | 0 | 1270ms | 44 / 6 / 0 |
+| Switzerland Top 50 | **100%** | 50 | 0 | 0 | 1254ms | 44 / 5 / 1 |
+| Austria Top 50 | **100%** | 50 | 0 | 0 | 1264ms | 45 / 5 / 0 |
+| Ireland Top 50 | **100%** | 50 | 0 | 0 | 1272ms | 39 / 11 / 0 |
+| Portugal Top 50 | **90%** | 45 | 5 | 0 | 1464ms | 41 / 4 / 0 |
+| Poland Top 50 | **94%** | 47 | 3 | 0 | 1719ms | 39 / 7 / 1 |
+| Czech Republic Top 50 | **86%** | 43 | 7 | 0 | 1559ms | 35 / 7 / 1 |
+| Turkey Top 50 | **98%** | 49 | 1 | 0 | 1698ms | 33 / 16 / 0 |
+| Colombia Top 50 | **98%** | 49 | 1 | 0 | 1657ms | 41 / 7 / 1 |
+| Chile Top 50 | **98%** | 49 | 1 | 0 | 1583ms | 39 / 9 / 1 |
+| Peru Top 50 | **98%** | 49 | 1 | 0 | 1364ms | 40 / 9 / 0 |
+| Malaysia Top 50 | **98%** | 49 | 1 | 0 | 1474ms | 44 / 3 / 2 |
+| Singapore Top 50 | **100%** | 50 | 0 | 0 | 1260ms | 38 / 11 / 1 |
+| Hong Kong Top 50 | **96%** | 48 | 2 | 0 | 1618ms | 27 / 20 / 1 |
+| Saudi Arabia Top 50 | **86%** | 43 | 7 | 0 | 1375ms | 38 / 5 / 0 |
+| UAE Top 50 | **100%** | 50 | 0 | 0 | 1205ms | 44 / 6 / 0 |
+| New Zealand Top 50 | **100%** | 50 | 0 | 0 | 1141ms | 46 / 4 / 0 |
+| Nigeria Top 50 | **98%** | 49 | 1 | 0 | 1848ms | 28 / 21 / 0 |
 
 > [!NOTE]
 > **Understanding the Benchmark Metrics:**
@@ -160,9 +184,9 @@ Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) often confuse lyric finde
 
 | Chart / Playlist | Success Rate | Success | No Match * | No Lyrics ** | Avg Latency | Providers (LRCLIB / NetEase / KuGou) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Japan All-Time Top 500 | **99.0%** | 495 | 5 | 0 | 693ms | 452 / 43 / 0 |
-| South Korea All-Time Top 500 | **98.4%** | 492 | 8 | 0 | 632ms | 485 / 7 / 0 |
-| **Total CJK Deep Benchmark** | **98.7%** | **987** | **13** | **0** | **~660ms** | **937 / 50 / 0** |
+| Japan All-Time Top 500 | **100%** | 499 | 1 | 0 | 1699ms | 328 / 154 / 17 |
+| South Korea All-Time Top 500 | **99%** | 497 | 3 | 0 | 1571ms | 344 / 98 / 55 |
+| **Total CJK Deep Benchmark** | **99.6%** | **996** | **4** | **0** | **~1,635ms** | **672 / 252 / 72** |
 
 > [!NOTE]
 > **Want to verify the numbers yourself?** The benchmark runner is open-source and included in this repository. Run `npm run benchmark` or `npm run benchmark:cjk` inside [`tools/benchmark`](./tools/benchmark) to execute the test suite live on your machine.
