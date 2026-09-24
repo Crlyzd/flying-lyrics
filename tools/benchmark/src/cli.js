@@ -23,7 +23,11 @@ function parseArgs() {
         refresh: false,
         clearCache: false,
         delayMs: 150,
-        lrclibOnly: false
+        lrclibOnly: false,
+        noNetease: false,
+        noKugou: false,
+        kugouOnly: false,
+        neteaseOnly: false
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -36,7 +40,11 @@ function parseArgs() {
         else if (arg === '--refresh' || arg === '-r') options.refresh = true;
         else if (arg === '--clear-cache') options.clearCache = true;
         else if (arg === '--delay') options.delayMs = parseInt(args[++i], 10);
-        else if (arg === '--lrclib-only' || arg === '--no-netease') options.lrclibOnly = true;
+        else if (arg === '--lrclib-only') options.lrclibOnly = true;
+        else if (arg === '--no-netease') options.noNetease = true;
+        else if (arg === '--no-kugou') options.noKugou = true;
+        else if (arg === '--kugou-only') options.kugouOnly = true;
+        else if (arg === '--netease-only') options.neteaseOnly = true;
     }
 
     return options;
@@ -68,7 +76,6 @@ async function main() {
     if (options.all || options.wide) {
         isWideMode = true;
         targets = allPlaylists;
-        // Strict ceiling: Wide Benchmark mode MUST limit every country to 50 tracks maximum
         defaultLimit = options.limit !== null ? Math.min(options.limit, 50) : 50;
         console.log(`\n🌍 WIDE BENCHMARK MODE: Benchmarking all ${allPlaylists.length} countries (strictly capped at ${defaultLimit} tracks each)`);
     } else if (options.cjk) {
@@ -89,7 +96,6 @@ async function main() {
             console.log(`\n🗾 LOCALIZED CJK BENCHMARK: ${displayName} (target: ${defaultLimit} tracks)`);
         }
     } else {
-        // Default to Global Top 50 if nothing specified
         targets = [allPlaylists[0]];
         defaultLimit = options.limit !== null ? options.limit : 50;
         console.log(`ℹ️  No playlist specified. Defaulting to "${allPlaylists[0].name}". (Use --all for wide benchmark or --cjk for JP & KR 500)`);
@@ -105,7 +111,6 @@ async function main() {
             : (targetLimit !== 50 ? playlist.name.replace(/Top 50/i, `Top ${targetLimit}`) : playlist.name);
 
         console.log(`\n🎧 Benchmarking: ${displayName}...`);
-
 
         let tracks = [];
         try {
@@ -123,6 +128,7 @@ async function main() {
         let totalLatency = 0;
         let lrclibCount = 0;
         let neteaseCount = 0;
+        let kugouCount = 0;
 
         for (let idx = 0; idx < runTracks.length; idx++) {
             const track = runTracks[idx];
@@ -136,10 +142,13 @@ async function main() {
 
                 if (result.status === 'SUCCESS') {
                     success++;
-                    if (result.bestMatch?.source === 'netease') neteaseCount++;
+                    const src = result.bestMatch?.source;
+                    if (src === 'netease') neteaseCount++;
+                    else if (src === 'kugou') kugouCount++;
                     else lrclibCount++;
+
                     const passTag = result.pass ? ` [Pass ${result.pass}]` : '';
-                    console.log(`\x1b[32m✔ SUCCESS\x1b[0m (${result.bestMatch?.source || 'api'}${passTag} - \x1b[36m${latencyMs}ms\x1b[0m)`);
+                    console.log(`\x1b[32m✔ SUCCESS\x1b[0m (${src || 'lrclib'}${passTag} - \x1b[36m${latencyMs}ms\x1b[0m)`);
                 } else if (result.status === 'NO_MATCH') {
                     noMatch++;
                     console.log(`\x1b[33m✖ NO MATCH\x1b[0m (Found ${result.candidateCount} candidates - \x1b[36m${latencyMs}ms\x1b[0m)`);
@@ -175,10 +184,10 @@ async function main() {
             avgLatencyMs,
             playlistDurationSec: parseFloat(playlistDurationSec),
             lrclibCount,
-            neteaseCount
+            neteaseCount,
+            kugouCount
         });
     }
-
 
     if (benchmarkResults.length > 0) {
         printConsoleReport(benchmarkResults);
@@ -186,8 +195,6 @@ async function main() {
         console.log(`📄 Markdown report saved to: ${filepath}\n`);
     }
 }
-
-
 
 main().catch(err => {
     console.error('Fatal benchmark error:', err);

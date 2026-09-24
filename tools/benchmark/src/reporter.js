@@ -30,17 +30,17 @@ export function generateMarkdownReport(results, metadata = {}) {
         month: 'long',
         day: 'numeric'
     });
-    const version = metadata.version || 'v4.6';
+    const version = metadata.version || 'v4.7';
 
     let md = `# Match Success Rate\n\n`;
     md += `Spotify, ${version}, ${dateStr}\n\n`;
-    md += `| Playlist Name | Success rate | Success | No Match | No Lyrics | Avg Latency | Total Time | LRCLIB / NetEase |\n`;
+    md += `| Playlist Name | Success rate | Success | No Match | No Lyrics | Avg Latency | Total Time | LRCLIB / NetEase / KuGou |\n`;
     md += `| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n`;
 
     for (const r of results) {
         const timeStr = formatDuration(r.playlistDurationSec);
-        const lrcNetRatio = `${r.lrclibCount || 0} / ${r.neteaseCount || 0}`;
-        md += `| ${r.name} | ${r.successRate}% | ${r.success} | ${r.noMatch} | ${r.noLyrics} | ${r.avgLatencyMs || 0}ms | ${timeStr} | ${lrcNetRatio} |\n`;
+        const providerRatio = `${r.lrclibCount || 0} / ${r.neteaseCount || 0} / ${r.kugouCount || 0}`;
+        md += `| ${r.name} | ${r.successRate}% | ${r.success} | ${r.noMatch} | ${r.noLyrics} | ${r.avgLatencyMs || 0}ms | ${timeStr} | ${providerRatio} |\n`;
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -60,7 +60,7 @@ export function generateMarkdownReport(results, metadata = {}) {
 export function printConsoleReport(results, metadata = {}) {
     console.log('\n================================================================');
     console.log(` 🎵 MATCH SUCCESS RATE BENCHMARK`);
-    console.log(` Spotify, ${metadata.version || 'v4.6'}, ${new Date().toLocaleDateString()}`);
+    console.log(` Spotify, ${metadata.version || 'v4.7'}, ${new Date().toLocaleDateString()}`);
     console.log('================================================================\n');
 
     console.table(results.map(r => ({
@@ -71,7 +71,7 @@ export function printConsoleReport(results, metadata = {}) {
         'No Lyrics': r.noLyrics,
         'Avg Latency': `${r.avgLatencyMs || 0}ms`,
         'Total Time': formatDuration(r.playlistDurationSec),
-        'LRC / NetEase': `${r.lrclibCount || 0} / ${r.neteaseCount || 0}`,
+        'LRC / Net / Ku': `${r.lrclibCount || 0} / ${r.neteaseCount || 0} / ${r.kugouCount || 0}`,
         'Total': r.total
     })));
 
@@ -79,10 +79,10 @@ export function printConsoleReport(results, metadata = {}) {
     const totalSuccess = results.reduce((sum, r) => sum + r.success, 0);
     const totalLrc = results.reduce((sum, r) => sum + (r.lrclibCount || 0), 0);
     const totalNet = results.reduce((sum, r) => sum + (r.neteaseCount || 0), 0);
+    const totalKu = results.reduce((sum, r) => sum + (r.kugouCount || 0), 0);
     const overallRate = totalTracks > 0 ? Math.round((totalSuccess / totalTracks) * 100) : 0;
     const avgLatency = totalTracks > 0 ? Math.round(results.reduce((sum, r) => sum + ((r.avgLatencyMs || 0) * r.total), 0) / totalTracks) : 0;
 
     console.log(`\n✨ Overall Success Rate: ${overallRate}% (${totalSuccess}/${totalTracks} songs)`);
-    console.log(`⚡ Mean Fetch Latency: ${avgLatency}ms | Total Sources: ${totalLrc} LRCLIB, ${totalNet} NetEase\n`);
+    console.log(`⚡ Mean Fetch Latency: ${avgLatency}ms | Total Sources: ${totalLrc} LRCLIB, ${totalNet} NetEase, ${totalKu} KuGou\n`);
 }
-

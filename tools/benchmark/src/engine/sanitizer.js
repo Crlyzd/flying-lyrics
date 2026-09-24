@@ -1,31 +1,77 @@
 /**
  * Title & Artist Sanitization module for benchmark runner.
+ * 100% parity with Flying Lyrics extension (src/background/search/sanitizer.js).
  */
 
 export function cleanTitle(title) {
     if (!title) return '';
-    let cleaned = title;
+    const noiseTerms = [
+        'official video', 'official audio', 'official music video', 'lyrics video',
+        'radio edit', 'club mix', 'single version', 'album version', 'bonus track',
+        'hidden track', 'high res', 'hi-res', 'a cappella',
+        'from the first take', 'anime ver\\.?', 'tv size ver\\.?', 'tv size', 'tv ver\\.?',
+        'short ver\\.?', 'theme song', 'soundtrack', 'original soundtrack', 'ost',
+        '主題歌', '挿入歌', 'テーマソング', 'エンディング', 'オープニング', '劇中歌', '伴奏', '伴奏版',
+        'remaster', 'remastered', 'remix', 'rework', 'vip', 'stereo', 'mono',
+        'extended', 'deluxe', 'dub', 'live', 'acoustic', 'unplugged', 'demo',
+        'session', 'instrumental', 'cover', 'explicit', 'clean', 'edited',
+        'anniversary', 'b-side', 'mv', '4k', '1080p', 'hq', 'hd',
+        'feat\\.', 'ft\\.', 'featuring', 'with', 'vs\\.'
+    ].join('|');
 
-    // Remove noise: (feat. ...), [feat. ...], (with ...), (ft. ...)
-    cleaned = cleaned.replace(/\s*[\(\[](?:feat|ft|with)\.?\s+[^\)\]]+[\)\]]/gi, '');
+    // Pass 1: Extract song title if quoted in Japanese quotes with prefix e.g. 【推しの子】主題歌「アイドル」 -> アイドル
+    let clean = title;
+    const animeQuoteMatch = clean.match(/^[【『「《（［〔].*?[】』」》）］〕].*?[「『]([^」』]+)[」』]/);
+    if (animeQuoteMatch && animeQuoteMatch[1]) {
+        clean = animeQuoteMatch[1];
+    }
 
-    // Remove (Remastered...), [Remastered...], (Official Video), (Lyric Video), etc.
-    cleaned = cleaned.replace(/\s*[\(\[](?:remaster(?:ed)?|official|lyric|audio|deluxe|bonus|anniversary|version|edit|extended)[^\)\]]*[\)\]]/gi, '');
+    // Pass 2: Remove bracketed noise groups (including Asian full-width brackets)
+    const bracketRegex = new RegExp(
+        '\\s*[({\\[【『「《（［〔](?:[^)}\\]】』」》）］〕]*?(?:' + noiseTerms + ')[^)}\\]】』」》）］〕]*?)[)}\\]】』」》）］〕]',
+        'gi'
+    );
+    clean = clean.replace(bracketRegex, '');
 
-    // Remove Japanese/Chinese bracket noise: 【...】, 「...」, 『...』
-    cleaned = cleaned.replace(/【[^】]*】/g, '');
-    cleaned = cleaned.replace(/「[^」]*」/g, '');
-    cleaned = cleaned.replace(/『[^』]*』/g, '');
+    // Pass 3: Remove trailing noise suffixes (- Remastered, - TV ver, etc.)
+    const trailingRegex = new RegExp('\\s*-\\s*(?:' + noiseTerms + ').*$', 'gi');
+    clean = clean.replace(trailingRegex, '');
 
-    // Remove leading/trailing punctuation and double spaces
-    cleaned = cleaned.replace(/^[-\s/|]+|[-\s/|]+$/g, '').replace(/\s{2,}/g, ' ').trim();
+    // Pass 4: Strip leading/trailing Japanese corner quotes e.g. 「アイドル」 -> アイドル
+    clean = clean.replace(/^[「『《〈](.+)[」』》〉]$/, '$1');
 
-    return cleaned || title;
+    return clean.trim();
+}
+
+export function extractPrimaryArtist(artist) {
+    if (!artist) return '';
+    let primary = artist.split(/,|&|＆|、|・|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b|\sx\s/i)[0].trim();
+    primary = primary.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
+    return primary;
 }
 
 export function cleanArtist(artist) {
     if (!artist) return '';
-    // Take primary artist before comma, slash, or feat
-    const primary = artist.split(/,|&|\/|feat\.|ft\./i)[0].trim();
-    return primary || artist.trim();
+    let cleaned = artist.split(/\b(feat\.?|ft\.?|featuring|with|vs\.?)\b/i)[0].trim();
+    cleaned = cleaned.replace(/\s*[（\(]CV[.:：]?[^）\)]*[）\)]/gi, '').trim();
+    return cleaned.replace(/[\s,;&＆]+$/, '').trim();
+}
+
+export function extractShortTitle(title) {
+    if (!title) return '';
+    if (/\s+-/.test(title)) {
+        const parts = title.split(/\s+-\s*/);
+        if (parts[0] && parts[0].trim()) {
+            return parts[0].trim();
+        }
+    }
+    return title;
+}
+
+export function splitArtists(artistStr) {
+    if (!artistStr) return [];
+    return artistStr
+        .split(/[,;&/|、・]|\b(?:feat\.?|ft\.?|featuring|with|vs\.?)\b/i)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
 }

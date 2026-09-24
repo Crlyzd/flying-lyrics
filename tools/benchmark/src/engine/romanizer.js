@@ -1,5 +1,6 @@
 /**
- * Standalone transliteration & alias extraction helper for benchmark runner.
+ * Transliteration & Romanization module for benchmark runner.
+ * 100% parity with Flying Lyrics extension (src/background/romanizer.js).
  */
 
 const HIRA_TO_ROMAJI = {
@@ -15,7 +16,7 @@ const HIRA_TO_ROMAJI = {
     'わ': 'wa', 'を': 'wo', 'ん': 'n',
     'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
     'ざ': 'za', 'じ': 'ji', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
-    'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
+    'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'де': 'de', 'ど': 'do',
     'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
     'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
     'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
@@ -33,9 +34,9 @@ const HIRA_TO_ROMAJI = {
 
 export function kanaToRomaji(text) {
     if (!text) return '';
-    let src = text.replace(/[\u30a1-\u30f6]/g, (match) => {
-        return String.fromCharCode(match.charCodeAt(0) - 0x60);
-    });
+    let src = text.replace(/[\u30a1-\u30f6]/g, match =>
+        String.fromCharCode(match.charCodeAt(0) - 0x60)
+    );
 
     let result = '';
     let i = 0;
@@ -102,7 +103,7 @@ export function hangulToRomaji(text) {
 }
 
 export function isNonAscii(text) {
-    return /[^\x00-\x7F]/.test(text || '');
+    return /[^\x00-\x7F]/.test(text);
 }
 
 export function stripDiacritics(text) {
@@ -113,23 +114,13 @@ export function stripDiacritics(text) {
 export function extractTitleAliases(title) {
     if (!title) return [];
     const aliases = [];
-    // Matches e.g. "좋은 날 (Good Day)", "Lemon (レモン)", "Title / Subtitle", "Title - Subtitle"
-    const bracketMatch = title.match(/^(.+?)\s*[([\\[【『「《（［〔]([^)\]】』」》）］〕]+)[)\]】』」》）］〕]\s*$/);
-    if (bracketMatch) {
-        const part1 = bracketMatch[1].trim();
-        const part2 = bracketMatch[2].trim();
+    const match = title.match(/^(.+?)\s*[([\\[【『「《（［〔]([^)\]】』」》）］〕]+)[)\]】』」》）］〕]\s*$/);
+    if (match) {
+        const part1 = match[1].trim();
+        const part2 = match[2].trim();
         if (part1) aliases.push(part1);
         if (part2) aliases.push(part2);
     }
-
-    const slashMatch = title.split(/\s*[\/|]\s*/);
-    if (slashMatch.length > 1) {
-        for (const p of slashMatch) {
-            const clean = p.trim();
-            if (clean && !aliases.includes(clean)) aliases.push(clean);
-        }
-    }
-
     return aliases;
 }
 
@@ -139,4 +130,52 @@ export function romanize(text) {
     result = kanaToRomaji(result);
     result = hangulToRomaji(result);
     return stripDiacritics(result);
+}
+
+const transliterationCache = new Map();
+
+export async function fetchRomanizedMetadata(text, timeoutMs = 2000) {
+    if (!text || !isNonAscii(text)) return text || '';
+    const key = text.trim().toLowerCase();
+    if (transliterationCache.has(key)) {
+        return transliterationCache.get(key);
+    }
+
+    try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (res && res.ok) {
+            const data = await res.json();
+            let romanizedText = '';
+            if (Array.isArray(data?.[0])) {
+                romanizedText = data[0].map(x => (Array.isArray(x) && x[3]) ? x[3] : (x?.[0] || '')).join('').trim();
+            }
+            if (romanizedText) {
+                const cleaned = stripDiacritics(romanizedText).trim();
+                transliterationCache.set(key, cleaned);
+                return cleaned;
+            }
+        }
+    } catch {}
+
+    try {
+        const fallbackUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=en&dt=rm&q=${encodeURIComponent(text)}`;
+        const res2 = await fetch(fallbackUrl, { signal: AbortSignal.timeout(timeoutMs) });
+        if (res2 && res2.ok) {
+            const data2 = await res2.json();
+            let romanizedText2 = '';
+            if (Array.isArray(data2?.[0])) {
+                romanizedText2 = data2[0].map(x => (Array.isArray(x) && x[3]) ? x[3] : (x?.[0] || '')).join('').trim();
+            }
+            if (romanizedText2) {
+                const cleaned2 = stripDiacritics(romanizedText2).trim();
+                transliterationCache.set(key, cleaned2);
+                return cleaned2;
+            }
+        }
+    } catch {}
+
+    const fallback = romanize(text);
+    transliterationCache.set(key, fallback);
+    return fallback;
 }
