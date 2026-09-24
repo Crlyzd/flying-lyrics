@@ -301,7 +301,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
                             tabs.forEach(tab => {
                                 if (tab.id) {
-                                    chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATE', payload: cleanSettings });
+                                    chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATE', payload: cleanSettings }, () => {
+                                        void chrome.runtime.lastError;
+                                    });
                                 }
                             });
                         });

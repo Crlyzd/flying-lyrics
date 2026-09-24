@@ -804,6 +804,13 @@
                 });
 
                 chrome.tabs.sendMessage(activeTab.id, { type: 'IS_PIP_OPEN' }, (res) => {
+                    if (chrome.runtime.lastError) {
+                        if (pipEl) {
+                            pipEl.textContent = 'Inactive (Closed)';
+                            pipEl.style.color = '#888';
+                        }
+                        return;
+                    }
                     if (pipEl) {
                         pipEl.textContent = res?.isOpen ? 'Active (Open)' : 'Inactive (Closed)';
                         pipEl.style.color = res?.isOpen ? '#4ade80' : '#888';

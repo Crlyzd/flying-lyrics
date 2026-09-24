@@ -376,7 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.runtime.sendMessage({
                     type: 'UNIFIED_SEARCH',
                     payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 5000 }
-                }, resolve)
+                }, (res) => {
+                    void chrome.runtime.lastError;
+                    resolve(res);
+                })
             );
 
             if (state.activeSearchQuery !== query) return;
@@ -445,6 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         type: 'UNIFIED_SEARCH',
                         payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 30000 }
                     }, (secondResponse) => {
+                        if (chrome.runtime.lastError) return;
                         if (state.activeSearchQuery !== query) return;
 
                         const secondResults = (secondResponse?.results || []).map(item => ({
