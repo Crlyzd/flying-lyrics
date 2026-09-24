@@ -5,9 +5,28 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPORTS_DIR = path.join(__dirname, '../reports');
+const MANIFEST_PATH = path.resolve(__dirname, '../../../manifest.json');
 
 if (!fs.existsSync(REPORTS_DIR)) {
     fs.mkdirSync(REPORTS_DIR, { recursive: true });
+}
+
+/**
+ * Dynamically resolves extension version from root manifest.json.
+ * Falls back safely if manifest is unavailable.
+ */
+function getExtensionVersion() {
+    try {
+        if (fs.existsSync(MANIFEST_PATH)) {
+            const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8'));
+            if (manifest && manifest.version) {
+                return `v${manifest.version}`;
+            }
+        }
+    } catch {
+        // Fallback safely if running in an isolated environment
+    }
+    return 'v4.9';
 }
 
 function formatDuration(sec) {
@@ -30,7 +49,7 @@ export function generateMarkdownReport(results, metadata = {}) {
         month: 'long',
         day: 'numeric'
     });
-    const version = metadata.version || 'v4.7';
+    const version = metadata.version || getExtensionVersion();
 
     let md = `# Match Success Rate\n\n`;
     md += `Spotify, ${version}, ${dateStr}\n\n`;
@@ -58,9 +77,10 @@ export function generateMarkdownReport(results, metadata = {}) {
  * Prints the results neatly into the terminal console.
  */
 export function printConsoleReport(results, metadata = {}) {
+    const version = metadata.version || getExtensionVersion();
     console.log('\n================================================================');
     console.log(` 🎵 MATCH SUCCESS RATE BENCHMARK`);
-    console.log(` Spotify, ${metadata.version || 'v4.7'}, ${new Date().toLocaleDateString()}`);
+    console.log(` Spotify, ${version}, ${new Date().toLocaleDateString()}`);
     console.log('================================================================\n');
 
     console.table(results.map(r => ({
