@@ -181,7 +181,9 @@
 
                 if (centerArt) {
                     // We rely on updateCenteredArt() to add '.visible' so it doesn't show a broken image if empty
-                    centerArt.style.filter = `drop-shadow(0 8px 32px rgba(0,0,0,0.65)) drop-shadow(0 2px 8px rgba(0,0,0,0.45)) blur(${blurPx}px)`;
+                    const blurPrefix = blurPx > 0 ? `blur(${blurPx}px) ` : '';
+                    centerArt.style.filter = `${blurPrefix}drop-shadow(0 0 20px rgba(0, 0, 0, 0.75))`;
+                    centerArt.style.borderRadius = '';
                 }
 
                 const artUrl = fl.getCoverArt();

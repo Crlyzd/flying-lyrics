@@ -207,23 +207,50 @@
                 const vmin = Math.min(w, h) / 100;
                 const cornerRadius = vmin * 4.5;
 
-                // 1. Draw the drop shadow using a filled rounded rectangle matching the image bounds
-                ctx.save();
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
-                ctx.shadowBlur = vmin * 8;
-                ctx.shadowOffsetY = vmin * 2;
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.roundRect(cx, cy, size, size, cornerRadius);
-                ctx.fill();
-                ctx.restore();
+                // 1. Draw the drop shadow using a filled rounded rectangle only when unblurred
+                if (blurPx === 0) {
+                    ctx.save();
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+                    ctx.shadowBlur = vmin * 6;
+                    ctx.shadowOffsetY = 0;
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath();
+                    ctx.roundRect(cx, cy, size, size, cornerRadius);
+                    ctx.fill();
+                    ctx.restore();
+                }
 
-                // 2. Clip and draw the album cover image inside the rounded rectangle
+                // 2. Draw the album cover image with rounded corners
                 ctx.save();
-                ctx.beginPath();
-                ctx.roundRect(cx, cy, size, size, cornerRadius);
-                ctx.clip();
-                ctx.drawImage(fl.canvasBgImage, cx, cy, size, size);
+                if (blurPx === 0) {
+                    ctx.beginPath();
+                    ctx.roundRect(cx, cy, size, size, cornerRadius);
+                    ctx.clip();
+                    ctx.drawImage(fl.canvasBgImage, cx, cy, size, size);
+                } else {
+                    // Pre-render rounded corners to offscreen canvas so blur diffuses the curved contour
+                    if (!fl.tempArtCanvas) {
+                        fl.tempArtCanvas = document.createElement('canvas');
+                    }
+                    const offCanvas = fl.tempArtCanvas;
+                    const dim = Math.ceil(size);
+                    if (offCanvas.width !== dim || offCanvas.height !== dim) {
+                        offCanvas.width = dim;
+                        offCanvas.height = dim;
+                    }
+                    const offCtx = offCanvas.getContext('2d');
+                    offCtx.clearRect(0, 0, dim, dim);
+                    offCtx.beginPath();
+                    offCtx.roundRect(0, 0, size, size, cornerRadius);
+                    offCtx.clip();
+                    offCtx.drawImage(fl.canvasBgImage, 0, 0, size, size);
+
+                    // Draw rounded card into main canvas with an identical centered ambient elevation shadow
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+                    ctx.shadowBlur = vmin * 6;
+                    ctx.shadowOffsetY = 0;
+                    ctx.drawImage(offCanvas, cx, cy, size, size);
+                }
                 ctx.restore();
             }
             ctx.restore();
