@@ -63,14 +63,28 @@
                         } else if (wasType === 'document' && !fl.pipWin.closed) {
                             fl.pipWin.close();
                         }
-                        // Automatically try to reopen in the new mode
-                        setTimeout(() => {
-                            if (typeof fl.launchPip === 'function') {
-                                fl.launchPip().catch(err => {
-                                    console.warn("Auto-reopen failed due to browser user-gesture restrictions:", err);
-                                });
+
+                        const isFirefox = typeof browser !== 'undefined' ||
+                            (typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox'));
+
+                        if (isFirefox) {
+                            // Firefox (Gecko) does not propagate transient user activation across extension IPC.
+                            // Calling fl.launchPip() asynchronously throws NotAllowedError.
+                            // Instead, prompt the user via a pulsing FLYING LYRICS launcher button on the tab.
+                            if (typeof fl.pulseLauncherButton === 'function') {
+                                fl.pulseLauncherButton(fl.pipMode);
                             }
-                        }, 600);
+                        } else {
+                            // Chrome / Chromium preserves user activation across tabs.sendMessage via UAv2.
+                            // Automatically try to reopen in the new mode.
+                            setTimeout(() => {
+                                if (typeof fl.launchPip === 'function') {
+                                    fl.launchPip().catch(err => {
+                                        console.warn("Auto-reopen failed due to browser user-gesture restrictions:", err);
+                                    });
+                                }
+                            }, 600);
+                        }
                     }
                 }
             }
