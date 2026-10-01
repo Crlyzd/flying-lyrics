@@ -337,7 +337,7 @@
     };
 
     fl.prepareVideoPip = function () {
-        if (fl.pipWin) return; // Already running
+        if (fl.pipWin && fl.activePipType === 'video') return; // Already running video pip
 
         // 1. Create or get hidden video element
         let video = document.getElementById('fl-video-pip-element');
