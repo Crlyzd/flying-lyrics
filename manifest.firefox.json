@@ -7,7 +7,15 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "flying-lyrics@kalek.dev",
-      "strict_min_version": "115.0"
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ],
+        "optional": [
+          "technicalAndInteraction"
+        ]
+      }
     }
   },
   "permissions": [
@@ -30,10 +38,10 @@
     ]
   },
   "icons": {
-    "16": "assets/icons/icon.png",
-    "32": "assets/icons/icon.png",
-    "48": "assets/icons/icon.png",
-    "128": "assets/icons/icon.png"
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
   },
   "host_permissions": [
     "https://lrclib.net/*",
@@ -99,10 +107,10 @@
   "action": {
     "default_popup": "src/popup/popup.html",
     "default_icon": {
-      "16": "assets/icons/icon.png",
-      "32": "assets/icons/icon.png",
-      "48": "assets/icons/icon.png",
-      "128": "assets/icons/icon.png"
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
     }
   },
   "web_accessible_resources": [
