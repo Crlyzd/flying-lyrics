@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
+const { runValidation } = require('./validate');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
@@ -159,6 +160,12 @@ function main() {
     console.log(`🚀 Flying Lyrics Build Pipeline (v${version})`);
     console.log(`🎯 Target Browser: ${target.toUpperCase()}`);
     console.log('====================================================');
+
+    // 0. Pre-build cross-browser validation gate
+    if (!runValidation()) {
+        console.error('\x1b[31m❌ Build aborted: Cross-browser parity validation failed.\x1b[0m\n');
+        process.exit(1);
+    }
 
     const startTime = Date.now();
 
