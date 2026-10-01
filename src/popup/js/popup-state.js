@@ -55,6 +55,7 @@ window.FLYING_LYRICS.popup = {
     EDGE_EXTENSION_ID: 'ipcakmeelnooilncnjinnfjcodejbcoa',
     CHROME_REVIEW_URL: 'https://chrome.google.com/webstore/detail/ehjobcjhlmgmpaikciicipmlpknipikd/reviews',
     EDGE_REVIEW_URL:   'https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa',
+    FIREFOX_REVIEW_URL:'https://addons.mozilla.org/en-US/firefox/addon/flying-lyrics/',
 
     // =========================================================
     //  STORAGE DEFAULT VALUES
@@ -251,6 +252,10 @@ window.FLYING_LYRICS.popup = {
      * @returns {string} Web Store review URL.
      */
     getReviewUrl() {
+        const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
+        if (isFirefox) {
+            return this.FIREFOX_REVIEW_URL;
+        }
         return chrome.runtime.id === this.EDGE_EXTENSION_ID
             ? this.EDGE_REVIEW_URL
             : this.CHROME_REVIEW_URL;
