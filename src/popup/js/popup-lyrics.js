@@ -169,31 +169,51 @@ document.addEventListener('DOMContentLoaded', () => {
             const badgeClass  = state.activeSource.type === 'netease' 
                 ? 'badge-netease' 
                 : (state.activeSource.type === 'kugou' ? 'badge-kugou' : 'badge-lrclib');
-            let syncBadge = '';
-            if (state.activeSource.type !== 'local') {
-                if (state.activeSource.isEmpty) {
-                    syncBadge = `<span class="result-badge badge-empty">EMPTY</span>`;
-                } else if (state.activeSource.synced) {
-                    syncBadge = `<span class="result-badge">SYNCED</span>`;
-                } else {
-                    syncBadge = `<span class="result-badge badge-unsynced">UNSYNCED</span>`;
-                }
-            }
             const autoCard = document.createElement('div');
             autoCard.className = 'result-item active-lyric';
-            autoCard.innerHTML = `
-                <div class="result-left">
-                    <div class="result-title">${state.activeSource.name || 'Unknown'}</div>
-                    <div class="result-artist">Auto-loaded · Click Search for more versions</div>
-                </div>
-                <div class="result-right">
-                    <div class="dot-container"><div class="active-dot${state.activeSource.isEmpty ? ' active-dot--empty' : ''}"></div></div>
-                    <div class="result-badges">
-                        <span class="result-badge ${badgeClass}">${sourceLabel}</span>
-                        ${syncBadge}
-                    </div>
-                </div>
-            `;
+
+            const resLeft = document.createElement('div');
+            resLeft.className = 'result-left';
+            const resTitle = document.createElement('div');
+            resTitle.className = 'result-title';
+            resTitle.textContent = state.activeSource.name || 'Unknown';
+            const resArtist = document.createElement('div');
+            resArtist.className = 'result-artist';
+            resArtist.textContent = 'Auto-loaded · Click Search for more versions';
+            resLeft.append(resTitle, resArtist);
+
+            const resRight = document.createElement('div');
+            resRight.className = 'result-right';
+            const dotContainer = document.createElement('div');
+            dotContainer.className = 'dot-container';
+            const dot = document.createElement('div');
+            dot.className = `active-dot${state.activeSource.isEmpty ? ' active-dot--empty' : ''}`;
+            dotContainer.appendChild(dot);
+
+            const resBadges = document.createElement('div');
+            resBadges.className = 'result-badges';
+            const sourceBadge = document.createElement('span');
+            sourceBadge.className = `result-badge ${badgeClass}`;
+            sourceBadge.textContent = sourceLabel;
+            resBadges.appendChild(sourceBadge);
+
+            if (state.activeSource.type !== 'local') {
+                const sBadge = document.createElement('span');
+                if (state.activeSource.isEmpty) {
+                    sBadge.className = 'result-badge badge-empty';
+                    sBadge.textContent = 'EMPTY';
+                } else if (state.activeSource.synced) {
+                    sBadge.className = 'result-badge';
+                    sBadge.textContent = 'SYNCED';
+                } else {
+                    sBadge.className = 'result-badge badge-unsynced';
+                    sBadge.textContent = 'UNSYNCED';
+                }
+                resBadges.appendChild(sBadge);
+            }
+
+            resRight.append(dotContainer, resBadges);
+            autoCard.append(resLeft, resRight);
             el.resultsContainer.appendChild(autoCard);
             return;
         }
@@ -220,17 +240,34 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActiveLive = !activeOverride && state.activeSource
                 && String(state.activeSource.id) === String(item.id) && state.activeSource.type === item.source;
 
-            div.innerHTML = `
-                <div class="result-left">
-                    <div class="result-title">${item.name}</div>
-                    <div class="result-artist">${item.artistName} • ${item.albumName || 'Unknown Album'}</div>
-                </div>
-                <div class="result-right">
-                    <div class="dot-container"></div>
-                    <div class="result-badges">${item.badgeHtml}</div>
-                    <div class="result-duration">${duration}</div>
-                </div>
-            `;
+            const resLeft = document.createElement('div');
+            resLeft.className = 'result-left';
+            const resTitle = document.createElement('div');
+            resTitle.className = 'result-title';
+            resTitle.textContent = item.name;
+            const resArtist = document.createElement('div');
+            resArtist.className = 'result-artist';
+            resArtist.textContent = `${item.artistName} • ${item.albumName || 'Unknown Album'}`;
+            resLeft.append(resTitle, resArtist);
+
+            const resRight = document.createElement('div');
+            resRight.className = 'result-right';
+            const dotContainer = document.createElement('div');
+            dotContainer.className = 'dot-container';
+
+            const resBadges = document.createElement('div');
+            resBadges.className = 'result-badges';
+            if (item.badgeHtml) {
+                const parsedBadges = new DOMParser().parseFromString(`<body>${item.badgeHtml}</body>`, 'text/html');
+                resBadges.append(...parsedBadges.body.childNodes);
+            }
+
+            const resDuration = document.createElement('div');
+            resDuration.className = 'result-duration';
+            resDuration.textContent = duration;
+
+            resRight.append(dotContainer, resBadges, resDuration);
+            div.append(resLeft, resRight);
 
             if (isActiveOverride || isActiveLive) {
                 const isItemEmpty = item.isEmpty || (state.activeSource && String(state.activeSource.id) === String(item.id) && state.activeSource.type === item.source && state.activeSource.isEmpty);
@@ -753,12 +790,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (badgesContainer) {
                             if (!badgesContainer.querySelector('.badge-empty')) {
                                 const pType = state.activeSource.type;
-                                const pBadge = pType === 'netease'
-                                    ? `<span class="result-badge badge-netease">NETEASE</span>`
-                                    : (pType === 'kugou'
-                                        ? `<span class="result-badge badge-kugou">KUGOU</span>`
-                                        : `<span class="result-badge badge-lrclib">LRCLIB</span>`);
-                                badgesContainer.innerHTML = pBadge + `<span class="result-badge badge-empty">EMPTY</span>`;
+                                badgesContainer.textContent = '';
+                                const provBadge = document.createElement('span');
+                                provBadge.className = `result-badge badge-${pType === 'netease' ? 'netease' : (pType === 'kugou' ? 'kugou' : 'lrclib')}`;
+                                provBadge.textContent = pType === 'netease' ? 'NETEASE' : (pType === 'kugou' ? 'KUGOU' : 'LRCLIB');
+
+                                const emptyBadge = document.createElement('span');
+                                emptyBadge.className = 'result-badge badge-empty';
+                                emptyBadge.textContent = 'EMPTY';
+
+                                badgesContainer.append(provBadge, emptyBadge);
                             }
                         }
                     }
