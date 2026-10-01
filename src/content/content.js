@@ -140,6 +140,19 @@
         }
     });
 
+    // Ensure mainWorldHook is loaded in page context across all browsers (including Firefox < 128)
+    function ensureMainWorldHook() {
+        if (document.getElementById('fl-main-world-hook')) return;
+        try {
+            const s = document.createElement('script');
+            s.id = 'fl-main-world-hook';
+            s.src = chrome.runtime.getURL('src/content/mainWorldHook.js');
+            s.onload = () => s.remove();
+            (document.head || document.documentElement).appendChild(s);
+        } catch {}
+    }
+    ensureMainWorldHook();
+
     // Bootstrapper
     setInterval(() => {
         if (typeof fl.createLauncher === 'function') fl.createLauncher();
