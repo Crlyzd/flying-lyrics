@@ -1,4 +1,7 @@
 (() => {
+    if (window.__flMainWorldHookLoaded) return;
+    window.__flMainWorldHookLoaded = true;
+
     const savedHandlers = {};
     let positionStateDisabled = false;
     let originalSetPositionState = null;
