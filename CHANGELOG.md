@@ -23,9 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added interactive options in `build.bat` for manifest switching, validating, and multi-target packaging.
 - **Capture-Phase Auto-Launch**: Restored global first-click listener in capture phase (`{ capture: true }`) to preserve user activation for PiP launch.
 - **Real-Time Cloud Sync Broadcasting**: Remote `chrome.storage.sync` updates now broadcast to all active music tabs in real-time.
+- **Firefox Built-in Data Consent Declarations**: Declared mandatory `browser_specific_settings.gecko.data_collection_permissions` in `manifest.firefox.json` (`"required": ["none"]`, `"optional": ["technicalAndInteraction"]`) to comply with Mozilla AMO requirements.
+- **Discrete Multi-Resolution Icons**: Generated dedicated `icon-16.png`, `icon-32.png`, `icon-48.png`, and `icon-128.png` in `assets/icons/` for both Chromium and Gecko manifests, preventing downscaling artifacts on high-DPI toolbars.
+- **Automated Icon Parity Audit**: Extended `tools/validate.js` (Check 1b) to enforce disk existence and identical resolution mapping for all icon sizes across Chrome and Firefox manifests.
 
 ### Changed
 - **Dual Manifest Strategy**: Decoupled Chromium MV3 (`manifest.chrome.json`) and Firefox MV3 (`manifest.firefox.json`), with `tools/target.js` managing the active unpacked root `manifest.json`.
+- **Firefox Engine Target**: Bumped `strict_min_version` from `115.0` to `142.0` in `manifest.firefox.json` to satisfy Mozilla AMO requirements for native built-in data collection permissions declarations without engine compatibility warnings.
 - **Cloud Sync Whitelist**: Added `ecoMode` and `themeAccent` to `syncKeys`, with graceful automatic fallback to `chrome.storage.local`.
 - **Backup Data Sanitization**: Whitelisted and preserved `userStats` (listening streaks and time-of-day analytics) in `.fly` backup archives.
 - **Restructured Build CLI**: Reorganized `build.bat` menu into categorized operations with Node.js fallback handling.
@@ -41,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Firefox Backward Compatibility**: Added dynamic DOM `ensureMainWorldHook` injection fallback for Gecko versions lacking native `world: "MAIN"` content script support.
 - **Firefox Popup Corner & Viewport Scrollbar Clipping**: Resolved top-corner border clipping in Firefox by applying Gecko-scoped concentric curvature (`border-radius: 8px` on container, `6px` on slides) and locked root `html` to prevent unwanted outer window scrollbars from widening the panel, leaving Chromium's sharp square aesthetics 100% untouched.
 - **YouTube Music Player Controls**: Added idempotency guards and expanded media session control selectors for YouTube Music.
+- **AMO Security Hardening & XSS Prevention**: Eliminated unsafe raw `innerHTML` writes across search card templates (`popup-lyrics.js`), backup status reporting (`import.js`), and tour descriptions (`popup-tour.js`), migrating to typed W3C DOM methods (`document.createElement`, `textContent`, `append`, `replaceChildren`).
+- **PiP Vector Icon Rendering & DOM Adoption**: Added explicit `xmlns="http://www.w3.org/2000/svg"` namespaces to all button icon constants and implemented cross-document node adoption (`ownerDocument.importNode`) in `domBuilder.js`, `pipSync.js`, and `pip.js`, resolving all AMO linter warnings while guaranteeing 100% visual rendering across Document PiP and Standalone Pop-out windows.
+- **PiP Controls State Latch Caching**: Added dataset state caching on mute controls in `pipSync.js` (`muteBtn.dataset.state !== targetMuteState`) to prevent redundant DOM tree mutations during playback sync loops.
+- **Dead Code Cleanup**: Pruned dead `syncBadge` string calculation block in `popup-lyrics.js`.
 
 ---
 
