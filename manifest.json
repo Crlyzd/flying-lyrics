@@ -4,30 +4,12 @@
   "short_name": "FlyingLyrics",
   "version": "4.9",
   "description": "A floating extension for synchronized lyrics, romanization, and translations to sing along while multitasking.",
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "flying-lyrics@kalek.dev",
-      "strict_min_version": "115.0"
-    }
-  },
   "permissions": [
     "storage",
     "tabs"
   ],
   "background": {
-    "scripts": [
-      "src/background/storage.js",
-      "src/background/analytics.js",
-      "src/background/romanizer.js",
-      "src/background/search/sanitizer.js",
-      "src/background/search/scoring.js",
-      "src/background/search/network.js",
-      "src/background/search/providers/lrclib.js",
-      "src/background/search/providers/netease.js",
-      "src/background/search/providers/kugou.js",
-      "src/background/searchEngine.js",
-      "src/background/background.js"
-    ]
+    "service_worker": "src/background/background.js"
   },
   "icons": {
     "16": "assets/icons/icon.png",
