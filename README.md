@@ -16,13 +16,15 @@
   <a href="https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd"><img src="https://img.shields.io/badge/Chrome_Web_Store-Install-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Chrome Web Store" /></a>
   &nbsp;
   <a href="https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa"><img src="https://img.shields.io/badge/Edge_Add--ons-Install-0078D7?style=for-the-badge&logo=microsoftedge&logoColor=white" alt="Microsoft Edge Add-ons" /></a>
+  &nbsp;
+  <a href="https://addons.mozilla.org/en-US/firefox/addon/flying-lyrics/"><img src="https://img.shields.io/badge/Firefox_Add--ons-Install-FF7139?style=for-the-badge&logo=firefox-browser&logoColor=white" alt="Firefox Add-ons" /></a>
 </p>
 
 ---
 
 ## ⚡ Quick Start (Ready in 10 Seconds!)
 
-1. **Install the Extension** from the **[Chrome Web Store](https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd)** or **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa)**.
+1. **Install the Extension** from the **[Chrome Web Store](https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd)**, **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa)**, or **[Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/flying-lyrics/)**.
 2. **Open [Spotify Web Player](https://open.spotify.com/)** or **[YouTube Music](https://music.youtube.com/)** and hit play on any track.
 3. **Click the green `♫ FLYING LYRICS` button**:
    * **Spotify:** Bottom-right corner on the player bar (next to the volume and queue icons).
@@ -43,6 +45,7 @@ That's it! Your lyrics window will pop up and stay on top of all your other apps
 ### 🪟 Always-on-Top Floating Window
 * **Never switch tabs again:** Keep lyrics visible above your browser, code editor, Discord, or games.
 * **Borderless Mode (Video PiP):** Want a clean look? Toggle Borderless Mode for a sleek overlay with no window borders or title bars.
+* **Standalone Pop-out Window:** Prefer a resizable, draggable window fully detached from the browser? Use Pop-out mode for a native window experience that persists even when minimizing your browser.
 * **Built-in Player Controls:** Play, pause, skip songs, adjust volume, or scrub the timeline right from the lyrics window.
 
 <p align="center">
@@ -198,7 +201,7 @@ Non-Latin scripts (Japanese Kanji/Kana, Korean Hangul) often confuse lyric finde
 ## ❓ Frequently Asked Questions (FAQ)
 
 ### 🎵 Does this work with the Spotify desktop app?
-Flying Lyrics attaches to the **Spotify Web Player** ([open.spotify.com](https://open.spotify.com)) and **YouTube Music** ([music.youtube.com](https://music.youtube.com)) inside Chrome or Edge. However, because the floating lyrics window uses native browser Picture-in-Picture, it floats directly on top of **any desktop program, game, Discord, or fullscreen app** on your computer!
+Flying Lyrics attaches to the **Spotify Web Player** ([open.spotify.com](https://open.spotify.com)) and **YouTube Music** ([music.youtube.com](https://music.youtube.com)) inside Chrome, Edge, or Firefox. However, because the floating lyrics window uses native browser Picture-in-Picture, it floats directly on top of **any desktop program, game, Discord, or fullscreen app** on your computer!
 
 ### 🪟 How do I make the lyrics window stay on top of my games or apps?
 It stays on top automatically! Modern web browsers give Picture-in-Picture windows system-level priority, meaning the window will naturally sit above all other apps without needing third-party window managers.
