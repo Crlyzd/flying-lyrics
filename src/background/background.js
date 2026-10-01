@@ -1,16 +1,19 @@
 // Import telemetry module, romanizer helper, and modular search engine components
-importScripts(
-    'storage.js',
-    'analytics.js',
-    'romanizer.js',
-    'search/sanitizer.js',
-    'search/scoring.js',
-    'search/network.js',
-    'search/providers/lrclib.js',
-    'search/providers/netease.js',
-    'search/providers/kugou.js',
-    'searchEngine.js'
-);
+// When running in a Service Worker (Chromium), load scripts dynamically; in Event Pages (Firefox), scripts are preloaded via manifest.
+if (typeof importScripts === 'function') {
+    importScripts(
+        'storage.js',
+        'analytics.js',
+        'romanizer.js',
+        'search/sanitizer.js',
+        'search/scoring.js',
+        'search/network.js',
+        'search/providers/lrclib.js',
+        'search/providers/netease.js',
+        'search/providers/kugou.js',
+        'searchEngine.js'
+    );
+}
 
 // Detect unpacked developer environment (!update_url in manifest)
 const IS_DEV_MODE = !('update_url' in chrome.runtime.getManifest());
@@ -241,6 +244,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                     .then(result => sendResponse({ result }))
                     .catch(() => sendResponse({ result: { rawLyric: null, source: null, synced: false, isNetworkError: true } }));
             }, delay);
+        });
+        return true;
+    }
+
+    // ── Translation & Network Fetch Bridge (CORS-safe for Firefox) ────────────
+    if (message.type === 'FETCH_TRANSLATION_BATCH') {
+        const { url, timeoutMs } = message.payload || {};
+        if (!url) {
+            sendResponse({ ok: false, error: 'No URL specified' });
+            return false;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs || 10000);
+
+        fetch(url, { signal: controller.signal })
+            .then(async (res) => {
+                clearTimeout(timeout);
+                if (!res.ok) {
+                    sendResponse({ ok: false, status: res.status });
+                    return;
+                }
+                const data = await res.json().catch(() => null);
+                sendResponse({ ok: true, status: res.status, data });
+            })
+            .catch((err) => {
+                clearTimeout(timeout);
+                sendResponse({ ok: false, error: err.message, isTimeout: err.name === 'AbortError' });
+            });
+
+        return true;
+    }
+
+    // ── Open Standalone Detached Pop-out Window (Firefox / Window Mode) ──────
+    if (message.type === 'OPEN_PIP_WINDOW') {
+        const { width, height } = message.payload || {};
+        chrome.windows.create({
+            url: chrome.runtime.getURL('src/pages/pip.html'),
+            type: 'popup',
+            width: Math.max(280, parseInt(width) || 360),
+            height: Math.max(300, parseInt(height) || 480)
+        }, (win) => {
+            sendResponse({ ok: true, windowId: win?.id });
         });
         return true;
     }
