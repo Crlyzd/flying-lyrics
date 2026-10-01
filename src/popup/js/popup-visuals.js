@@ -821,98 +821,134 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Resets
-    if (el.btnResetPipSettings) {
-        el.btnResetPipSettings.addEventListener('click', () => {
-            if (!confirm('Reset Floating Window visual settings to default?')) return;
+    // Resets: non-blocking two-step confirmation helper
+    function setupInlineResetButton(btn, defaultText, confirmText, onConfirm) {
+        if (!btn) return;
+        const span = btn.querySelector('span') || btn;
+        let confirmTimer = null;
 
-            const pipDefaults = {
-                customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
-                coverMode: 'fill', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
-                lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false,
-                lastPipWidth: 200, lastPipHeight: 250
-            };
+        function resetToDefault() {
+            if (confirmTimer) {
+                clearTimeout(confirmTimer);
+                confirmTimer = null;
+            }
+            btn.classList.remove('is-confirming');
+            span.textContent = defaultText;
+        }
 
-            el.fontFamilySelect.value = pipDefaults.customFont;
-            el.customFontContainer.style.display = 'none';
-            el.glowPreview.style.fontFamily = pipDefaults.customFont;
-            clearCustomFontSelection();
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
 
-            el.fontSizeSlider.value = 5;
-            el.fontSizeValue.textContent = 5;
-            el.glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
+            if (!btn.classList.contains('is-confirming')) {
+                btn.classList.add('is-confirming');
+                span.textContent = confirmText;
+                confirmTimer = setTimeout(resetToDefault, 4000);
+                return;
+            }
 
-            el.lineSpacingSlider.value = 5;
-            el.lineSpacingValue.textContent = 5;
+            resetToDefault();
+            onConfirm();
 
-            el.anchorSlider.value = 5;
-            el.anchorValue.textContent = 5;
-
-            el.blurSlider.value = 5;
-            el.blurValue.textContent = 5;
-
-            el.darknessSlider.value = 5;
-            el.darknessValue.textContent = 5;
-
-            document.querySelectorAll('.cover-mode-option').forEach(o => {
-                o.classList.toggle('selected', o.dataset.mode === 'fill');
-            });
-
-            el.toggleAlbumCoverMode.checked = false;
-            applyAlbumCoverModeState(false);
-
-            el.alignSelect.value = 'center';
-
-            el.toggleGlow.checked = false;
-            el.glowPerfWarning.style.display = 'none';
-            el.toggleSpotlight.checked = false;
-            el.toggleLyricShadow.checked = true;
-            el.glowPreview.classList.remove('active', 'rainbow', 'highlighted', 'shadow-disabled');
-            el.glowStyleContainer.style.display = 'none';
-            el.glowStyleSelect.value = 'theme';
-
-            saveAndNotify(pipDefaults);
-
-            el.btnResetPipSettings.querySelector('span').textContent = "Reset!";
+            span.textContent = "Reset!";
             setTimeout(() => {
-                el.btnResetPipSettings.querySelector('span').textContent = 'Reset Floating Defaults';
-            }, 1000);
+                span.textContent = defaultText;
+            }, 1200);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!btn.contains(e.target) && btn.classList.contains('is-confirming')) {
+                resetToDefault();
+            }
         });
     }
 
-    if (el.btnResetPopupSettings) {
-        el.btnResetPopupSettings.addEventListener('click', () => {
-            if (!confirm('Reset settings popup interface visuals to default?')) return;
+    if (el.btnResetPipSettings) {
+        setupInlineResetButton(
+            el.btnResetPipSettings,
+            'Reset Floating Defaults',
+            'Confirm Reset?',
+            () => {
+                const pipDefaults = {
+                    customFont: "'Fredoka', sans-serif", fontSize: 26, bgBlur: 2, bgDarkness: 40,
+                    coverMode: 'fill', glowEnabled: false, glowStyle: 'theme', spotlightEnabled: false, lyricShadowEnabled: true, lyricAlignment: 'center',
+                    lineSpacing: 4, verticalAnchor: 5, albumCoverMode: false,
+                    lastPipWidth: 200, lastPipHeight: 250
+                };
 
-            const popupDefaults = {
-                popupBgAnimation: false,
-                galaxyMode: false,
-                popupColor1: '#ff007f',
-                popupColor2: '#00b4d8',
-                popupColor3: '#1DB954'
-            };
+                el.fontFamilySelect.value = pipDefaults.customFont;
+                el.customFontContainer.style.display = 'none';
+                el.glowPreview.style.fontFamily = pipDefaults.customFont;
+                clearCustomFontSelection();
 
-            el.toggleBgAnimation.checked = popupDefaults.popupBgAnimation;
-            if (el.popupWindowContainer) el.popupWindowContainer.classList.add('bg-frozen');
+                el.fontSizeSlider.value = 5;
+                el.fontSizeValue.textContent = 5;
+                el.glowPreview.style.fontSize = `${fontStepToPx(5)}px`;
 
-            if (el.toggleGalaxyMode) {
-                el.toggleGalaxyMode.checked = popupDefaults.galaxyMode;
-                applyGalaxyModeState(popupDefaults.galaxyMode);
+                el.lineSpacingSlider.value = 5;
+                el.lineSpacingValue.textContent = 5;
+
+                el.anchorSlider.value = 5;
+                el.anchorValue.textContent = 5;
+
+                el.blurSlider.value = 5;
+                el.blurValue.textContent = 5;
+
+                el.darknessSlider.value = 5;
+                el.darknessValue.textContent = 5;
+
+                document.querySelectorAll('.cover-mode-option').forEach(o => {
+                    o.classList.toggle('selected', o.dataset.mode === 'fill');
+                });
+
+                el.toggleAlbumCoverMode.checked = false;
+                applyAlbumCoverModeState(false);
+
+                el.alignSelect.value = 'center';
+
+                el.toggleGlow.checked = false;
+                el.glowPerfWarning.style.display = 'none';
+                el.toggleSpotlight.checked = false;
+                el.toggleLyricShadow.checked = true;
+                el.glowPreview.classList.remove('active', 'rainbow', 'highlighted', 'shadow-disabled');
+                el.glowStyleContainer.style.display = 'none';
+                el.glowStyleSelect.value = 'theme';
+
+                saveAndNotify(pipDefaults);
             }
+        );
+    }
 
-            slotColors[1] = popupDefaults.popupColor1;
-            slotColors[2] = popupDefaults.popupColor2;
-            slotColors[3] = popupDefaults.popupColor3;
+    if (el.btnResetPopupSettings) {
+        setupInlineResetButton(
+            el.btnResetPopupSettings,
+            'Reset Interface Defaults',
+            'Confirm Reset?',
+            () => {
+                const popupDefaults = {
+                    popupBgAnimation: false,
+                    galaxyMode: false,
+                    popupColor1: '#ff007f',
+                    popupColor2: '#00b4d8',
+                    popupColor3: '#1DB954'
+                };
 
-            updateCustomColors();
-            selectColorSlot(activeColorSlot);
+                el.toggleBgAnimation.checked = popupDefaults.popupBgAnimation;
+                if (el.popupWindowContainer) el.popupWindowContainer.classList.add('bg-frozen');
 
-            saveAndNotify(popupDefaults);
+                if (el.toggleGalaxyMode) {
+                    el.toggleGalaxyMode.checked = popupDefaults.galaxyMode;
+                    applyGalaxyModeState(popupDefaults.galaxyMode);
+                }
 
-            el.btnResetPopupSettings.querySelector('span').textContent = "Reset!";
-            setTimeout(() => {
-                el.btnResetPopupSettings.querySelector('span').textContent = 'Reset Interface Defaults';
-            }, 1000);
-        });
+                slotColors[1] = popupDefaults.popupColor1;
+                slotColors[2] = popupDefaults.popupColor2;
+                slotColors[3] = popupDefaults.popupColor3;
+
+                updateCustomColors();
+                selectColorSlot(activeColorSlot);
+
+                saveAndNotify(popupDefaults);
+            }
+        );
     }
 });
