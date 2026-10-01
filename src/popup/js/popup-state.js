@@ -290,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBorderlessPip:  document.getElementById('toggle-borderless-pip'),
         labelBorderlessPip:   document.querySelector('label[for="toggle-borderless-pip"]'),
         borderlessPipWarning: document.getElementById('borderless-pip-warning'),
+        borderlessPipHint:    document.getElementById('borderless-pip-hint'),
         toggleEcoMode:        document.getElementById('toggle-eco-mode'),
         toggleFluidScrolling: document.getElementById('toggle-fluid-scrolling'),
         toggleCloudSync:      document.getElementById('toggle-cloud-sync'),

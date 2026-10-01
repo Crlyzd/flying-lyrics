@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox')) {
         const borderlessDesc = document.querySelector('#toggle-borderless-pip')?.closest('.control-group')?.querySelector('.control-desc');
         if (borderlessDesc) {
-            borderlessDesc.textContent = 'Hides the window border (Video PiP). Uncheck for standalone pop-out window.';
+            borderlessDesc.textContent = 'Hides the window border (Video PiP). Uncheck for standard Picture-in-Picture.';
         }
     }
 
@@ -95,6 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
             el.toggleBorderlessPip.disabled = true;
             saveAndNotify({ pipMode: el.toggleBorderlessPip.checked ? 'video' : 'document' });
 
+            const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
+            if (isFirefox && el.borderlessPipHint) {
+                el.borderlessPipHint.style.display = 'block';
+            }
+
             let secondsLeft = 3;
             const originalText = el.labelBorderlessPip ? el.labelBorderlessPip.textContent : "Borderless Mode";
             if (el.labelBorderlessPip) {
@@ -126,6 +131,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     chrome.windows.update(activeBackgroundMusicTab.windowId, { focused: true });
                 }
             }
+        });
+    }
+
+    if (el.borderlessPipHint) {
+        el.borderlessPipHint.addEventListener('click', () => {
+            chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
+                const targetTab = tabs?.find(t => t.active) || tabs?.[0];
+                if (targetTab?.id) {
+                    chrome.tabs.update(targetTab.id, { active: true });
+                    if (targetTab.windowId) {
+                        chrome.windows.update(targetTab.windowId, { focused: true });
+                    }
+                }
+            });
         });
     }
 
