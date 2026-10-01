@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flying Lyrics</title>
+    <link rel="stylesheet" href="../content/styles.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #121212;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="bg-cover"></div>
+    <div id="bg-darkness"></div>
+    <img id="center-art" alt="" />
+    <canvas id="lyricCanvas"></canvas>
+    
+    <div id="ui-container">
+        <div id="seeker-container" style="display: none;">
+            <div id="seeker-bar"></div>
+            <div id="seeker-tooltip"></div>
+        </div>
+        <div id="controls">
+            <button class="btn" id="mute-btn" title="Mute/Unmute">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            </button>
+            <button class="btn" id="prev" title="Previous Track">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20L9 12l10-8v16zM5 19V5"/></svg>
+            </button>
+            <button class="btn" id="playpause" title="Play/Pause">
+                <svg viewBox="0 0 27 29" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><rect x="2.7" y="2.3" width="6.8" height="23.2" rx="3.4"/><rect x="16.5" y="2.3" width="6.8" height="23.2" rx="3.4"/></svg>
+            </button>
+            <button class="btn" id="next" title="Next Track">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4l10 8-10 8V4zM19 5v14"/></svg>
+            </button>
+            <button class="btn" id="cc-btn" title="Toggle Translation">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect><path d="M10 9.5a2 2 0 0 0 -2 2v1a2 2 0 0 0 2 2"></path><path d="M16 9.5a2 2 0 0 0 -2 2v1a2 2 0 0 0 2 2"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <script src="pip.js"></script>
+</body>
+</html>
