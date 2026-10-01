@@ -78,13 +78,14 @@ goto :end
 :no_node
 echo Node.js not detected in PATH. Falling back to PowerShell Chrome packager...
 powershell.exe -NoProfile -Command ^
-  "$v = (Get-Content manifest.json -Raw | ConvertFrom-Json).version;" ^
+  "$m = if (Test-Path manifest.chrome.json) { 'manifest.chrome.json' } else { 'manifest.json' };" ^
+  "$v = (Get-Content $m -Raw | ConvertFrom-Json).version;" ^
   "$zipName = 'dist\flying_lyrics_chrome_v' + $v + '.zip';" ^
   "$dist = 'dist';" ^
   "if (!(Test-Path $dist)) { New-Item -ItemType Directory -Path $dist | Out-Null; }" ^
   "$stage = Join-Path $env:TEMP ('fly_stage_' + [guid]::NewGuid().ToString('N'));" ^
   "New-Item -ItemType Directory -Path $stage | Out-Null;" ^
-  "Copy-Item manifest.json -Destination $stage;" ^
+  "Copy-Item $m -Destination (Join-Path $stage 'manifest.json');" ^
   "Copy-Item -Recurse src -Destination $stage\src;" ^
   "Copy-Item -Recurse assets -Destination $stage\assets;" ^
   "if (Test-Path \"$stage\src\popup\js\popup-dev.js\") { Remove-Item \"$stage\src\popup\js\popup-dev.js\" -Force; }" ^
