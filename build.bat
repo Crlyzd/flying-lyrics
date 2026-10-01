@@ -1,21 +1,33 @@
 @echo off
 setlocal
 echo ====================================================
-echo  Flying Lyrics Extension Packaging Utility
+echo  Flying Lyrics Packaging & Dev Utility
 echo ====================================================
 echo.
 
 where node >nul 2>nul
 if %ERRORLEVEL% EQU 0 (
-    echo [1] Build All (Chrome + Firefox)
+    echo --- Production Packaging ---
+    echo [1] Build All (Chrome + Firefox zips)
     echo [2] Build Chrome Web Store package only
     echo [3] Build Firefox AMO package only
     echo.
-    set /p choice="Select target (1-3) [default: 1]: "
+    echo --- Local Dev Manifest Switcher ---
+    echo [4] Switch unpacked dev manifest to Chromium (Edge / Chrome)
+    echo [5] Switch unpacked dev manifest to Gecko (Firefox)
+    echo [6] Check active unpacked dev manifest target
+    echo.
+    set /p choice="Select option (1-6) [default: 1]: "
     if "%choice%"=="2" (
         node tools\build.js --target=chrome
     ) else if "%choice%"=="3" (
         node tools\build.js --target=firefox
+    ) else if "%choice%"=="4" (
+        node tools\target.js chrome
+    ) else if "%choice%"=="5" (
+        node tools\target.js firefox
+    ) else if "%choice%"=="6" (
+        node tools\target.js status
     ) else (
         node tools\build.js --target=all
     )
