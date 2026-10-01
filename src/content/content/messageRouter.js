@@ -384,6 +384,44 @@
                 return `[${min}:${sec}]${l.text}`;
             });
             sendResponse({ lrcText: lrcLines.join('\n') });
+        } else if (msg.type === 'GET_PIP_STREAM_STATE') {
+            const playerState = typeof fl.getPlayerState === 'function' ? fl.getPlayerState() : { time: 0, duration: 1, paused: true };
+            const adapter = fl.getActiveAdapter?.();
+            const meta = typeof fl.getCurrentTrackMetadata === 'function' ? fl.getCurrentTrackMetadata() : navigator.mediaSession?.metadata;
+            sendResponse({
+                title: meta?.title || '',
+                artist: meta?.artist || '',
+                currentTime: playerState.time || 0,
+                duration: playerState.duration || 1,
+                paused: playerState.paused,
+                isMuted: adapter?.isMuted ? adapter.isMuted() : false,
+                coverArt: fl.getCoverArt?.() || null,
+                lyricLines: fl.lyricLines || [],
+                isSynced: fl.isCurrentLyricSynced || false,
+                currentPalette: fl.currentPalette || null,
+                syncOffset: fl.syncOffset || 0
+            });
+        } else if (msg.type === 'PLAYER_COMMAND') {
+            const { action, payload } = msg;
+            const adapter = fl.getActiveAdapter?.();
+            if (adapter) {
+                if (action === 'playpause') adapter.clickPlayPause();
+                else if (action === 'next') adapter.clickNext();
+                else if (action === 'prev') adapter.clickPrev();
+                else if (action === 'mute') adapter.toggleMute();
+                else if (action === 'seek' && payload?.percent !== undefined) adapter.seek(payload.percent);
+                else if (action === 'toggle_translation') {
+                    fl.showTranslation = !fl.showTranslation;
+                    if (typeof FLYING_LYRICS?.storage?.set === 'function') {
+                        FLYING_LYRICS.storage.set({ showTranslation: fl.showTranslation });
+                    }
+                    if (fl.showTranslation && typeof fl.translateExistingLyrics === 'function') {
+                        fl.translateExistingLyrics();
+                    }
+                    fl.needsLayoutUpdate = true;
+                }
+            }
+            sendResponse({ success: true });
         }
     });
 
