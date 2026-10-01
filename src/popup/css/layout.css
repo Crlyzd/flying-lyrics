@@ -61,6 +61,45 @@ body.loaded .popup-window-container {
     overflow: hidden;
 }
 
+/* Gecko (Firefox) native panel corner curvature adaptation.
+   Firefox wraps extension popups in an 8px rounded Proton panel.
+   Concentric geometry: R_outer = 8px, R_inner = 8px - 2px (margin) = 6px.
+   Ensures uniform 2px border thickness without clipping, leaving Chromium
+   (Chrome / Edge) untouched at border-radius: 0. */
+@supports (-moz-appearance: none) {
+    .popup-window-container {
+        width: 100%;
+        border-radius: 8px;
+    }
+    .popup-slides {
+        border-radius: 6px;
+    }
+    .popup-header-fixed {
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+    }
+    .tab-content {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+}
+
+body.is-firefox .popup-window-container {
+    width: 100%;
+    border-radius: 8px;
+}
+body.is-firefox .popup-slides {
+    border-radius: 6px;
+}
+body.is-firefox .popup-header-fixed {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+body.is-firefox .tab-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
 /* =========================================================
  *  FIXED HEADER & TAB SYSTEM
  * ========================================================= */

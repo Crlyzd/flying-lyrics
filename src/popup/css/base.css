@@ -17,6 +17,10 @@
 
 html {
     background: transparent;
+    width: 300px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 body {
@@ -30,6 +34,7 @@ body {
     padding: 0;
     box-sizing: border-box;
 }
+
 
 /* Make sure all inputs/buttons inherit font */
 button,

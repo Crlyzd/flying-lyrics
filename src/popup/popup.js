@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const popup   = window.FLYING_LYRICS.popup;
     const el      = popup.el;
     const storage = window.FLYING_LYRICS.storage;
+    if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox')) {
+        document.body.classList.add('is-firefox');
+    }
 
     // Fallbacks if config.js somehow isn't loaded yet into the background context
     const fallbackDefaults = {

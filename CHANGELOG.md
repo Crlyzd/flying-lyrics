@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unchecked Runtime Errors on Orphaned Tabs**: Suppressed unhandled `chrome.runtime.lastError` warnings when querying closed or disconnected player tabs from popup scripts.
 - **Legacy PowerShell Build Fallback**: Hardened `build.bat` PowerShell fallback packager to source from `manifest.chrome.json` when present, preventing active Firefox dev manifests from contaminating Chrome release packages.
 - **Firefox Backward Compatibility**: Added dynamic DOM `ensureMainWorldHook` injection fallback for Gecko versions lacking native `world: "MAIN"` content script support.
+- **Firefox Popup Corner & Viewport Scrollbar Clipping**: Resolved top-corner border clipping in Firefox by applying Gecko-scoped concentric curvature (`border-radius: 8px` on container, `6px` on slides) and locked root `html` to prevent unwanted outer window scrollbars from widening the panel, leaving Chromium's sharp square aesthetics 100% untouched.
 - **YouTube Music Player Controls**: Added idempotency guards and expanded media session control selectors for YouTube Music.
 
 ---
