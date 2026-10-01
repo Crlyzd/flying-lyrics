@@ -85,14 +85,39 @@
         }
     };
 
-    // Global auto-launch click listener
-    document.addEventListener('click', () => {
-        if (fl.autoLaunch && !fl.hasAutoLaunched && (!fl.pipWin || fl.pipWin.closed)) {
-            const btn = document.getElementById('pip-trigger');
-            if (btn) {
-                btn.click();
+    // Visual handoff helper when mode is switched (especially for Firefox)
+    fl.pulseLauncherButton = function (newMode) {
+        const btn = document.getElementById('pip-trigger');
+        if (!btn) return;
+
+        const isVideo = newMode === 'video';
+        const modeLabel = isVideo ? 'Borderless Mode' : 'Standard Mode';
+        btn.title = `Mode switched to ${modeLabel}! Click to launch.`;
+
+        btn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+        btn.style.boxShadow = '0 0 16px 4px #1ed760';
+        btn.style.transform = 'scale(1.08)';
+
+        let count = 0;
+        const pulseInterval = setInterval(() => {
+            count++;
+            if (count >= 8 || !document.getElementById('pip-trigger')) {
+                clearInterval(pulseInterval);
+                btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                btn.style.transform = 'scale(1)';
+                return;
             }
-        }
-    });
+            btn.style.transform = count % 2 === 0 ? 'scale(1.08)' : 'scale(1)';
+            btn.style.boxShadow = count % 2 === 0 ? '0 0 16px 4px #1ed760' : '0 4px 12px rgba(0,0,0,0.3)';
+        }, 500);
+
+        const clearPulse = () => {
+            clearInterval(pulseInterval);
+            btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+            btn.style.transform = 'scale(1)';
+            btn.removeEventListener('click', clearPulse);
+        };
+        btn.addEventListener('click', clearPulse);
+    };
 
 })();
