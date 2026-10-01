@@ -234,7 +234,11 @@
 
             // Fill bubble details
             document.getElementById('tour-title').textContent = step.title;
-            document.getElementById('tour-desc').innerHTML = step.desc;
+            const tourDescEl = document.getElementById('tour-desc');
+            if (tourDescEl) {
+                const parsed = new DOMParser().parseFromString(`<body>${step.desc}</body>`, 'text/html');
+                tourDescEl.replaceChildren(...parsed.body.childNodes);
+            }
 
             // Handle skip button visibility (only show if 2 months have passed since installation)
             const skipBtn = document.getElementById('tour-skip');
@@ -244,7 +248,7 @@
 
             // Draw step dots
             const dotsContainer = document.getElementById('tour-dots');
-            dotsContainer.innerHTML = '';
+            dotsContainer.replaceChildren();
             tourSteps.forEach((_, i) => {
                 const dot = document.createElement('span');
                 dot.className = `tour-dot ${i === idx ? 'active' : ''}`;
