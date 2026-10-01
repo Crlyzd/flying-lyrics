@@ -56,34 +56,36 @@
                     if (fl.pipMode === 'video' && typeof fl.prepareVideoPip === 'function') {
                         fl.prepareVideoPip();
                     }
-                    if (fl.pipWin) {
+                    const hasActivePip = !!fl.pipWin || (fl.activePipType === 'video' && !!document.pictureInPictureElement);
+                    if (hasActivePip) {
                         const wasType = fl.activePipType;
-                        if (wasType === 'video') {
+                        if (wasType === 'video' || document.pictureInPictureElement) {
                             document.exitPictureInPicture().catch(() => {});
-                        } else if (wasType === 'document' && !fl.pipWin.closed) {
+                        } else if (wasType === 'document' && fl.pipWin && !fl.pipWin.closed) {
                             fl.pipWin.close();
                         }
 
-                        const isFirefox = typeof browser !== 'undefined' ||
-                            (typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox'));
+                        const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
 
                         if (isFirefox) {
                             // Firefox (Gecko) does not propagate transient user activation across extension IPC.
                             // Calling fl.launchPip() asynchronously throws NotAllowedError.
-                            // Instead, prompt the user via a pulsing FLYING LYRICS launcher button on the tab.
+                            // Prompt the user via a pulsing FLYING LYRICS launcher button on the host tab.
                             if (typeof fl.pulseLauncherButton === 'function') {
                                 fl.pulseLauncherButton(fl.pipMode);
                             }
                         } else {
                             // Chrome / Chromium preserves user activation across tabs.sendMessage via UAv2.
-                            // Automatically try to reopen in the new mode.
+                            // Clear latches and auto-reopen in the new mode without manual user gesture prompts.
+                            fl.pipWin = null;
+                            fl.isLaunchingPip = false;
                             setTimeout(() => {
                                 if (typeof fl.launchPip === 'function') {
                                     fl.launchPip().catch(err => {
-                                        console.warn("Auto-reopen failed due to browser user-gesture restrictions:", err);
+                                        console.warn("[Flying Lyrics] Chromium auto-reopen failed:", err);
                                     });
                                 }
-                            }, 600);
+                            }, 100);
                         }
                     }
                 }

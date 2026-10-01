@@ -7,16 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [5.0.0] - Unreleased
+## [5.0.0] - 2026-10-01
 
 ### Added
-- 
+- **Mozilla Firefox (Gecko MV3) Support**: Full native support with dedicated `manifest.firefox.json`, background event scripts, and Firefox AMO review integration.
+- **Standalone Pop-out Window Mode (`window`)**: Added third PiP mode via `src/pages/pip.html` and `src/pages/pip.js` with kinetic canvas rendering and bidirectional IPC playback controls.
+- **Tri-Mode PiP Architecture**: Adaptive capability cascade and mode handoff between Document PiP, Video PiP, and Standalone Window PiP.
+- **Dedicated Firefox Settings Restore Flow**: Added `src/pages/import.html` and `src/pages/import.js` full-page restore tab with drag-and-drop to bypass OS dialog popup dismissals in Firefox.
+- **Non-Blocking Inline Reset Button**: Implemented in-place confirmation state machine ('Confirm Reset?') with 4s auto-timeout and outside-click dismissal for floating and interface defaults.
+- **Cross-Browser Background CORS Bridge**: Routed remote translations and romanizations through `FETCH_TRANSLATION_BATCH` in the background worker to bypass platform CSP and CORS restrictions.
+- **Cross-Browser Build & Parity Tooling**:
+  - Added zero-dependency packager `tools/build.js` for automated multi-target store bundling (`flying_lyrics_chrome_v5.0.zip` and `flying_lyrics_firefox_v5.0.zip`).
+  - Added architectural parity auditor `tools/validate.js` to enforce content script ordering and safety guards.
+  - Added manifest target switcher `tools/target.js` for instant unpacked development toggling.
+  - Added interactive options in `build.bat` for manifest switching, validating, and multi-target packaging.
+- **Capture-Phase Auto-Launch**: Restored global first-click listener in capture phase (`{ capture: true }`) to preserve user activation for PiP launch.
+- **Real-Time Cloud Sync Broadcasting**: Remote `chrome.storage.sync` updates now broadcast to all active music tabs in real-time.
 
 ### Changed
-- 
+- **Dual Manifest Strategy**: Decoupled Chromium MV3 (`manifest.chrome.json`) and Firefox MV3 (`manifest.firefox.json`), with `tools/target.js` managing the active unpacked root `manifest.json`.
+- **Cloud Sync Whitelist**: Added `ecoMode` and `themeAccent` to `syncKeys`, with graceful automatic fallback to `chrome.storage.local`.
+- **Backup Data Sanitization**: Whitelisted and preserved `userStats` (listening streaks and time-of-day analytics) in `.fly` backup archives.
+- **Restructured Build CLI**: Reorganized `build.bat` menu into categorized operations with Node.js fallback handling.
 
 ### Fixed
-- 
+- **Chromium Mode Switch Auto-Relaunch**: Fixed broken `typeof browser !== 'undefined'` check in `messageRouter.js` that falsely identified Chromium/Edge as Firefox; restored native, prompt-free auto-reopening via Chromium User Activation v2 (UAv2) with latch clearing (`fl.pipWin = null`, `fl.isLaunchingPip = false`) on a 100ms tick.
+- **Gecko-Specific Manual Mode Switch Fallback**: Isolated `fl.pulseLauncherButton` pulsing prompt and `#borderless-pip-hint` exclusively to genuine Firefox (`navigator.userAgent.includes('Firefox')`) where transient user gestures do not cross extension IPC boundaries.
+- **Firefox Popup Focus Dismissal**: Eliminated popup auto-dismissal when selecting backup files by utilizing a dedicated restore tab on Firefox.
+- **Firefox Reset Modal Lockout**: Eliminated modal `window.confirm()` calls in popup settings that forced popup closure on focus transfer.
+- **Video PiP Mode Transition Prep**: Fixed canvas stream preparation guard in `fl.prepareVideoPip` when switching directly from Document PiP to Video PiP.
+- **Unchecked Runtime Errors on Orphaned Tabs**: Suppressed unhandled `chrome.runtime.lastError` warnings when querying closed or disconnected player tabs from popup scripts.
+- **Legacy PowerShell Build Fallback**: Hardened `build.bat` PowerShell fallback packager to source from `manifest.chrome.json` when present, preventing active Firefox dev manifests from contaminating Chrome release packages.
+- **Firefox Backward Compatibility**: Added dynamic DOM `ensureMainWorldHook` injection fallback for Gecko versions lacking native `world: "MAIN"` content script support.
+- **YouTube Music Player Controls**: Added idempotency guards and expanded media session control selectors for YouTube Music.
 
 ---
 
