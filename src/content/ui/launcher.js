@@ -120,4 +120,19 @@
         btn.addEventListener('click', clearPulse);
     };
 
+    // Global auto-launch click listener (First-interaction trigger across Chrome and Firefox)
+    window.addEventListener('click', (e) => {
+        if (fl.autoLaunch && !fl.hasAutoLaunched && (!fl.pipWin || fl.pipWin.closed)) {
+            const btn = document.getElementById('pip-trigger');
+            if (btn && btn.contains(e.target)) return;
+
+            if (typeof fl.launchPip === 'function') {
+                fl.launchPip().catch(err => {
+                    console.warn("[Flying Lyrics] Auto-launch prevented by browser activation policy:", err);
+                });
+            }
+        }
+    }, { capture: true });
+
 })();
+
