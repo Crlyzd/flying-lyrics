@@ -68,6 +68,46 @@
     };
 
     /**
+     * Cross-browser safe JSON fetcher.
+     * Routes network requests through background.js via FETCH_TRANSLATION_BATCH to bypass
+     * Firefox content-script CORS / CSP constraints, with a graceful direct fetch fallback.
+     */
+    async function safeFetchJson(url, timeoutMs = 8000) {
+        // Attempt background messaging bridge first
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+                const res = await new Promise(resolve => {
+                    chrome.runtime.sendMessage(
+                        { type: 'FETCH_TRANSLATION_BATCH', payload: { url, timeoutMs } },
+                        response => resolve(response || null)
+                    );
+                });
+                if (res && res.ok && res.data) {
+                    return { ok: true, data: res.data, status: res.status };
+                }
+                if (res && res.status === 429) {
+                    return { ok: false, status: 429 };
+                }
+            }
+        } catch {}
+
+        // Fallback: direct content-script fetch
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), timeoutMs);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(tid);
+            if (res.ok) {
+                const data = await res.json();
+                return { ok: true, data, status: res.status };
+            }
+            return { ok: false, status: res.status };
+        } catch {
+            return { ok: false };
+        }
+    }
+
+    /**
      * Resilient 3-tier batch translation & romanization:
      * - Tier 1 (Primary): Google Translate (client=dict-chrome-ex)
      * - Tier 2 (Network Fallbacks): Google token cascade (gtrans) -> MyMemory API -> NetEase community tlyric/romalrc
@@ -127,9 +167,9 @@
                 if (!skipGoogle) {
                     try {
                         const primaryUrl = `https://translate.googleapis.com/translate_a/single?client=dict-chrome-ex&sl=auto&tl=${targetLang}&dt=${dtMode}&q=${encodeURIComponent(combinedText)}`;
-                        const res = await fetch(primaryUrl);
-                        if (res.ok) {
-                            const data = await res.json();
+                        const res = await safeFetchJson(primaryUrl);
+                        if (res.ok && res.data) {
+                            const data = res.data;
                             if (dtMode === 'rm') {
                                 translatedCombo = data?.[0]?.map(x => x[3] || x[0] || "").join("") || "";
                             } else if (dtMode === 't' && data && data[0]) {
@@ -156,9 +196,9 @@
                 if (!translatedCombo && dtMode === 't' && !skipGoogle) {
                     try {
                         const cascadeUrl = `https://translate.googleapis.com/translate_a/single?client=gtrans&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(combinedText)}`;
-                        const resCascade = await fetch(cascadeUrl);
-                        if (resCascade.ok) {
-                            const dataCascade = await resCascade.json();
+                        const resCascade = await safeFetchJson(cascadeUrl);
+                        if (resCascade.ok && resCascade.data) {
+                            const dataCascade = resCascade.data;
                             if (dataCascade?.[0]) {
                                 translatedCombo = dataCascade[0].map(x => x[0] || "").join('');
                                 if (translatedCombo) {
@@ -199,9 +239,9 @@
 
                         if (srcLang !== targetLang) {
                             const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(combinedText)}&langpair=${srcLang}|${targetLang}`;
-                            const resMM = await fetch(mmUrl);
-                            if (resMM.ok) {
-                                const mmData = await resMM.json();
+                            const resMM = await safeFetchJson(mmUrl);
+                            if (resMM.ok && resMM.data) {
+                                const mmData = resMM.data;
                                 if (mmData?.responseData?.translatedText && mmData.responseStatus !== 403 && mmData.responseStatus !== "403") {
                                     translatedCombo = mmData.responseData.translatedText;
                                     if (translatedCombo) {
