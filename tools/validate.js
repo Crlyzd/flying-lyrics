@@ -57,6 +57,26 @@ function runValidation() {
         console.log(` ✔ Version Parity: v${chromeJson.version} (Synchronized)`);
     }
 
+    // 1b. Icon Parity & Asset Existence Check
+    const requiredSizes = ['16', '32', '48', '128'];
+    let iconMismatch = false;
+    for (const size of requiredSizes) {
+        const cIcon = chromeJson.icons?.[size];
+        const fIcon = ffJson.icons?.[size];
+        if (!cIcon || !fIcon || cIcon !== fIcon) {
+            console.error(`\x1b[31m✖ Icon manifest mismatch for size ${size}: Chrome (${cIcon}) vs Firefox (${fIcon})\x1b[0m`);
+            iconMismatch = true;
+            errorCount++;
+        } else if (!fs.existsSync(path.join(ROOT_DIR, cIcon))) {
+            console.error(`\x1b[31m✖ Missing icon asset on disk: ${cIcon}\x1b[0m`);
+            iconMismatch = true;
+            errorCount++;
+        }
+    }
+    if (!iconMismatch) {
+        console.log(` ✔ Icon Asset Parity: Discrete 16, 32, 48, 128px icons verified on disk`);
+    }
+
     // 2. Content Scripts Parity & Load Order Check
     const chromeBlocks = chromeJson.content_scripts || [];
     const ffBlocks = ffJson.content_scripts || [];
@@ -114,6 +134,14 @@ function runValidation() {
         errorCount++;
     } else {
         console.log(` ✔ Gecko Identity: ${ffJson.browser_specific_settings.gecko.id}`);
+    }
+
+    const dataConsent = ffJson.browser_specific_settings?.gecko?.data_collection_permissions;
+    if (!dataConsent || !Array.isArray(dataConsent.required)) {
+        console.error(`\x1b[31m✖ Firefox manifest is missing browser_specific_settings.gecko.data_collection_permissions\x1b[0m`);
+        errorCount++;
+    } else {
+        console.log(` ✔ Gecko Data Consent: Declared (AMO Compliant)`);
     }
 
     // 5. Code Invariant: Main World Hook Fallback in content.js
