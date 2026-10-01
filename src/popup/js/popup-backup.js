@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const storage = window.FLYING_LYRICS.storage;
 
     const SCRAMBLE_KEY = "flying_lyrics_backup_cipher_key";
+    const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
 
     // Convert string (with potential Unicode characters) to XOR scrambled Base64 string
     function scramble(text) {
@@ -39,6 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const decoder = new TextDecoder();
         return decoder.decode(bytes);
+    }
+
+    // Universal Blob-based download stream for cross-browser fallback and Firefox
+    function triggerAnchorDownload(dataString, filename) {
+        const blob = new Blob([dataString], { type: 'application/octet-stream' });
+        const blobUrl = URL.createObjectURL(blob);
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.style.display = 'none';
+        dlAnchorElem.href = blobUrl;
+        dlAnchorElem.download = filename;
+        document.body.appendChild(dlAnchorElem);
+        dlAnchorElem.click();
+        setTimeout(() => {
+            URL.revokeObjectURL(blobUrl);
+            dlAnchorElem.remove();
+        }, 1000);
     }
 
     // Whitelist of allowed storage keys and their expected javascript types
@@ -77,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         recentFonts:         'object',
         lyricsOverrides:     'object',
         songOffsets:         'object',
-        lyricsCache:         'object'
+        lyricsCache:         'object',
+        userStats:           'object'
     };
 
     // Initialize the backup cache checkbox from storage & bind persistence
@@ -101,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (expectedType === 'object') {
                         if (val === null) continue;
 
-                        // Validate recentFonts array
                         if (key === 'recentFonts') {
                             if (Array.isArray(val) && val.every(item => typeof item === 'string')) {
                                 cleanSettings[key] = val;
@@ -111,72 +128,59 @@ document.addEventListener('DOMContentLoaded', () => {
                             continue;
                         }
 
-                        // Validate songOffsets (string key -> number value)
                         if (key === 'songOffsets') {
                             const cleanOffsets = {};
                             let valid = true;
                             for (const [k, v] of Object.entries(val)) {
-                                if (typeof v === 'number') {
-                                    cleanOffsets[k] = v;
-                                } else {
-                                    valid = false;
-                                    break;
-                                }
+                                if (typeof v === 'number') cleanOffsets[k] = v;
+                                else { valid = false; break; }
                             }
-                            if (valid) {
-                                cleanSettings[key] = cleanOffsets;
-                            } else {
-                                console.warn("Invalid key/value types in songOffsets. Skipping.");
-                            }
+                            if (valid) cleanSettings[key] = cleanOffsets;
                             continue;
                         }
 
-                        // Validate lyricsOverrides (string key -> string/object value)
                         if (key === 'lyricsOverrides') {
                             const cleanOverrides = {};
                             let valid = true;
                             for (const [k, v] of Object.entries(val)) {
                                 if (typeof v === 'string' || (typeof v === 'object' && v !== null)) {
                                     cleanOverrides[k] = v;
-                                } else {
-                                    valid = false;
-                                    break;
-                                }
+                                } else { valid = false; break; }
                             }
-                            if (valid) {
-                                cleanSettings[key] = cleanOverrides;
-                            } else {
-                                console.warn("Invalid key/value types in lyricsOverrides. Skipping.");
+                            if (valid) cleanSettings[key] = cleanOverrides;
+                            continue;
+                        }
+
+                        if (key === 'lyricsCache') {
+                            const cleanCache = { order: [], entries: {} };
+                            if (Array.isArray(val.order) && typeof val.entries === 'object' && val.entries !== null) {
+                                for (const trackKey of val.order) {
+                                    if (typeof trackKey === 'string') {
+                                        const entry = val.entries[trackKey];
+                                        if (entry && typeof entry === 'object' && Array.isArray(entry.lines)) {
+                                            cleanCache.order.push(trackKey);
+                                            cleanCache.entries[trackKey] = entry;
+                                        }
+                                    }
+                                }
+                                cleanSettings[key] = cleanCache;
                             }
                             continue;
                         }
 
-                        // Validate lyricsCache (object format)
-                        if (key === 'lyricsCache') {
-                            if (typeof val === 'object' && val !== null) {
-                                const cleanCache = { order: [], entries: {} };
-                                let valid = true;
-                                if (Array.isArray(val.order) && typeof val.entries === 'object' && val.entries !== null) {
-                                    for (const trackKey of val.order) {
-                                        if (typeof trackKey === 'string') {
-                                            const entry = val.entries[trackKey];
-                                            if (entry && typeof entry === 'object') {
-                                                if (Array.isArray(entry.lines)) {
-                                                    cleanCache.order.push(trackKey);
-                                                    cleanCache.entries[trackKey] = entry;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    valid = false;
-                                }
-                                if (valid) {
-                                    cleanSettings[key] = cleanCache;
-                                } else {
-                                    console.warn("Invalid format for lyricsCache. Skipping.");
-                                }
-                            }
+                        if (key === 'userStats') {
+                            cleanSettings[key] = {
+                                totalSynced: typeof val.totalSynced === 'number' ? val.totalSynced : 0,
+                                dailyStreak: typeof val.dailyStreak === 'number' ? val.dailyStreak : 0,
+                                hoursListening: typeof val.hoursListening === 'number' ? val.hoursListening : 0,
+                                lastSyncedDate: typeof val.lastSyncedDate === 'string' ? val.lastSyncedDate : "",
+                                timeOfDayCounts: (typeof val.timeOfDayCounts === 'object' && val.timeOfDayCounts !== null) ? {
+                                    morning: typeof val.timeOfDayCounts.morning === 'number' ? val.timeOfDayCounts.morning : 0,
+                                    afternoon: typeof val.timeOfDayCounts.afternoon === 'number' ? val.timeOfDayCounts.afternoon : 0,
+                                    evening: typeof val.timeOfDayCounts.evening === 'number' ? val.timeOfDayCounts.evening : 0,
+                                    night: typeof val.timeOfDayCounts.night === 'number' ? val.timeOfDayCounts.night : 0
+                                } : { morning: 0, afternoon: 0, evening: 0, night: 0 }
+                            };
                             continue;
                         }
                     }
@@ -195,17 +199,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.btnExportSettings) {
         el.btnExportSettings.addEventListener('click', () => {
             storage.get(null, async (items) => {
-                // Delete heavy transient cache data to keep backup size minimal unless toggle checked
                 const includeCache = el.toggleBackupCache && el.toggleBackupCache.checked;
                 if (!includeCache && items.lyricsCache) {
                     delete items.lyricsCache;
                 }
-                if (items.welcomeTabId) {
-                    delete items.welcomeTabId;
-                }
-                if (items.anonymousClientId) {
-                    delete items.anonymousClientId;
-                }
+                if (items.welcomeTabId) delete items.welcomeTabId;
+                if (items.anonymousClientId) delete items.anonymousClientId;
 
                 const envelope = {
                     __app: "flying-lyrics",
@@ -217,41 +216,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const jsonStr = JSON.stringify(envelope, null, 2);
                     const scrambledData = scramble(jsonStr);
-                    
-                    const version = (chrome.runtime && chrome.runtime.getManifest) 
-                        ? chrome.runtime.getManifest().version 
+
+                    const version = (chrome.runtime && chrome.runtime.getManifest)
+                        ? chrome.runtime.getManifest().version
                         : "unknown";
                     const filename = `flying-lyrics-v${version}.fly`;
 
-                    // Check if native Save File Picker is supported by the browser context
                     if (typeof window.showSaveFilePicker === 'function') {
-                        const options = {
-                            suggestedName: filename,
-                            types: [{
-                                description: 'Flying Lyrics Backup File (*.fly)',
-                                accept: {
-                                    'text/plain': ['.fly']
-                                }
-                            }]
-                        };
-                        const handle = await window.showSaveFilePicker(options);
-                        const writable = await handle.createWritable();
-                        await writable.write(scrambledData);
-                        await writable.close();
-                    } else {
-                        // Fallback: Use standard anchor-based silent download
-                        const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(scrambledData);
-                        const dlAnchorElem = document.createElement('a');
-                        dlAnchorElem.setAttribute("href", dataStr);
-                        dlAnchorElem.setAttribute("download", filename);
-                        dlAnchorElem.click();
+                        try {
+                            const handle = await window.showSaveFilePicker({
+                                suggestedName: filename,
+                                types: [{
+                                    description: 'Flying Lyrics Backup File (*.fly)',
+                                    accept: { 'text/plain': ['.fly'] }
+                                }]
+                            });
+                            const writable = await handle.createWritable();
+                            await writable.write(scrambledData);
+                            await writable.close();
+                            return;
+                        } catch (pickerErr) {
+                            if (pickerErr.name === 'AbortError') return;
+                            console.warn("showSaveFilePicker failed, falling back to Blob download:", pickerErr);
+                        }
                     }
+
+                    triggerAnchorDownload(scrambledData, filename);
                 } catch (e) {
-                    // Ignore user aborting/canceling the save dialog
-                    if (e.name !== 'AbortError') {
-                        console.error("Backup export failed:", e);
-                        alert("Failed to export backup.");
-                    }
+                    console.error("Backup export failed:", e);
+                    alert("Failed to export backup.");
                 }
             });
         });
@@ -262,6 +255,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
     if (el.btnImportSettings && el.importFile) {
         el.btnImportSettings.addEventListener('click', () => {
+            // Firefox isolated tab flow: opening file picker inside popup terminates it on blur.
+            if (isFirefox) {
+                chrome.tabs.create({ url: chrome.runtime.getURL('src/pages/import.html') });
+                window.close();
+                return;
+            }
+
+            // Chrome flow: 100% unchanged in-popup file picker
             el.importFile.click();
         });
 
@@ -290,14 +291,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (!confirm("Are you sure you want to overwrite all your current settings with this backup?")) {
-                        el.importFile.value = ''; // Reset input
+                        el.importFile.value = '';
                         return;
                     }
 
                     const cleanSettings = validateAndSanitize(rawSettings);
 
                     storage.set(cleanSettings, () => {
-                        // Send global refresh ping to any active media tabs
                         chrome.tabs.query({ url: ["*://open.spotify.com/*", "*://music.youtube.com/*"] }, (tabs) => {
                             tabs.forEach(tab => {
                                 if (tab.id) {
@@ -309,13 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         });
 
                         alert("Import successful! Please reopen the extension preferences.");
-                        window.close(); // Close window to trigger a fresh UI build next time
+                        window.close();
                     });
 
                 } catch (err) {
                     console.error("Backup import failed:", err);
                     alert("Failed to parse backup file. Make sure it is a valid Flying Lyrics (.fly) backup.");
-                    el.importFile.value = ''; // Reset input
+                    el.importFile.value = '';
                 }
             };
             reader.readAsText(file);

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restore Settings — Flying Lyrics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #1DB954;
+            --accent: #ff007f;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background-image:
+                radial-gradient(circle at 20% 20%, rgba(255, 0, 127, 0.06) 0%, transparent 45%),
+                radial-gradient(circle at 80% 80%, rgba(29, 185, 84, 0.06) 0%, transparent 45%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 540px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 36px 32px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 28px;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.16);
+            border-radius: 16px;
+            padding: 40px 24px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.015);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-active {
+            border-color: var(--primary);
+            background: rgba(29, 185, 84, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .drop-icon {
+            font-size: 40px;
+            color: var(--primary);
+        }
+
+        .drop-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .drop-hint {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .btn-browse {
+            margin-top: 8px;
+            background: linear-gradient(135deg, #1DB954 0%, #15883e 100%);
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.15s;
+        }
+
+        .btn-browse:hover {
+            opacity: 0.92;
+            transform: scale(1.02);
+        }
+
+        /* Status & Feedback Card */
+        .status-box {
+            display: none;
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .status-success {
+            background: rgba(29, 185, 84, 0.12);
+            border: 1px solid rgba(29, 185, 84, 0.3);
+            color: #4ade80;
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .status-details {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .actions {
+            margin-top: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-close:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="../../assets/icons/icon.png" alt="Flying Lyrics" class="logo-img">
+            <h1>Flying Lyrics</h1>
+        </div>
+        <p class="subtitle">Restore your visual themes, fonts, offsets, and offline lyrics from a <code>.fly</code> backup file.</p>
+
+        <!-- Drop Zone & File Input -->
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-icon">📂</div>
+            <div class="drop-title">Drop your .fly backup file here</div>
+            <div class="drop-hint">or click to browse your folders</div>
+            <button class="btn-browse" id="btn-browse" type="button">Select .fly File</button>
+            <input type="file" id="file-input" accept=".fly" style="display: none;">
+        </div>
+
+        <!-- Status & Feedback Area -->
+        <div class="status-box" id="status-box"></div>
+
+        <div class="actions">
+            <button class="btn-close" id="btn-close" type="button">Close Tab</button>
+        </div>
+    </div>
+
+    <script src="../background/storage.js"></script>
+    <script src="import.js"></script>
+</body>
+
+</html>
