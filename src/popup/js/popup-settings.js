@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
     //  MAIN SETTING LISTENERS
     // =========================================================
 
+    // Firefox adaptive UI label update
+    if (typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox')) {
+        const borderlessDesc = document.querySelector('#toggle-borderless-pip')?.closest('.control-group')?.querySelector('.control-desc');
+        if (borderlessDesc) {
+            borderlessDesc.textContent = 'Hides the window border (Video PiP). Uncheck for standalone pop-out window.';
+        }
+    }
+
     if (el.toggleAutolaunch) {
         el.toggleAutolaunch.addEventListener('change', () => {
             saveAndNotify({ autoLaunch: el.toggleAutolaunch.checked });
