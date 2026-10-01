@@ -147,7 +147,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!statusBox) return;
         statusBox.className = `status-box ${isSuccess ? 'status-success' : 'status-error'}`;
         statusBox.style.display = 'block';
-        statusBox.innerHTML = `<strong>${message}</strong>${details ? `<div class="status-details">${details}</div>` : ''}`;
+        statusBox.textContent = '';
+        const strong = document.createElement('strong');
+        strong.textContent = message;
+        statusBox.appendChild(strong);
+        if (details) {
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'status-details';
+            detailsDiv.textContent = details;
+            statusBox.appendChild(detailsDiv);
+        }
     }
 
     function handleFile(file) {
