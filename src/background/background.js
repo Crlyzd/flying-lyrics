@@ -308,3 +308,32 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
         }
     });
 });
+
+// Propagate remote Cloud Sync changes to active music player tabs in real-time
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace !== 'sync') return;
+
+    const payload = {};
+    for (const [key, change] of Object.entries(changes)) {
+        payload[key] = change.newValue;
+    }
+
+    if (Object.keys(payload).length === 0) return;
+
+    chrome.tabs.query({ url: ['*://open.spotify.com/*', '*://music.youtube.com/*'] }, (tabs) => {
+        if (!tabs || chrome.runtime.lastError) return;
+        tabs.forEach(tab => {
+            if (tab.id) {
+                chrome.tabs.sendMessage(tab.id, {
+                    type: 'SETTINGS_UPDATE',
+                    payload: payload
+                }, () => {
+                    if (chrome.runtime.lastError) {
+                        // Tab may be suspended, discarded, or navigating; safely ignore
+                    }
+                });
+            }
+        });
+    });
+});
+

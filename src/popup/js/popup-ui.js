@@ -272,18 +272,34 @@ document.addEventListener('DOMContentLoaded', () => {
     chrome.storage.onChanged.addListener((changes, namespace) => {
         // Sync translation toggle if changed externally
         if ((namespace === 'local' || namespace === 'sync') && changes.showTranslation) {
-            el.toggleTrans.checked = changes.showTranslation.newValue;
+            if (el.toggleTrans) el.toggleTrans.checked = changes.showTranslation.newValue;
         }
         // Sync ecoMode toggle and preview if changed externally
         if ((namespace === 'local' || namespace === 'sync') && changes.ecoMode) {
             if (el.toggleEcoMode) el.toggleEcoMode.checked = changes.ecoMode.newValue;
             if (el.glowPreview) el.glowPreview.classList.toggle('eco-mode', !!changes.ecoMode.newValue);
         }
+        // Sync fluid scrolling toggle if changed externally
+        if ((namespace === 'local' || namespace === 'sync') && changes.fluidScrolling) {
+            if (el.toggleFluidScrolling) el.toggleFluidScrolling.checked = !!changes.fluidScrolling.newValue;
+        }
+        // Sync auto-launch toggle if changed externally
+        if ((namespace === 'local' || namespace === 'sync') && changes.autoLaunch) {
+            if (el.toggleAutolaunch) el.toggleAutolaunch.checked = !!changes.autoLaunch.newValue;
+        }
+        // Sync translation language if changed externally
+        if ((namespace === 'local' || namespace === 'sync') && changes.translationLang) {
+            if (el.langSelect) el.langSelect.value = changes.translationLang.newValue;
+        }
+        // Sync cloudSyncEnabled toggle if changed externally
+        if (namespace === 'local' && changes.cloudSyncEnabled) {
+            if (el.toggleCloudSync) el.toggleCloudSync.checked = !!changes.cloudSyncEnabled.newValue;
+        }
         // Live-update the glow preview color when content script extracts a new palette.
         // currentVibrantColor is written to chrome.storage.local by extractPalette() on every
         // album art change, so this fires without any polling.
         if (namespace === 'local' && changes.currentVibrantColor) {
-            el.glowPreview.style.setProperty('--glow-color', changes.currentVibrantColor.newValue);
+            if (el.glowPreview) el.glowPreview.style.setProperty('--glow-color', changes.currentVibrantColor.newValue);
         }
     });
 

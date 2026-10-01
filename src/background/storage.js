@@ -31,7 +31,9 @@
             'popupColor2',
             'popupColor3',
             'galaxyMode',
-            'fluidScrolling'
+            'fluidScrolling',
+            'ecoMode',
+            'themeAccent'
         ]),
 
         get(keys, callback) {
@@ -210,7 +212,14 @@
                 };
 
                 if (hasSync) {
-                    chrome.storage.sync.set(syncItems, decrement);
+                    chrome.storage.sync.set(syncItems, () => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('[Flying Lyrics] chrome.storage.sync.set failed, falling back to local:', chrome.runtime.lastError);
+                            chrome.storage.local.set(syncItems, decrement);
+                        } else {
+                            decrement();
+                        }
+                    });
                 }
                 if (hasLocal) {
                     chrome.storage.local.set(localItems, decrement);

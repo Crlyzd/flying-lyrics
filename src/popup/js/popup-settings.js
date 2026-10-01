@@ -189,6 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Migrating Local -> Sync
                 chrome.storage.local.get(syncKeysList, (localData) => {
                     chrome.storage.sync.set(localData, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error('[Flying Lyrics] Cloud sync migration failed:', chrome.runtime.lastError);
+                            el.toggleCloudSync.checked = false;
+                            return;
+                        }
                         chrome.storage.local.set({ cloudSyncEnabled: true }, () => {
                             notifyTab(localData);
                         });
@@ -197,8 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // Migrating Sync -> Local
                 chrome.storage.sync.get(syncKeysList, (syncData) => {
-                    chrome.storage.local.set({ ...syncData, cloudSyncEnabled: false }, () => {
-                        notifyTab(syncData);
+                    chrome.storage.local.set({ ...(syncData || {}), cloudSyncEnabled: false }, () => {
+                        notifyTab(syncData || {});
                     });
                 });
             }
