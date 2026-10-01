@@ -45,7 +45,7 @@
                 const targetState = state.paused ? 'paused' : 'playing';
                 if (ppBtn.dataset.state !== targetState) {
                     ppBtn.dataset.state = targetState;
-                    ppBtn.innerHTML = state.paused ? fl.ICON_PLAY : fl.ICON_PAUSE;
+                    if (fl.setButtonSvg) fl.setButtonSvg(ppBtn, state.paused ? fl.ICON_PLAY : fl.ICON_PAUSE);
                 }
             }
 
@@ -59,8 +59,11 @@
                     const media = fl.queryMedia('audio') || fl.queryMedia('video, audio');
                     isMuted = media ? (media.muted || media.volume === 0) : false;
                 }
-                const targetMuteIcon = isMuted ? fl.ICON_VOL_MUTE : fl.ICON_VOL_HIGH;
-                if (muteBtn.innerHTML !== targetMuteIcon) muteBtn.innerHTML = targetMuteIcon;
+                const targetMuteState = isMuted ? 'muted' : 'unmuted';
+                if (muteBtn.dataset.state !== targetMuteState) {
+                    muteBtn.dataset.state = targetMuteState;
+                    if (fl.setButtonSvg) fl.setButtonSvg(muteBtn, isMuted ? fl.ICON_VOL_MUTE : fl.ICON_VOL_HIGH);
+                }
             }
         } else {
             const video = document.getElementById('fl-video-pip-element');
