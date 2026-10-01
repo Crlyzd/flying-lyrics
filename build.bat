@@ -17,7 +17,10 @@ if %ERRORLEVEL% EQU 0 (
     echo [5] Switch unpacked dev manifest to Gecko (Firefox)
     echo [6] Check active unpacked dev manifest target
     echo.
-    set /p choice="Select option (1-6) [default: 1]: "
+    echo --- Version Management ---
+    echo [7] Bump extension version across all targets
+    echo.
+    set /p choice="Select option (1-7) [default: 1]: "
     if "%choice%"=="2" (
         node tools\build.js --target=chrome
     ) else if "%choice%"=="3" (
@@ -28,6 +31,9 @@ if %ERRORLEVEL% EQU 0 (
         node tools\target.js firefox
     ) else if "%choice%"=="6" (
         node tools\target.js status
+    ) else if "%choice%"=="7" (
+        set /p newver="Enter new version (e.g. 5.0): "
+        node tools\bump-version.js %newver%
     ) else (
         node tools\build.js --target=all
     )

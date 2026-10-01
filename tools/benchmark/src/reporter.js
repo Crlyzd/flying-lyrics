@@ -26,7 +26,7 @@ function getExtensionVersion() {
     } catch {
         // Fallback safely if running in an isolated environment
     }
-    return 'v4.9';
+    return 'v5.0';
 }
 
 function formatDuration(sec) {
