@@ -25,16 +25,36 @@
     }
 
     fl.launchPip = async function () {
-        if (fl.pipMode === 'video') {
+        const hasDocPip = typeof window !== 'undefined' && !!window.documentPictureInPicture?.requestWindow;
+        if (fl.pipMode === 'window') {
+            await fl.launchWindowPip();
+        } else if (fl.pipMode === 'video' || !hasDocPip) {
             await fl.launchVideoPip();
         } else {
             await fl.launchDocumentPip();
         }
     };
 
+    fl.launchWindowPip = async function () {
+        const size = getSavedSize();
+        try {
+            chrome.runtime.sendMessage({
+                type: 'OPEN_PIP_WINDOW',
+                payload: {
+                    width: size.pipWidth,
+                    height: size.pipHeight
+                }
+            });
+            fl.activePipType = 'window';
+            fl.hasAutoLaunched = true;
+        } catch (e) {
+            console.warn("Failed to open pop-out window:", e);
+        }
+    };
+
     fl.launchDocumentPip = async function () {
         if (!window.documentPictureInPicture) {
-            alert("Flying Lyrics: Document Picture-in-Picture is not supported or is disabled in your browser.");
+            await fl.launchVideoPip();
             return;
         }
         if (fl.isLaunchingPip || window.documentPictureInPicture.window) return;
