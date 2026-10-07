@@ -15,14 +15,46 @@ if (typeof importScripts === 'function') {
     );
 }
 
-// Detect unpacked developer environment (!update_url in manifest)
-const IS_DEV_MODE = !('update_url' in chrome.runtime.getManifest());
+// Detect unpacked developer environment (differentiating Chromium and Gecko AMO stores)
+const isGeckoEngine = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
+let IS_DEV_MODE = !isGeckoEngine && !('update_url' in chrome.runtime.getManifest());
+
+/**
+ * Registers the uninstall feedback survey across Chrome and Firefox namespaces.
+ */
+function registerUninstallSurvey() {
+    const UNINSTALL_URL = 'https://forms.gle/QW6mLFdV1JnkVuzx9';
+    const runtimeApi = (typeof browser !== 'undefined' && browser.runtime) 
+        ? browser.runtime 
+        : chrome.runtime;
+
+    if (runtimeApi && typeof runtimeApi.setUninstallURL === 'function') {
+        try {
+            const res = runtimeApi.setUninstallURL(UNINSTALL_URL);
+            if (res && typeof res.catch === 'function') {
+                res.catch(() => {});
+            }
+        } catch (_) {}
+    }
+}
+
+// Initialise uninstall survey registration at background startup
+registerUninstallSurvey();
 
 chrome.runtime.onInstalled.addListener((details) => {
-    chrome.runtime.setUninstallURL("https://forms.gle/QW6mLFdV1JnkVuzx9");
+    registerUninstallSurvey();
+
+    // In Firefox, onInstalled provides details.temporary (true for about:debugging / web-ext)
+    const isDev = (details && typeof details.temporary === 'boolean')
+        ? details.temporary
+        : IS_DEV_MODE;
+
+    if (isDev) {
+        IS_DEV_MODE = true;
+    }
 
     FLYING_LYRICS.storage.get({ devSuppressOnboarding: true }, (items) => {
-        const shouldSuppress = IS_DEV_MODE && items.devSuppressOnboarding !== false;
+        const shouldSuppress = isDev && items.devSuppressOnboarding !== false;
 
         if (details.reason === 'install') {
             FLYING_LYRICS.storage.set({ 
