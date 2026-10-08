@@ -17,7 +17,7 @@ function normalizeLrcLib(item) {
         albumName:    item.albumName  || '',
         duration:     item.duration   || 0,
         // Pre-resolved: LRCLIB always returns the full lyric text in the search response
-        synced:       !!item.syncedLyrics || !!item.instrumental,
+        synced:       !!item.syncedLyrics,
         rawLyric:     rawLyric,
         instrumental: !!item.instrumental,
         isEmpty:      isEmpty

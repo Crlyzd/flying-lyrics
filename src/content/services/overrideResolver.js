@@ -46,7 +46,7 @@
                 type: 'api', 
                 id: override.id, 
                 name: resData.trackName || key, 
-                synced: !!resData.syncedLyrics || !!resData.instrumental,
+                synced: !!resData.syncedLyrics,
                 isEmpty: isEmpty
             };
             if (typeof fl.activateLyrics === 'function') fl.activateLyrics();

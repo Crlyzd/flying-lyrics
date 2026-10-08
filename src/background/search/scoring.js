@@ -128,8 +128,11 @@ function getArtistSimilarity(query, candidateArtist) {
     return baseScore;
 }
 
+const INSTRUMENTAL_RE = /\b(instrumental|inst\b|off\s*vocal|backing\s*track|karaoke|less\s*vocal)\b|伴奏|伴奏版/i;
+
 function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryArtist) {
-    const syncedBonus  = candidate.synced ? 10000 : 0;
+    // Only non-empty synchronized lyrics receive the synced bonus
+    const syncedBonus  = (candidate.synced && !candidate.isEmpty) ? 10000 : 0;
     // Small tie-breaker only — NOT large enough to override a title mismatch
     const sourceBonus  = candidate.source === 'lrclib' ? 100 : 0;
 
@@ -141,7 +144,23 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
     const titleSim = getTitleSimilarity(cleanQueryTitle, candidate.trackName);
     const artistSim = getArtistSimilarity(isMetadataObj ? cleanQueryTitle : cleanQueryArtist, candidate.artistName);
 
-    const queryTitleText = isMetadataObj ? cleanQueryTitle.titleLower : cleanQueryTitle;
+    const queryTitleText = isMetadataObj ? cleanQueryTitle.titleLower : (cleanQueryTitle || '').toLowerCase();
+
+    // Instrumental intent detection & asymmetric mismatch penalty
+    const isQueryInstrumental = INSTRUMENTAL_RE.test(queryTitleText);
+    const isCandidateInstrumental = !!candidate.instrumental || !!candidate.isEmpty || INSTRUMENTAL_RE.test(candidate.trackName || '');
+
+    let instrumentalAdjustment = 0;
+    if (!isQueryInstrumental && isCandidateInstrumental) {
+        // Query is vocal song, candidate is empty or instrumental -> heavily penalise
+        instrumentalAdjustment = -12000;
+    } else if (isQueryInstrumental && !isCandidateInstrumental) {
+        // Query is explicitly instrumental, candidate is vocal -> penalise
+        instrumentalAdjustment = -12000;
+    } else if (isQueryInstrumental && isCandidateInstrumental) {
+        // Query is instrumental and candidate matches instrumental -> reward
+        instrumentalAdjustment = 2000;
+    }
 
     // Gate: heavily penalise candidates whose title is clearly wrong.
     // BUT relax the penalty if:
@@ -166,7 +185,7 @@ function scoreCandidate(candidate, actualDuration, cleanQueryTitle, cleanQueryAr
         }
     }
 
-    return syncedBonus + sourceBonus + titleMismatchPenalty - durationDelta + (titleSim * 10) + (artistSim * 5);
+    return syncedBonus + sourceBonus + titleMismatchPenalty + instrumentalAdjustment - durationDelta + (titleSim * 10) + (artistSim * 5);
 }
 
 // Global scope export for MV3 Service Worker importScripts compatibility

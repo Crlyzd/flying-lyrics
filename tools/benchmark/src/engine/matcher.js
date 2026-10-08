@@ -147,8 +147,11 @@ export function getQueryMetadata(cleanQueryTitle, cleanQueryArtist, extraRomajiT
     };
 }
 
+const INSTRUMENTAL_RE = /\b(instrumental|inst\b|off\s*vocal|backing\s*track|karaoke|less\s*vocal)\b|伴奏|伴奏版/i;
+
 export function scoreCandidate(candidate, actualDuration, queryMetadata) {
-    const syncedBonus  = candidate.synced ? 10000 : 0;
+    // Only non-empty synchronized lyrics receive the synced bonus
+    const syncedBonus  = (candidate.synced && !candidate.isEmpty) ? 10000 : 0;
     const sourceBonus  = candidate.source === 'lrclib' ? 100 : 0;
 
     const durationDelta = actualDuration > 0
@@ -160,7 +163,21 @@ export function scoreCandidate(candidate, actualDuration, queryMetadata) {
     const titleSim = getTitleSimilarity(queryMeta, candidate.trackName);
     const artistSim = getArtistSimilarity(queryMeta, candidate.artistName);
 
-    const queryTitleText = queryMeta.titleLower;
+    const queryTitleText = (queryMeta.titleLower || '').toLowerCase();
+
+    // Instrumental intent detection & asymmetric mismatch penalty
+    const isQueryInstrumental = INSTRUMENTAL_RE.test(queryTitleText);
+    const isCandidateInstrumental = !!candidate.instrumental || !!candidate.isEmpty || INSTRUMENTAL_RE.test(candidate.trackName || '');
+
+    let instrumentalAdjustment = 0;
+    if (!isQueryInstrumental && isCandidateInstrumental) {
+        instrumentalAdjustment = -12000;
+    } else if (isQueryInstrumental && !isCandidateInstrumental) {
+        instrumentalAdjustment = -12000;
+    } else if (isQueryInstrumental && isCandidateInstrumental) {
+        instrumentalAdjustment = 2000;
+    }
+
     let titleMismatchPenalty = 0;
 
     if (queryTitleText && titleSim < 40) {
@@ -178,5 +195,5 @@ export function scoreCandidate(candidate, actualDuration, queryMetadata) {
         }
     }
 
-    return syncedBonus + sourceBonus + titleMismatchPenalty - durationDelta + (titleSim * 10) + (artistSim * 5);
+    return syncedBonus + sourceBonus + titleMismatchPenalty + instrumentalAdjustment - durationDelta + (titleSim * 10) + (artistSim * 5);
 }
