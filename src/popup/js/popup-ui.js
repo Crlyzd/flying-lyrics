@@ -303,6 +303,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // =========================================================
+    //  TIKTOK-STYLE FLOATING HEART SPROUT INTERACTION
+    // =========================================================
+    const heartEl = document.querySelector('.red-heart');
+    if (heartEl) {
+        const heartColors = ['#ff2d55', '#ff3b30', '#ff69b4', '#af52de', '#ff9500', '#00f2fe', '#ffd700'];
+        heartEl.title = 'Spam me with love! ❤';
+        heartEl.addEventListener('click', () => {
+            heartEl.style.transform = 'scale(1.4)';
+            setTimeout(() => { heartEl.style.transform = ''; }, 150);
+
+            const rect = heartEl.getBoundingClientRect();
+            const count = 1 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < count; i++) {
+                const sprout = document.createElement('span');
+                sprout.className = 'floating-heart';
+                sprout.textContent = '❤';
+                const color = heartColors[Math.floor(Math.random() * heartColors.length)];
+                const drift = `${Math.random() * 60 - 30}px`;
+                const rotMid = `${Math.random() * 30 - 15}deg`;
+                const rotEnd = `${Math.random() * 50 - 25}deg`;
+                const size = `${13 + Math.floor(Math.random() * 9)}px`;
+
+                sprout.style.color = color;
+                sprout.style.fontSize = size;
+                sprout.style.left = `${rect.left + rect.width / 2 + (Math.random() * 10 - 5)}px`;
+                sprout.style.top = `${rect.top + (Math.random() * 6 - 3)}px`;
+                sprout.style.setProperty('--drift-x', drift);
+                sprout.style.setProperty('--rot-mid', rotMid);
+                sprout.style.setProperty('--rot-end', rotEnd);
+
+                document.body.appendChild(sprout);
+                sprout.addEventListener('animationend', () => sprout.remove());
+            }
+        });
+    }
+
     // Expose switchTab globally so other modules (e.g. popup-lyrics.js)
     // can programmatically navigate to a specific tab if needed.
     popup.switchTab = switchTab;

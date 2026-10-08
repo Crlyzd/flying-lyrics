@@ -114,6 +114,21 @@ body.is-firefox .tab-content {
     flex-shrink: 0;
 }
 
+.logo-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-link {
+    display: inline-block;
+    text-decoration: none;
+    outline: none;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 .logo-row h2 {
     margin: 0;
     padding: 12px 15px 8px 15px;
@@ -123,7 +138,18 @@ body.is-firefox .tab-content {
     text-shadow: 0 0 8px var(--accent-glow);
     letter-spacing: 0.5px;
     font-weight: 700;
-    transition: color 0.3s, text-shadow 0.3s;
+    cursor: pointer;
+    transition: color 0.3s, text-shadow 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+.logo-link:hover h2,
+.logo-link:focus-visible h2 {
+    opacity: 0.92;
+    transform: translateY(-1px) scale(1.02);
+}
+
+.logo-link:active h2 {
+    transform: translateY(0) scale(0.98);
 }
 
 .tab-bar {
@@ -557,6 +583,49 @@ label {
 
 .red-heart {
     color: #ff5555;
+    display: inline-block;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.red-heart:hover {
+    transform: scale(1.25);
+}
+
+.red-heart:active {
+    transform: scale(0.9);
+}
+
+/* Floating sprout heart (TikTok / Live stream style) */
+.floating-heart {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    animation: heartSprout 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes heartSprout {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.6) rotate(0deg);
+    }
+    30% {
+        transform: translate(calc(-50% + var(--drift-x) * 0.4), calc(-50% - 28px)) scale(1.25) rotate(var(--rot-mid));
+    }
+    70% {
+        opacity: 0.9;
+        transform: translate(calc(-50% + var(--drift-x) * 0.8), calc(-50% - 62px)) scale(1) rotate(var(--rot-end));
+    }
+    100% {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--drift-x)), calc(-50% - 95px)) scale(0.65) rotate(var(--rot-end));
+    }
 }
 
 /* =========================================================
