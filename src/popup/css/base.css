@@ -35,6 +35,27 @@ body {
     box-sizing: border-box;
 }
 
+/* Gecko (Firefox) root geometry harmonization:
+   Opaque black background prevents Firefox from injecting native white arrowpanel borders,
+   while top/side padding retracts the glowing border ring inward so it never clips with the window frame. */
+@supports (-moz-appearance: none) {
+    html {
+        background: #000000;
+    }
+
+    body {
+        background: #000000;
+        padding: 3px;
+        border-radius: 20px;
+    }
+}
+
+body.is-firefox {
+    background: #000000;
+    padding: 3px;
+    border-radius: 20px;
+}
+
 
 /* Make sure all inputs/buttons inherit font */
 button,

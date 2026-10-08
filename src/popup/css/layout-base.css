@@ -51,8 +51,8 @@ body.loaded .popup-window-container {
  * ========================================================= */
 .popup-slides {
     position: relative;
-    margin: 2px;
-    /* gap that reveals the rotating border disk */
+    margin: 3px;
+    /* gap that reveals the rotating border disk (3px border thickness) */
     border-radius: 0;
     background-color: var(--bg-galaxy);
     z-index: 1;
@@ -63,21 +63,24 @@ body.loaded .popup-window-container {
 
 /* Gecko (Firefox) native panel corner curvature adaptation.
    Firefox wraps extension popups in an 8px rounded Proton panel.
-   Concentric geometry: R_outer = 8px, R_inner = 8px - 2px (margin) = 6px.
-   Ensures uniform 2px border thickness without clipping, leaving Chromium
+   Concentric geometry: R_outer = 18px, R_inner = 18px - 3px (margin) = 15px.
+   Ensures uniform 3px border thickness without clipping, leaving Chromium
    (Chrome / Edge) untouched at border-radius: 0. */
 @supports (-moz-appearance: none) {
     .popup-window-container {
         width: 100%;
-        border-radius: 8px;
+        border-radius: 18px;
     }
+
     .popup-slides {
-        border-radius: 6px;
+        border-radius: 15px;
     }
+
     .popup-header-fixed {
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
     }
+
     .tab-content {
         scrollbar-width: thin;
         scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
@@ -86,15 +89,18 @@ body.loaded .popup-window-container {
 
 body.is-firefox .popup-window-container {
     width: 100%;
-    border-radius: 8px;
+    border-radius: 18px;
 }
+
 body.is-firefox .popup-slides {
-    border-radius: 6px;
+    border-radius: 15px;
 }
+
 body.is-firefox .popup-header-fixed {
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
 }
+
 body.is-firefox .tab-content {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
