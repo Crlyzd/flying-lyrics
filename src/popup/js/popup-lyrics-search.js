@@ -64,27 +64,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const autoCard = document.createElement('div');
             autoCard.className = 'result-item active-lyric';
 
-            const dotClass = state.activeSource.isEmpty ? 'active-dot active-dot--empty' : 'active-dot';
-            let syncBadge = '';
-            if (sType !== 'local') {
-                if (state.activeSource.isEmpty) syncBadge = '<span class="result-badge badge-empty">EMPTY</span>';
-                else if (state.activeSource.synced) syncBadge = '<span class="result-badge">SYNCED</span>';
-                else syncBadge = '<span class="result-badge badge-unsynced">UNSYNCED</span>';
-            }
+            const autoLeft = document.createElement('div');
+            autoLeft.className = 'result-left';
+            const autoTitle = Object.assign(document.createElement('div'), { className: 'result-title', textContent: state.activeSource.name || 'Unknown' });
+            const autoArtist = Object.assign(document.createElement('div'), { className: 'result-artist', textContent: 'Auto-loaded · Click Search for more versions' });
+            autoLeft.append(autoTitle, autoArtist);
 
-            autoCard.innerHTML = `
-                <div class="result-left">
-                    <div class="result-title">${state.activeSource.name || 'Unknown'}</div>
-                    <div class="result-artist">Auto-loaded · Click Search for more versions</div>
-                </div>
-                <div class="result-right">
-                    <div class="dot-container"><div class="${dotClass}"></div></div>
-                    <div class="result-badges">
-                        <span class="result-badge ${badgeClass}">${sourceLabel}</span>
-                        ${syncBadge}
-                    </div>
-                </div>
-            `;
+            const autoRight = document.createElement('div');
+            autoRight.className = 'result-right';
+            const dotContainer = Object.assign(document.createElement('div'), { className: 'dot-container' });
+            dotContainer.appendChild(Object.assign(document.createElement('div'), { className: state.activeSource.isEmpty ? 'active-dot active-dot--empty' : 'active-dot' }));
+
+            const badgesCont = Object.assign(document.createElement('div'), { className: 'result-badges' });
+            badgesCont.appendChild(Object.assign(document.createElement('span'), { className: `result-badge ${badgeClass}`, textContent: sourceLabel }));
+
+            if (sType !== 'local') {
+                const syncCls = state.activeSource.isEmpty ? 'result-badge badge-empty' : (state.activeSource.synced ? 'result-badge' : 'result-badge badge-unsynced');
+                const syncTxt = state.activeSource.isEmpty ? 'EMPTY' : (state.activeSource.synced ? 'SYNCED' : 'UNSYNCED');
+                badgesCont.appendChild(Object.assign(document.createElement('span'), { className: syncCls, textContent: syncTxt }));
+            }
+            autoRight.append(dotContainer, badgesCont);
+            autoCard.append(autoLeft, autoRight);
+
             el.resultsContainer.appendChild(autoCard);
             return;
         }
@@ -111,10 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const resLeft = document.createElement('div');
             resLeft.className = 'result-left';
-            resLeft.innerHTML = `
-                <div class="result-title">${item.name}</div>
-                <div class="result-artist">${item.artistName} • ${item.albumName || 'Unknown Album'}</div>
-            `;
+            const resTitle = Object.assign(document.createElement('div'), { className: 'result-title', textContent: item.name });
+            const resArtist = Object.assign(document.createElement('div'), { className: 'result-artist', textContent: `${item.artistName} • ${item.albumName || 'Unknown Album'}` });
+            resLeft.append(resTitle, resArtist);
 
             const resRight = document.createElement('div');
             resRight.className = 'result-right';
