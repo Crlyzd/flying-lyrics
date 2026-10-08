@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.2.0] - 2026-10-09
 
+> **Downloads**: [Chrome Web Store](https://chromewebstore.google.com/detail/ehjobcjhlmgmpaikciicipmlpknipikd) · [Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa) · [Firefox Add-ons (AMO)](https://addons.mozilla.org/en-US/firefox/addon/flying-lyrics/)
+
 ### Added
 - **Official Branding & Portfolio Navigation**: Added external links to the official Flying Lyrics landing page (`https://flyinglyrics.kaleksananbagus.com/`) on header logo and author portfolio (`https://kaleksananbagus.com/`) on footer credits with hover scaling affordances.
 - **Heart Sprout Micro-Interaction**: Added a TikTok-style floating particle heart burst animation on footer `.red-heart` clicks with automatic DOM cleanup on `animationend`.
@@ -24,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bolder 3px Concentric Glowing Border Ring**: Increased popup glowing ring thickness to 3px (`margin: 3px;` on `.popup-slides`) with rounder concentric curvature in Gecko (`18px` outer container, `15px` inner slides and header).
 
 ### Fixed
+- **Firefox AMO innerHTML Validation Sanitization**: Replaced dynamic template literal interpolation in `popup-lyrics-search.js` (`autoCard` and `resLeft`) with safe DOM element instantiation (`document.createElement` + `Object.assign` + `textContent`), eliminating all Mozilla Add-ons (AMO) validation warnings with 0 errors and 0 warnings.
+- **Hardened Track Search Metadata Fallback**: Added safe optional-chaining fallback for `trackKey` in manual search and deep search to gracefully handle queries performed when music playback is stopped or inactive.
 - **Instrumental Mismatch Scoring Protection**: Prevented empty and instrumental candidate tracks from outscoring vocal lyrics:
   - Applied an asymmetric -12,000 point Instrumental Mismatch Penalty when a vocal track search query matches an empty or instrumental candidate.
   - Rewarded matching instrumental candidates (+2,000 points) when the query explicitly requests an instrumental track.

@@ -274,7 +274,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             state.currentResults = results;
-            const trackKey = `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`;
+            const trackKey = (state.currentActiveTrack?.artist && state.currentActiveTrack?.title)
+                ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+                : query;
             if (results.length > 0) {
                 storage.set({ lastSearch: { key: trackKey, query: query, results: results } });
             }
