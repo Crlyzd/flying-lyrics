@@ -1,0 +1,211 @@
+/* =========================================================
+ *  GALAXY THEME BACKGROUNDS & BLOBS STYLING
+ * ========================================================= */
+.galaxy-bg-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: -10;
+    background-color: #020208;
+    /* Deep Space black */
+    filter: blur(75px);
+    /* Blends blobs into a single organic color mesh */
+    border-radius: 0;
+    pointer-events: none;
+    transform: translate3d(0, 0, 0);
+}
+
+.galaxy-noise-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -9;
+    pointer-events: none;
+    opacity: 0.13;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    transform: translate3d(0, 0, 0);
+}
+
+.galaxy-blob {
+    position: absolute;
+    border-radius: 50%;
+    /* Increased from 0.16 → 1 for a richer, more glowing color profile */
+    opacity: 1;
+    /* Transition CSS custom property values directly instead of background-color (since gradients are background-images) */
+    transition: --raw-accent 0.8s ease, --raw-accent-blue 0.8s ease, --raw-accent-green 0.8s ease, transform 0.5s ease;
+    will-change: transform;
+}
+
+.blob-1 {
+    /* Enlarged 1.5x (from 240px → 360px) to overlap and bleed colors better */
+    width: 360px;
+    height: 360px;
+    left: -20px;
+    top: -100px;
+    /* Positioned high up to cover the header area */
+    background: radial-gradient(circle, var(--raw-accent) 20%, transparent 50%);
+    animation: floatBlob1 10s infinite ease-in-out;
+}
+
+.blob-2 {
+    /* Enlarged 1.5x (from 260px → 390px) */
+    width: 390px;
+    height: 390px;
+    right: -80px;
+    bottom: -80px;
+    background: radial-gradient(circle, var(--raw-accent-blue) 20%, transparent 50%);
+    animation: floatBlob2 14s infinite ease-in-out;
+}
+
+.blob-3 {
+    /* Enlarged 1.5x (from 220px → 330px) */
+    width: 330px;
+    height: 330px;
+    left: -80px;
+    top: 180px;
+    background: radial-gradient(circle, var(--raw-accent-green) 20%, transparent 50%);
+    animation: floatBlob3 12s infinite ease-in-out;
+}
+
+@keyframes floatBlob1 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+    }
+
+    33% {
+        transform: translate(60px, 30px) scale(1.07) rotate(120deg);
+        /* Limit vertical translation to keep it near the top */
+        border-radius: 60% 40% 50% 50% / 50% 60% 40% 50%;
+    }
+
+    66% {
+        transform: translate(-30px, 20px) scale(0.95) rotate(240deg);
+        border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(360deg);
+        border-radius: 40% 60% 60% 40% / 40% 40% 60% 60%;
+    }
+}
+
+@keyframes floatBlob2 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    }
+
+    50% {
+        transform: translate(-60px, -70px) scale(1.1) rotate(-180deg);
+        border-radius: 30% 70% 70% 30% / 50% 30% 70% 50%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(-360deg);
+        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+    }
+}
+
+@keyframes floatBlob3 {
+    0% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+    }
+
+    50% {
+        transform: translate(70px, -80px) scale(1.12) rotate(180deg);
+        /* Drifts upwards toward the top-right */
+        border-radius: 40% 60% 40% 60% / 60% 40% 60% 40%;
+    }
+
+    100% {
+        transform: translate(0, 0) scale(1) rotate(360deg);
+        border-radius: 60% 40% 60% 40% / 50% 50% 50% 50%;
+    }
+}
+
+/* =========================================================
+ *  ANIMATION PAUSE — bg-frozen state
+ *  Applied when the popup detects user is not in focus or
+ *  wants to reduce motion for performance.
+ * ========================================================= */
+.popup-window-container.bg-frozen .popup-border-disk {
+    animation-play-state: paused !important;
+}
+
+.popup-window-container.bg-frozen .galaxy-blob {
+    animation-play-state: paused !important;
+}
+
+.popup-window-container.bg-frozen .stars-layer {
+    animation-play-state: paused !important;
+}
+
+/* =========================================================
+ *  SLOW BLINKING STARS
+ * ========================================================= */
+.stars-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    will-change: opacity;
+    transform: translate3d(0, 0, 0);
+    /* Promote to its own GPU compositor layer */
+    background-size: 300px 600px;
+    background-repeat: repeat-y;
+}
+
+.stars-layer-1 {
+    background-image:
+        radial-gradient(circle at 12% 18%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 82% 28%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 45% 65%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 25% 85%, #ffffff 1.4px, transparent 1.8px),
+        radial-gradient(circle at 88% 75%, #ffffff 0.9px, transparent 1.2px),
+        radial-gradient(circle at 35% 35%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 60% 10%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 92% 50%, #ffffff 0.8px, transparent 1px);
+    animation: starBlink 3s infinite ease-in-out;
+}
+
+.stars-layer-2 {
+    background-image:
+        radial-gradient(circle at 68% 12%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 22% 48%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 75% 58%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 55% 90%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 10% 70%, #ffffff 0.9px, transparent 1.1px),
+        radial-gradient(circle at 40% 25%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 95% 88%, #ffffff 1px, transparent 1.2px);
+    animation: starBlink 4.5s infinite ease-in-out;
+    animation-delay: 1.2s;
+}
+
+/* Third star layer with unique positions and timing for denser starfield */
+.stars-layer-3 {
+    background-image:
+        radial-gradient(circle at 5% 30%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 50% 50%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 78% 40%, #ffffff 1.2px, transparent 1.5px),
+        radial-gradient(circle at 30% 60%, #ffffff 0.9px, transparent 1.1px),
+        radial-gradient(circle at 65% 78%, #ffffff 1px, transparent 1.2px),
+        radial-gradient(circle at 18% 5%, #ffffff 0.8px, transparent 1px),
+        radial-gradient(circle at 85% 15%, #ffffff 1.1px, transparent 1.3px),
+        radial-gradient(circle at 48% 38%, #ffffff 0.7px, transparent 0.9px);
+    animation: starBlink 6s infinite ease-in-out;
+    animation-delay: 2.4s;
+}
+
+@keyframes starBlink {
+
+    0%,
+    100% {
+        opacity: 0.12;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+}

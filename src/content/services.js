@@ -6,99 +6,12 @@
     //
     //  Orchestrates lyric lifecycle, player synchronization, and overrides.
     //  Modular sub-components:
-    //    - services/metadataHelper.js (DOM metadata extractors & noise sanitization)
-    //    - services/lyricsCache.js    (Memory and chrome.storage.local caching)
-    //    - services/lrcParser.js      (LRC timestamp parsing and span validator)
-    //    - services/translator.js     (Multi-tier translation waterfall)
+    //    - services/metadataHelper.js  (DOM metadata extractors & noise sanitization)
+    //    - services/lyricsCache.js     (Memory and chrome.storage.local caching)
+    //    - services/lrcParser.js       (LRC timestamp parsing and span validator)
+    //    - services/translator.js      (Multi-tier translation waterfall)
+    //    - services/overrideResolver.js (Manual and third-party lyric override resolution)
     // ─────────────────────────────────────────────────────────────────────────────
-
-    fl.resolveManualOverride = async function (key, abortSignal) {
-        let override = fl.lyricsOverrides ? fl.lyricsOverrides[key] : null;
-        if (!override && fl.lyricsOverrides) {
-            const meta = navigator.mediaSession?.metadata;
-            if (meta?.artist && meta?.title) {
-                const mediaKey = `${meta.artist} - ${meta.title}`;
-                override = fl.lyricsOverrides[mediaKey] || null;
-            }
-        }
-        if (!override) return "";
-
-        if (override.type === 'local') {
-            fl.activeLyricSource = { type: 'local', id: null, name: key };
-            fl.activateLyrics();
-            return override.data;
-        } else if (override.type === 'api' && override.id) {
-            const resData = await fl.sendMessageWithTimeout(
-                { type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 8000 } },
-                10000,
-                null
-            );
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-            if (!resData) return "";
-
-            let raw = resData.syncedLyrics || resData.plainLyrics || "";
-            const isEmpty = !raw || !!resData.instrumental;
-            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
-
-            fl.activeLyricSource = { 
-                type: 'api', 
-                id: override.id, 
-                name: resData.trackName || key, 
-                synced: !!resData.syncedLyrics || !!resData.instrumental,
-                isEmpty: isEmpty
-            };
-            fl.activateLyrics();
-            return raw;
-        } else if (override.type === 'netease' && override.id) {
-            const resMsg = await fl.sendMessageWithTimeout(
-                { type: 'FETCH_NETEASE', payload: { id: override.id, timeoutMs: 8000 } },
-                10000,
-                null
-            );
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-            if (!resMsg) return "";
-
-            let raw = resMsg.lyric || "";
-            const isEmpty = !raw;
-            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
-
-            fl.activeLyricSource = { 
-                type: 'netease', 
-                id: resMsg.id || override.id, 
-                name: resMsg.name || key,
-                isEmpty: isEmpty,
-                tlyric: resMsg.tlyric || '',
-                romalrc: resMsg.romalrc || ''
-            };
-            fl.activateLyrics();
-            return raw;
-        } else if (override.type === 'kugou' && override.id && override.accesskey) {
-            const resMsg = await fl.sendMessageWithTimeout(
-                { type: 'FETCH_KUGOU', payload: { id: override.id, accesskey: override.accesskey, timeoutMs: 8000 } },
-                10000,
-                null
-            );
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-            if (!resMsg) return "";
-
-            let raw = resMsg.lyric || "";
-            const isEmpty = !raw;
-            if (isEmpty) raw = "[00:00.00] ♫ (Empty) ♫";
-            const isSynced = /\[\d+:\d+\.\d+\]/.test(raw);
-
-            fl.activeLyricSource = { 
-                type: 'kugou', 
-                id: resMsg.id || override.id, 
-                accesskey: override.accesskey,
-                name: key,
-                synced: isSynced,
-                isEmpty: isEmpty
-            };
-            fl.activateLyrics();
-            return raw;
-        }
-        return "";
-    };
 
     fl.activateLyrics = function () {
         fl._waitForItStartTime = null;
@@ -294,16 +207,22 @@
             }).catch(() => {});
 
             // Tier 3: network fetch
-            let raw = await fl.resolveManualOverride(key, abortSignal);
+            let raw = (typeof fl.resolveManualOverride === 'function')
+                ? await fl.resolveManualOverride(key, abortSignal)
+                : "";
 
             if (!raw && fl.lyricsOverrides && fl.lyricsOverrides[key]) {
-                const failedOverride = fl.lyricsOverrides[key];
-                delete fl.lyricsOverrides[key];
-                FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
-                chrome.runtime.sendMessage({
-                    type: 'LYRIC_FETCH_FAILED',
-                    payload: { key: key, override: failedOverride }
-                }).catch(() => {});
+                if (typeof fl.clearFailedOverride === 'function') {
+                    fl.clearFailedOverride(key);
+                } else {
+                    const failedOverride = fl.lyricsOverrides[key];
+                    delete fl.lyricsOverrides[key];
+                    FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
+                    chrome.runtime.sendMessage({
+                        type: 'LYRIC_FETCH_FAILED',
+                        payload: { key: key, override: failedOverride }
+                    }).catch(() => {});
+                }
             }
 
             let initialSearchTimedOut = false;

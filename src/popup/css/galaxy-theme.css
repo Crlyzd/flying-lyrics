@@ -1,0 +1,206 @@
+/* =========================================================
+ *  UNIFIED SWIRLING/ROTATING THEME ANIMATED BUTTONS
+ *  Uses a large spinning radial-gradient pseudo-element to
+ *  create the colour-swirl effect without extra DOM elements.
+ * ========================================================= */
+.btn-theme-animated {
+    position: relative;
+    overflow: hidden;
+    border: none !important;
+    background: transparent !important;
+    color: #121212 !important;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    transition: transform 0.1s, box-shadow 0.2s;
+    cursor: pointer;
+    isolation: isolate;
+    backface-visibility: hidden;
+    transform: translate3d(0, 0, 0);
+}
+
+.btn-theme-animated::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 380px;
+    height: 380px;
+    z-index: 1;
+    background:
+        radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent-1) 42%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 65% 35%, color-mix(in srgb, var(--accent-2) 36%, #ffffff) 0%, transparent 60%),
+        radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--accent-3) 38%, #ffffff) 0%, transparent 65%),
+        #ffffff;
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation: circle-rotate 9s linear infinite;
+    pointer-events: none;
+}
+
+.btn-theme-animated span,
+.btn-theme-animated .icon-mask {
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+}
+
+@keyframes circle-rotate {
+    0% {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.btn-theme-animated:hover {
+    box-shadow: 0 0 12px var(--accent-glow), 0 4px 16px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02) translate3d(0, 0, 0);
+}
+
+.btn-theme-animated:active {
+    transform: scale(0.98) translate3d(0, 0, 0);
+}
+
+/* =========================================================
+ *  CLASSIC MODE OVERRIDES (Galaxy Mode toggled OFF)
+ *  Resets all dynamic accent variables to Spotify green and
+ *  hides all galaxy visual layers.
+ * ========================================================= */
+.popup-window-container.theme-classic {
+    --accent: #1DB954 !important;
+    --accent-hover: #1ed760 !important;
+    --accent-bg: rgba(29, 185, 84, 0.08) !important;
+    --accent-glow: rgba(29, 185, 84, 0.45) !important;
+    --accent-blue: #1DB954 !important;
+    --accent-green: #1DB954 !important;
+    --raw-accent: #1DB954 !important;
+    --raw-accent-blue: #1DB954 !important;
+    --raw-accent-green: #1DB954 !important;
+    --accent-1: #1DB954 !important;
+    --accent-2: #1DB954 !important;
+    --accent-3: #1DB954 !important;
+    --raw-accent-1: #1DB954 !important;
+    --raw-accent-2: #1DB954 !important;
+    --raw-accent-3: #1DB954 !important;
+    --accent-foreground: #1DB954 !important;
+    --accent-1-foreground: #1DB954 !important;
+    --accent-2-foreground: #1DB954 !important;
+    --accent-3-foreground: #1DB954 !important;
+    --accent-blue-foreground: #1DB954 !important;
+    --accent-green-foreground: #1DB954 !important;
+    --accent-contrast: #ffffff !important;
+    --accent-1-contrast: #ffffff !important;
+    --accent-2-contrast: #ffffff !important;
+    --accent-3-contrast: #ffffff !important;
+    --accent-blue-contrast: #ffffff !important;
+    --accent-green-contrast: #ffffff !important;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.popup-window-container.theme-classic .popup-border-disk {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-bg-container {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .galaxy-noise-layer {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .stars-layer {
+    display: none !important;
+}
+
+.popup-window-container.theme-classic .popup-slides {
+    margin: 0 !important;
+    background-color: #121212 !important;
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+}
+
+/* Revert font-family for body and all dynamic text */
+.popup-window-container.theme-classic,
+.popup-window-container.theme-classic body,
+.popup-window-container.theme-classic button,
+.popup-window-container.theme-classic select,
+.popup-window-container.theme-classic input,
+.popup-window-container.theme-classic textarea,
+.popup-window-container.theme-classic .logo-row h2 {
+    font-family: 'Segoe UI', -apple-system, sans-serif !important;
+    text-shadow: none !important;
+}
+
+/* Hide galaxy customizer elements in Classic Mode */
+.popup-window-container.theme-classic #galaxy-customization-controls {
+    display: none !important;
+}
+
+/* =========================================================
+ *  MUSIC PLAYER SHORTCUTS (Spotify / YouTube Music launch)
+ * ========================================================= */
+.music-launch-row {
+    display: flex;
+    gap: 8px;
+}
+
+.launch-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Segoe UI', sans-serif;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    line-height: 1;
+}
+
+.launch-btn:active {
+    transform: scale(0.97);
+}
+
+.launch-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: block;
+}
+
+.launch-btn span {
+    display: flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.spotify-btn {
+    background: #1DB954;
+    box-shadow: 0 4px 10px rgba(29, 185, 84, 0.2);
+}
+
+.spotify-btn:hover {
+    background: #1ed760;
+    box-shadow: 0 6px 14px rgba(29, 185, 84, 0.35);
+}
+
+.ytm-btn {
+    background: #FF0000;
+    box-shadow: 0 4px 10px rgba(255, 0, 0, 0.2);
+}
+
+.ytm-btn:hover {
+    background: #ff3333;
+    box-shadow: 0 6px 14px rgba(255, 0, 0, 0.35);
+}

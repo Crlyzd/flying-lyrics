@@ -1,0 +1,236 @@
+// =========================================================
+//  popup-constants.js
+//  Constants, language catalogues, baseline defaults, and unit converters.
+//  Loaded immediately before popup-state.js.
+// =========================================================
+
+window.FLYING_LYRICS = window.FLYING_LYRICS || {};
+window.FLYING_LYRICS.popup = window.FLYING_LYRICS.popup || {};
+
+Object.assign(window.FLYING_LYRICS.popup, {
+
+    // =========================================================
+    //  LANGUAGE CATALOGUE
+    // =========================================================
+    LANGUAGES: [
+        { code: 'ar',    name: 'Arabic' },
+        { code: 'be',    name: 'Belarusian' },
+        { code: 'bs',    name: 'Bosnian' },
+        { code: 'bg',    name: 'Bulgarian' },
+        { code: 'zh-CN', name: 'Chinese (Simplified)' },
+        { code: 'zh-TW', name: 'Chinese (Traditional)' },
+        { code: 'hr',    name: 'Croatian' },
+        { code: 'cs',    name: 'Czech' },
+        { code: 'en',    name: 'English' },
+        { code: 'fr',    name: 'French' },
+        { code: 'de',    name: 'German' },
+        { code: 'id',    name: 'Indonesian' },
+        { code: 'it',    name: 'Italian' },
+        { code: 'ja',    name: 'Japanese' },
+        { code: 'ko',    name: 'Korean' },
+        { code: 'ku',    name: 'Kurdish' },
+        { code: 'mk',    name: 'Macedonian' },
+        { code: 'fa',    name: 'Persian' },
+        { code: 'pl',    name: 'Polish' },
+        { code: 'pt',    name: 'Portuguese' },
+        { code: 'ru',    name: 'Russian' },
+        { code: 'sr',    name: 'Serbian' },
+        { code: 'sk',    name: 'Slovak' },
+        { code: 'sl',    name: 'Slovenian' },
+        { code: 'es',    name: 'Spanish' },
+        { code: 'th',    name: 'Thai' },
+        { code: 'tr',    name: 'Turkish' },
+        { code: 'uk',    name: 'Ukrainian' },
+        { code: 'vi',    name: 'Vietnamese' }
+    ],
+
+    // =========================================================
+    //  REVIEW / STORE CONSTANTS
+    // =========================================================
+    EDGE_EXTENSION_ID: 'ipcakmeelnooilncnjinnfjcodejbcoa',
+    CHROME_REVIEW_URL: 'https://chrome.google.com/webstore/detail/ehjobcjhlmgmpaikciicipmlpknipikd/reviews',
+    EDGE_REVIEW_URL:   'https://microsoftedge.microsoft.com/addons/detail/flying-lyrics-romanize-/ipcakmeelnooilncnjinnfjcodejbcoa',
+    FIREFOX_REVIEW_URL:'https://addons.mozilla.org/en-US/firefox/addon/flying-lyrics/',
+
+    // =========================================================
+    //  STORAGE DEFAULT VALUES
+    //  Single source of truth — used in every storage.get() call
+    // =========================================================
+    DEFAULTS: {
+        showTranslation:     true,
+        translationLang:     'en',           // overridden at runtime by getBrowserDefaultLanguage()
+        globalSyncOffset:    1000,
+        autoLaunch:          false,
+        customFont:          "'Fredoka', sans-serif",
+        fontSize:            26,
+        bgBlur:              2,
+        bgDarkness:          40,
+        coverMode:           'fill',
+        glowEnabled:         false,
+        glowStyle:           'theme',
+        spotlightEnabled:    false,
+        lyricShadowEnabled:  true,
+        lyricAlignment:      'center',
+        lineSpacing:         4,
+        verticalAnchor:      5,
+        albumCoverMode:      false,
+        telemetryConsent:    true,
+        pipMode:             'document',
+        cloudSyncEnabled:    true,
+        ecoMode:             true,
+        fluidScrolling:      false,
+        lastPipWidth:        200,
+        lastPipHeight:       250,
+        themeAccent:         'galaxy',
+        popupBgAnimation:    false,
+        galaxyMode:          false,
+        popupColor1:         '#ff007f',
+        popupColor2:         '#00b4d8',
+        popupColor3:         '#1DB954',
+        backupIncludeCache:  false
+    },
+
+    // =========================================================
+    //  RATING EMOTIONAL FEEDBACK DICTIONARY
+    //  Lesser stars yield sadder emotional feedback text.
+    // =========================================================
+    RATING_EMOTIONS: {
+        1: { hover: 'Heartbroken... 😭', rated: 'Ouch... so sorry! 💔' },
+        2: { hover: 'So sad... 😢',      rated: "We'll try harder... 🌧️" },
+        3: { hover: "It's okay... 😐",   rated: "We'll do better! 🥺" },
+        4: { hover: 'Great to hear! 😊', rated: 'Thanks a lot! 👍' },
+        5: { hover: 'Loved it! 🥰',      rated: "You're awesome! 🎉" }
+    },
+
+    // =========================================================
+    //  UNIT CONVERSION HELPERS  (single source of truth)
+    // =========================================================
+
+    /** Font size: UI step 1–10  ↔  actual px 18–36 */
+    fontStepToPx: (step) => 18 + ((step - 1) * 2),
+    fontPxToStep: (px)   => Math.round((px - 18) / 2) + 1,
+
+    /** Background darkness: UI step 1–10  ↔  actual percent 0–100 */
+    darkStepToPct: (step) => {
+        const map = [0, 0, 8, 16, 24, 40, 52, 64, 76, 88, 100];
+        return map[Math.max(1, Math.min(10, step))] ?? 40;
+    },
+    darkPctToStep: (pct) => {
+        const map = [0, 0, 8, 16, 24, 40, 52, 64, 76, 88, 100];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - pct);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
+
+    /** Background blur: UI step 1–10  ↔  actual px 0–10px */
+    blurStepToPx: (step) => {
+        const map = [0, 0, 0.4, 0.8, 1.2, 2.0, 3.6, 5.2, 6.8, 8.4, 10.0];
+        return map[Math.max(1, Math.min(10, step))] ?? 2.0;
+    },
+    blurPxToStep: (px) => {
+        const map = [0, 0, 0.4, 0.8, 1.2, 2.0, 3.6, 5.2, 6.8, 8.4, 10.0];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - px);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
+
+    /** Line spacing: UI step 1–10  ↔  actual vmin multiplier 1–12 */
+    spacingStepToActual: (step) => {
+        const map = [0, 1.0, 1.8, 2.5, 3.2, 4.0, 5.5, 7.0, 8.5, 10.0, 12.0];
+        return map[Math.max(1, Math.min(10, step))] ?? 4.0;
+    },
+    spacingActualToStep: (val) => {
+        const map = [0, 1.0, 1.8, 2.5, 3.2, 4.0, 5.5, 7.0, 8.5, 10.0, 12.0];
+        let closestIdx = 5;
+        let minDiff = Infinity;
+        for (let i = 1; i < map.length; i++) {
+            const diff = Math.abs(map[i] - val);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        return closestIdx;
+    },
+
+    // =========================================================
+    //  BROWSER LANGUAGE DETECTION
+    // =========================================================
+
+    /**
+     * Reads the browser's UI language and navigator.languages to
+     * find the best matching supported lyric language code.
+     * @returns {string} A supported language code, e.g. 'en', 'zh-CN'.
+     */
+    getBrowserDefaultLanguage() {
+        const supportedCodes = this.LANGUAGES.map(l => l.code);
+
+        const preferences = [];
+        if (typeof chrome !== 'undefined' && chrome.i18n && typeof chrome.i18n.getUILanguage === 'function') {
+            preferences.push(chrome.i18n.getUILanguage());
+        }
+        if (typeof navigator !== 'undefined') {
+            if (Array.isArray(navigator.languages)) {
+                preferences.push(...navigator.languages);
+            }
+            if (navigator.language) {
+                preferences.push(navigator.language);
+            }
+        }
+
+        for (const lang of preferences) {
+            if (!lang) continue;
+            const normalized = lang.toLowerCase();
+
+            // Exact matches for Chinese dialects
+            if (['zh-cn', 'zh-hans', 'zh-sg', 'zh-my'].includes(normalized)) return 'zh-CN';
+            if (['zh-tw', 'zh-hk', 'zh-mo', 'zh-hant'].includes(normalized)) return 'zh-TW';
+
+            // Exact match check
+            const exactMatch = supportedCodes.find(c => c.toLowerCase() === normalized);
+            if (exactMatch) return exactMatch;
+
+            // Base match (e.g. "en-US" -> "en")
+            const base = normalized.split('-')[0];
+            if (base === 'zh') return 'zh-CN';
+            const baseMatch = supportedCodes.find(c => c.toLowerCase() === base);
+            if (baseMatch) return baseMatch;
+        }
+
+        return 'en';
+    },
+
+    // =========================================================
+    //  REVIEW URL HELPER
+    // =========================================================
+
+    /**
+     * Returns the correct Web Store review URL based on which
+     * store the extension was installed from (identified by ID).
+     * @returns {string} Web Store review URL.
+     */
+    getReviewUrl() {
+        const isFirefox = typeof navigator !== 'undefined' && navigator.userAgent.includes('Firefox');
+        if (isFirefox) {
+            return this.FIREFOX_REVIEW_URL;
+        }
+        return chrome.runtime.id === this.EDGE_EXTENSION_ID
+            ? this.EDGE_REVIEW_URL
+            : this.CHROME_REVIEW_URL;
+    }
+
+});

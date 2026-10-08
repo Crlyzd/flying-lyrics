@@ -1,0 +1,236 @@
+/* =========================================================
+ *  POPUP WINDOW CONTAINER — outer clip frame
+ * ========================================================= */
+.popup-window-container {
+    position: relative;
+    width: 300px;
+    border-radius: 0;
+    overflow: hidden;
+    /* clips .popup-border-disk and .popup-slides to a rounded rect */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transition: opacity 0.08s ease-in-out;
+}
+
+body.loaded .popup-window-container {
+    opacity: 1;
+}
+
+/* Rotating disk — a large square behind popup-slides that physically spins.
+   The 2px margin on popup-slides creates a gap where the colored arc shows
+   as the border ring. var(--bg-galaxy) fills the 'off' portion of the gradient
+   so it blends with the popup background instead of leaking the OS frame color. */
+.popup-border-disk {
+    position: absolute;
+    width: 800px;
+    /* oversized so all corners stay covered during full rotation */
+    height: 800px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(0deg);
+    /* Pre-blended in JavaScript as --accent-1, --accent-2, --accent-3.
+       Using them directly avoids dynamic per-pixel color-mix calculation during rotation! */
+    background: conic-gradient(var(--accent-1) 0%,
+            var(--accent-2) 33%,
+            var(--accent-3) 66%,
+            var(--accent-1) 100%);
+    animation: diskSpin 4s linear infinite;
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+}
+
+@keyframes diskSpin {
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+/* =========================================================
+ *  POPUP SLIDES — inner content wrapper (sits inside border disk gap)
+ * ========================================================= */
+.popup-slides {
+    position: relative;
+    margin: 2px;
+    /* gap that reveals the rotating border disk */
+    border-radius: 0;
+    background-color: var(--bg-galaxy);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Gecko (Firefox) native panel corner curvature adaptation.
+   Firefox wraps extension popups in an 8px rounded Proton panel.
+   Concentric geometry: R_outer = 8px, R_inner = 8px - 2px (margin) = 6px.
+   Ensures uniform 2px border thickness without clipping, leaving Chromium
+   (Chrome / Edge) untouched at border-radius: 0. */
+@supports (-moz-appearance: none) {
+    .popup-window-container {
+        width: 100%;
+        border-radius: 8px;
+    }
+    .popup-slides {
+        border-radius: 6px;
+    }
+    .popup-header-fixed {
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+    }
+    .tab-content {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+}
+
+body.is-firefox .popup-window-container {
+    width: 100%;
+    border-radius: 8px;
+}
+body.is-firefox .popup-slides {
+    border-radius: 6px;
+}
+body.is-firefox .popup-header-fixed {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+body.is-firefox .tab-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* =========================================================
+ *  SCROLLABLE CONTENT AREA
+ * ========================================================= */
+.tab-content {
+    padding: 15px;
+    /* Right padding creates a visual gap between content and the scrollbar,
+       so the scrollbar doesn't run flush against the border. */
+    padding-right: 10px;
+    max-height: 480px;
+    overflow-y: auto;
+    background-color: transparent;
+}
+
+/* Tab-content custom scrollbar — overrides base.css global scrollbar
+   to use a slightly wider, offset thumb for the main content area */
+.tab-content::-webkit-scrollbar {
+    /* Increased from 4px to 8px; visible thumb will be ~5px wide
+       because the thumb uses a 3px transparent right border for gap */
+    width: 8px;
+}
+
+.tab-content::-webkit-scrollbar-track {
+    background: transparent;
+    margin-right: 2px;
+}
+
+.tab-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 4px;
+    /* 3px transparent border on the right = visual gap between thumb and panel edge */
+    border-right: 3px solid transparent;
+    background-clip: padding-box;
+}
+
+.tab-content::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+    background-clip: padding-box;
+    border-right: 3px solid transparent;
+}
+
+.tab-pane {
+    display: none;
+}
+
+@keyframes tabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tab-pane.active {
+    display: block;
+    animation: tabFadeIn 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* =========================================================
+ *  CONTROL GROUPS — card-style section wrappers
+ * ========================================================= */
+.control-group {
+    margin-bottom: 15px;
+    background: var(--panel-bg);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Fold: .margin-0 was only on toggle row labels — use contextual rule */
+.row>label {
+    margin: 0;
+}
+
+/* =========================================================
+ *  PANEL HEADER (used in slide-out sub-panels)
+ * ========================================================= */
+.panel-header-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* Fold: .margin-right-8 was only on #btn-back */
+#btn-back {
+    margin-right: 8px;
+}
+
+.panel-title {
+    margin: 0;
+    font-size: 14px;
+    color: #1DB954;
+}
+
+/* =========================================================
+ *  STATUS / FEEDBACK MESSAGE UTILITIES
+ *  Replaces inline style="..." strings in popup.js (CSP fix)
+ * ========================================================= */
+.status-msg {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
+.status-msg--error {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #ff5555;
+}
+
+.status-msg--dim {
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+}

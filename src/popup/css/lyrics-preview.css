@@ -1,0 +1,214 @@
+/* =========================================================
+ *  GLOW PREVIEW — live lyric style preview widget
+ *  Displays inside the customization panel and mirrors the
+ *  active PiP renderer's color/shadow/stroke state.
+ *  --glow-color is set by JS from the extracted vibrant color.
+ * ========================================================= */
+@keyframes lyric-glow-preview {
+    0% {
+        text-shadow: 0 0 6px var(--glow-color, #1DB954), 0 0 12px var(--glow-color, #1DB954);
+    }
+
+    50% {
+        text-shadow: 0 0 18px var(--glow-color, #1DB954), 0 0 30px var(--glow-color, #1DB954), 0 0 5px #fff;
+    }
+
+    100% {
+        text-shadow: 0 0 6px var(--glow-color, #1DB954), 0 0 12px var(--glow-color, #1DB954);
+    }
+}
+
+@keyframes rainbow-glow-preview {
+    0% {
+        text-shadow: 0 0 10px #ff0000;
+    }
+
+    17% {
+        text-shadow: 0 0 20px #ffff00;
+    }
+
+    33% {
+        text-shadow: 0 0 10px #00ff00;
+    }
+
+    50% {
+        text-shadow: 0 0 20px #00ffff;
+    }
+
+    67% {
+        text-shadow: 0 0 10px #0000ff;
+    }
+
+    83% {
+        text-shadow: 0 0 20px #ff00ff;
+    }
+
+    100% {
+        text-shadow: 0 0 10px #ff0000;
+    }
+}
+
+@keyframes rainbow-glow-eco {
+    0% {
+        text-shadow: 0 0 15px #ff0000;
+    }
+    17% {
+        text-shadow: 0 0 15px #ffff00;
+    }
+    33% {
+        text-shadow: 0 0 15px #00ff00;
+    }
+    50% {
+        text-shadow: 0 0 15px #00ffff;
+    }
+    67% {
+        text-shadow: 0 0 15px #0000ff;
+    }
+    83% {
+        text-shadow: 0 0 15px #ff00ff;
+    }
+    100% {
+        text-shadow: 0 0 15px #ff0000;
+    }
+}
+
+@keyframes rainbow-stroke-preview {
+    0% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+    17% {
+        -webkit-text-stroke-color: #ffff00;
+    }
+    33% {
+        -webkit-text-stroke-color: #00ff00;
+    }
+    50% {
+        -webkit-text-stroke-color: #00ffff;
+    }
+    67% {
+        -webkit-text-stroke-color: #0000ff;
+    }
+    83% {
+        -webkit-text-stroke-color: #ff00ff;
+    }
+    100% {
+        -webkit-text-stroke-color: #ff0000;
+    }
+}
+
+.glow-preview {
+    /* Default (glow OFF): text is drawn in the song's vibrant color,
+       matching how the PiP renderer colors the active lyric line when
+       glowEnabled is false. Falls back to Spotify green if no song loaded. */
+    font-size: 14px;
+    color: var(--glow-color, #1DB954);
+    font-weight: bold;
+    text-align: center;
+    padding: 14px 12px;
+    letter-spacing: 0.03em;
+    /* Prevent font-size changes from wrapping the preview text.
+       Text is clipped with ellipsis so the container height stays stable. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-text-stroke: 0px transparent;
+    transition: color 0.4s, font-size 0.2s, font-family 0.2s, text-shadow 0.2s, -webkit-text-stroke 0.2s;
+
+    /* Default: shadow is ON */
+    text-shadow: 0 0 10px var(--glow-color, #1DB954);
+}
+
+.glow-preview.shadow-disabled {
+    /* Shadow OFF: no text shadow */
+    text-shadow: none !important;
+}
+
+.glow-preview.highlighted {
+    /* Spotlight ON: active line is highlighted white */
+    color: #FFFFFF;
+}
+
+.glow-preview.active {
+    /* Aura (Glow Shadow) ON: vibrant pulsing shadow */
+    animation: lyric-glow-preview 2s ease-in-out infinite;
+}
+
+.glow-preview.active.rainbow {
+    /* Rainbow override: shadow is cycled by keyframes */
+    animation: rainbow-glow-preview 3s linear infinite;
+}
+
+.glow-preview.active.eco-mode {
+    /* Eco Mode ON: static steady aura, matching canvas shadowBlur = 15 */
+    animation: none !important;
+    text-shadow: 0 0 15px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.rainbow.eco-mode {
+    /* Eco Mode ON + Rainbow: constant 15px flat blur while cycling chromatic spectrum */
+    animation: rainbow-glow-eco 3s linear infinite !important;
+}
+
+.glow-preview.active.shadow-disabled {
+    /* Aura ON + Shadow OFF: static colored stroke, no shadow blur */
+    animation: none !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.shadow-disabled.rainbow {
+    /* Aura ON + Rainbow ON + Shadow OFF: animated colored stroke, no shadow blur */
+    animation: rainbow-stroke-preview 3s linear infinite !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+.glow-preview.active.shadow-disabled.rainbow.eco-mode {
+    /* Eco Mode ON + Rainbow ON + Shadow OFF: continue cycling stroke color */
+    animation: rainbow-stroke-preview 3s linear infinite !important;
+    text-shadow: none !important;
+    -webkit-text-stroke: 1.5px var(--glow-color, #1DB954);
+}
+
+/* =========================================================
+ *  SUB-TAB COMPONENT (used inside the Lyrics tab)
+ * ========================================================= */
+.sub-tab-bar {
+    display: flex;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 2px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sub-tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 4px;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.sub-tab-btn:hover {
+    color: #ddd;
+}
+
+.sub-tab-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent-foreground);
+}
+
+.sub-tab-pane {
+    display: none;
+}
+
+.sub-tab-pane.active {
+    display: block;
+}

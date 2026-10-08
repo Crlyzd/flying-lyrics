@@ -1,12 +1,10 @@
 // =========================================================
-//  popup-lyrics.js
-//  Lyrics search, result rendering, sync offset controls,
-//  local file upload, edit/add lyrics, and the runtime
-//  message listener for live track/lyric state updates.
+//  popup-lyrics.js - Lyrics Tab Coordinator
+//  Throttled tab notification, sync offset adjustment,
+//  local LRC file upload, edit/add lyrics, and runtime
+//  message listener for live player and lyric state updates.
 //
-//  Depends on: popup-state.js, popup-ui.js (for saveAndNotify,
-//  notifyTab, refreshActiveTrack, updateOffsetDisplay helpers
-//  which are declared here and exposed on the popup namespace).
+//  Depends on: popup-state.js, popup-lyrics-search.js
 // =========================================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,17 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
     //  THROTTLED NOTIFY HELPER
-    //  Batches rapid setting changes into a single tab message,
-    //  sent at most once per 50 ms.
     // =========================================================
     let pendingChanges  = null;
     let throttleTimer   = null;
     let lastNotifyTime  = 0;
 
     function notifyTab(changes) {
-        if (!pendingChanges) {
-            pendingChanges = {};
-        }
+        if (!pendingChanges) pendingChanges = {};
         Object.assign(pendingChanges, changes);
 
         const now = performance.now();
@@ -38,25 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
             lastNotifyTime    = performance.now();
 
             chrome.tabs.query({ url: ['*://open.spotify.com/*', '*://music.youtube.com/*'] }, (tabs) => {
-                tabs.forEach(tab => {
-                    if (tab.id) {
-                        chrome.tabs.sendMessage(tab.id, {
-                            type: 'SETTINGS_UPDATE',
-                            payload: changesToSend
-                        }, () => {
-                            if (chrome.runtime.lastError) return;
-                        });
-                    }
+                (tabs || []).forEach(tab => {
+                    if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATE', payload: changesToSend }, () => { void chrome.runtime.lastError; });
                 });
             });
         };
 
         const remaining = 50 - (now - lastNotifyTime);
         if (remaining <= 0) {
-            if (throttleTimer) {
-                clearTimeout(throttleTimer);
-                throttleTimer = null;
-            }
+            if (throttleTimer) { clearTimeout(throttleTimer); throttleTimer = null; }
             execute();
         } else if (!throttleTimer) {
             throttleTimer = setTimeout(execute, remaining);
@@ -84,525 +68,44 @@ document.addEventListener('DOMContentLoaded', () => {
             targetTabs.forEach(tab => {
                 if (!tab.id) {
                     checkedCount++;
-                    if (checkedCount === targetTabs.length && !trackFound) {
-                        if (typeof callback === 'function') callback(null);
+                    if (checkedCount === targetTabs.length && !trackFound && typeof callback === 'function') {
+                        callback(null);
                     }
                     return;
                 }
 
                 chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (response) => {
                     checkedCount++;
-                    if (chrome.runtime.lastError) {
-                        if (checkedCount === targetTabs.length && !trackFound) {
-                            if (typeof callback === 'function') callback(null);
-                        }
-                        return;
-                    }
+                    void chrome.runtime.lastError;
 
                     if (response && response.artist && response.title && !trackFound) {
                         state.currentActiveTrack = response;
                         trackFound = true;
                         if (typeof callback === 'function') callback(response);
-                    } else if (checkedCount === targetTabs.length && !trackFound) {
-                        if (typeof callback === 'function') callback(null);
+                    } else if (checkedCount === targetTabs.length && !trackFound && typeof callback === 'function') {
+                        callback(null);
                     }
                 });
             });
         });
     }
 
+    // Expose core tab messaging helpers
+    popup.notifyTab          = notifyTab;
+    popup.saveAndNotify      = saveAndNotify;
+    popup.refreshActiveTrack = refreshActiveTrack;
+
     // =========================================================
-    //  OFFSET DISPLAY HELPER
+    //  OFFSET DISPLAY HELPER & STEPPERS
     // =========================================================
     function updateOffsetDisplay(val) {
         state.currentEffectiveOffset = val;
-        el.offsetDisplay.textContent = (val > 0 ? '+' : '') + val;
-    }
-
-    // =========================================================
-    //  SEARCH RESULTS RENDERER
-    // =========================================================
-    function renderSearchResults(results, activeOverride) {
-        el.resultsContainer.innerHTML = '';
-
-        // LOCAL FILE CARD — shown when user has loaded a custom .lrc
-        if (activeOverride && activeOverride.type === 'local') {
-            const localItem = document.createElement('div');
-            localItem.id = 'local-file-card';
-            localItem.className = 'result-item active-lyric';
-            localItem.innerHTML = `
-                <div class="result-left">
-                    <div class="result-title lyrics-action-title">
-                        <span class="icon-mask icon-folder icon-size-14"></span>
-                        Local File Loaded
-                    </div>
-                    <div class="result-artist">Custom .lrc file</div>
-                </div>
-                <div class="result-right">
-                    <div class="dot-container"><div class="active-dot"></div></div>
-                    <div class="result-badges"><span class="result-badge">CUSTOM</span></div>
-                </div>
-            `;
-            el.resultsContainer.appendChild(localItem);
-        }
-
-        // AUTO-MATCH CARD — always present as the "reset to best match" option
-        const autoItem = document.createElement('div');
-        autoItem.id = 'auto-match-card';
-        autoItem.className = 'result-item';
-        autoItem.innerHTML = `
-            <div class="result-left">
-                <div class="result-title">↳ Auto (Best Match)</div>
-                <div class="result-artist">Reset to original search</div>
-            </div>
-            <div class="result-right">
-                <div class="dot-container"></div>
-            </div>
-        `;
-        el.resultsContainer.appendChild(autoItem);
-
-        // ACTIVE SOURCE CARD — shown when no explicit results yet and a lyric is already playing
-        if (results.length === 0 && state.activeSource && !(activeOverride && activeOverride.type === 'local')) {
-            const sourceLabel = state.activeSource.type === 'netease' 
-                ? 'NETEASE' 
-                : (state.activeSource.type === 'kugou' ? 'KUGOU' : 'LRCLIB');
-            const badgeClass  = state.activeSource.type === 'netease' 
-                ? 'badge-netease' 
-                : (state.activeSource.type === 'kugou' ? 'badge-kugou' : 'badge-lrclib');
-            const autoCard = document.createElement('div');
-            autoCard.className = 'result-item active-lyric';
-
-            const resLeft = document.createElement('div');
-            resLeft.className = 'result-left';
-            const resTitle = document.createElement('div');
-            resTitle.className = 'result-title';
-            resTitle.textContent = state.activeSource.name || 'Unknown';
-            const resArtist = document.createElement('div');
-            resArtist.className = 'result-artist';
-            resArtist.textContent = 'Auto-loaded · Click Search for more versions';
-            resLeft.append(resTitle, resArtist);
-
-            const resRight = document.createElement('div');
-            resRight.className = 'result-right';
-            const dotContainer = document.createElement('div');
-            dotContainer.className = 'dot-container';
-            const dot = document.createElement('div');
-            dot.className = `active-dot${state.activeSource.isEmpty ? ' active-dot--empty' : ''}`;
-            dotContainer.appendChild(dot);
-
-            const resBadges = document.createElement('div');
-            resBadges.className = 'result-badges';
-            const sourceBadge = document.createElement('span');
-            sourceBadge.className = `result-badge ${badgeClass}`;
-            sourceBadge.textContent = sourceLabel;
-            resBadges.appendChild(sourceBadge);
-
-            if (state.activeSource.type !== 'local') {
-                const sBadge = document.createElement('span');
-                if (state.activeSource.isEmpty) {
-                    sBadge.className = 'result-badge badge-empty';
-                    sBadge.textContent = 'EMPTY';
-                } else if (state.activeSource.synced) {
-                    sBadge.className = 'result-badge';
-                    sBadge.textContent = 'SYNCED';
-                } else {
-                    sBadge.className = 'result-badge badge-unsynced';
-                    sBadge.textContent = 'UNSYNCED';
-                }
-                resBadges.appendChild(sBadge);
-            }
-
-            resRight.append(dotContainer, resBadges);
-            autoCard.append(resLeft, resRight);
-            el.resultsContainer.appendChild(autoCard);
-            return;
-        }
-
-        // RESULT ITEM CARDS — one per search result
-        let foundActiveInList = false;
-
-        results.forEach(item => {
-            const duration = item.duration
-                ? `${Math.floor(item.duration / 60).toString().padStart(2, '0')}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}`
-                : '?:??';
-
-            const div = document.createElement('div');
-            div.className = 'result-item';
-
-            // Store data for event delegation on the container
-            div.dataset.source    = item.source;
-            div.dataset.id        = item.id;
-            div.dataset.accesskey = item.accesskey || '';
-            div.dataset.name      = item.name;
-
-            const isActiveOverride = activeOverride && activeOverride.type !== 'local'
-                && String(activeOverride.id) === String(item.id) && activeOverride.type === item.source;
-            const isActiveLive = !activeOverride && state.activeSource
-                && String(state.activeSource.id) === String(item.id) && state.activeSource.type === item.source;
-
-            const resLeft = document.createElement('div');
-            resLeft.className = 'result-left';
-            const resTitle = document.createElement('div');
-            resTitle.className = 'result-title';
-            resTitle.textContent = item.name;
-            const resArtist = document.createElement('div');
-            resArtist.className = 'result-artist';
-            resArtist.textContent = `${item.artistName} • ${item.albumName || 'Unknown Album'}`;
-            resLeft.append(resTitle, resArtist);
-
-            const resRight = document.createElement('div');
-            resRight.className = 'result-right';
-            const dotContainer = document.createElement('div');
-            dotContainer.className = 'dot-container';
-
-            const resBadges = document.createElement('div');
-            resBadges.className = 'result-badges';
-            if (item.badgeHtml) {
-                const parsedBadges = new DOMParser().parseFromString(`<body>${item.badgeHtml}</body>`, 'text/html');
-                resBadges.append(...parsedBadges.body.childNodes);
-            }
-
-            const resDuration = document.createElement('div');
-            resDuration.className = 'result-duration';
-            resDuration.textContent = duration;
-
-            resRight.append(dotContainer, resBadges, resDuration);
-            div.append(resLeft, resRight);
-
-            if (isActiveOverride || isActiveLive) {
-                const isItemEmpty = item.isEmpty || (state.activeSource && String(state.activeSource.id) === String(item.id) && state.activeSource.type === item.source && state.activeSource.isEmpty);
-                div.classList.add('active-lyric');
-                const dot = document.createElement('div');
-                dot.className = isItemEmpty ? 'active-dot active-dot--empty' : 'active-dot';
-                div.querySelector('.dot-container').appendChild(dot);
-                foundActiveInList = true;
-            }
-            el.resultsContainer.appendChild(div);
-        });
-
-        // If the user hasn't explicitly chosen a lyric (no override) and the auto-loaded lyric
-        // wasn't found in this search result list, highlight the Auto fallback card so the user
-        // still sees what is actively playing.
-        if (!activeOverride && results.length > 0 && !foundActiveInList) {
-            autoItem.classList.add('active-lyric');
-            const dot = document.createElement('div');
-            dot.className = 'active-dot';
-            const dotContainer = autoItem.querySelector('.dot-container');
-            if (dotContainer) dotContainer.appendChild(dot);
+        if (el.offsetDisplay) {
+            el.offsetDisplay.textContent = (val > 0 ? '+' : '') + val;
         }
     }
+    popup.updateOffsetDisplay = updateOffsetDisplay;
 
-    // Expose renderer so popup-ui.js (ACTIVE_LYRIC_CHANGED handler below)
-    // and other modules can re-render without duplication.
-    popup.renderSearchResults = renderSearchResults;
-
-    // =========================================================
-    //  RESULT CONTAINER — EVENT DELEGATION
-    //  One click listener on the container handles all result clicks
-    //  without per-item listener memory overhead.
-    // =========================================================
-    el.resultsContainer.addEventListener('click', (e) => {
-        const item = e.target.closest('.result-item');
-        // Ignore clicks that aren't on result items or are on the read-only local card
-        if (!item || item.id === 'local-file-card' || item.id === 'deep-search-indicator') return;
-
-        refreshActiveTrack((track) => {
-            if (!track) {
-                alert('No active track found.');
-                return;
-            }
-
-            if (item.id === 'auto-match-card') {
-                const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
-                    ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
-                    : null;
-                saveAndNotify({ trackKey: trackKey, lyricOverride: null });
-                const spinner = document.createElement('div');
-                spinner.className = 'sync-spinner';
-                const dotContainer = item.querySelector('.dot-container');
-                if (dotContainer) {
-                    dotContainer.querySelectorAll('.active-dot, .failed-dot, .sync-spinner').forEach(el => el.remove());
-                    dotContainer.appendChild(spinner);
-                }
-                return;
-            }
-
-            // Standard result — save the chosen source/id override
-            const source    = item.dataset.source;
-            const id        = item.dataset.id;
-            const accesskey = item.dataset.accesskey;
-
-            if (source && id) {
-                const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
-                    ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
-                    : null;
-                const overridePayload = { type: source, id: id };
-                if (source === 'kugou' && accesskey) {
-                    overridePayload.accesskey = accesskey;
-                }
-                saveAndNotify({ 
-                    trackKey: trackKey,
-                    lyricOverride: overridePayload 
-                });
-                const spinner = document.createElement('div');
-                spinner.className = 'sync-spinner';
-                const dotContainer = item.querySelector('.dot-container');
-                if (dotContainer) {
-                    dotContainer.querySelectorAll('.active-dot, .failed-dot, .sync-spinner').forEach(el => el.remove());
-                    dotContainer.appendChild(spinner);
-                }
-            }
-        });
-    });
-
-    // =========================================================
-    //  SEARCH HANDLER
-    // =========================================================
-    el.searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') el.searchBtn.click();
-    });
-
-    el.searchBtn.addEventListener('click', async () => {
-        const query = el.searchInput.value.trim();
-        if (!query) return;
-
-        state.activeSearchQuery = query;
-        el.searchBtn.textContent = '...';
-        el.searchBtn.setAttribute('aria-busy', 'true');
-        el.searchBtn.setAttribute('aria-label', 'Searching…');
-        el.resultsContainer.innerHTML = '<div class="status-msg">Searching...</div>';
-
-        // Fetch latest active track metadata from open music tabs first
-        try {
-            const tabs = await new Promise(resolve => {
-                chrome.tabs.query({ url: ['*://open.spotify.com/*', '*://music.youtube.com/*'] }, resolve);
-            });
-            if (tabs && tabs.length > 0) {
-                for (const tab of tabs) {
-                    if (!tab.id) continue;
-                    try {
-                        const response = await new Promise((resolveMsg) => {
-                            chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (res) => {
-                                if (chrome.runtime.lastError) {
-                                    resolveMsg(null);
-                                } else {
-                                    resolveMsg(res);
-                                }
-                            });
-                        });
-                        if (response && response.artist && response.title) {
-                            state.currentActiveTrack = response;
-                            break;
-                        }
-                    } catch (err) {
-                        // Ignore and try next tab
-                    }
-                }
-            }
-        } catch (err) {
-            // Ignore tab query errors
-        }
-
-        try {
-            // Build scoring hints from the active track's clean metadata
-            const cleanArtist  = state.currentActiveTrack?.primaryArtist || state.currentActiveTrack?.artist || '';
-            const cleanTitleStr = state.currentActiveTrack?.cleanTitle   || state.currentActiveTrack?.title   || '';
-            const duration      = state.currentActiveTrack?.duration || 0;
-
-            const response = await new Promise(resolve =>
-                chrome.runtime.sendMessage({
-                    type: 'UNIFIED_SEARCH',
-                    payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 5000 }
-                }, (res) => {
-                    void chrome.runtime.lastError;
-                    resolve(res);
-                })
-            );
-
-            if (state.activeSearchQuery !== query) return;
-
-            const buildBadgeHtml = (item) => {
-                const isItemEmpty = item.isEmpty || (state.activeSource && state.activeSource.type === item.source && String(state.activeSource.id) === String(item.id) && state.activeSource.isEmpty);
-                let sourceBadge = '';
-                if (item.source === 'api') {
-                    sourceBadge = `<span class="result-badge badge-lrclib">LRCLIB</span>`;
-                } else if (item.source === 'netease') {
-                    sourceBadge = `<span class="result-badge badge-netease">NETEASE</span>`;
-                } else if (item.source === 'kugou') {
-                    sourceBadge = `<span class="result-badge badge-kugou">KUGOU</span>`;
-                }
-                let statusBadge = '';
-                if (isItemEmpty) {
-                    statusBadge = `<span class="result-badge badge-empty">EMPTY</span>`;
-                } else if (item.source === 'api') {
-                    statusBadge = item.synced
-                        ? `<span class="result-badge">SYNCED</span>`
-                        : `<span class="result-badge badge-unsynced">UNSYNCED</span>`;
-                }
-                return sourceBadge + statusBadge;
-            };
-
-            const results = (response?.results || []).map(item => ({
-                ...item,
-                badgeHtml: buildBadgeHtml(item)
-            }));
-
-            const hasTimeout = !!response?.hasTimeout;
-
-            if (results.length === 0 && !hasTimeout) {
-                el.resultsContainer.innerHTML = '<div class="status-msg">No results found.</div>';
-                return;
-            }
-
-            state.currentResults = results;
-            const trackKey = `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`;
-            if (results.length > 0) {
-                storage.set({ lastSearch: { key: trackKey, query: query, results: results } });
-            }
-
-            storage.get({ lyricsOverrides: {} }, (items) => {
-                if (state.activeSearchQuery !== query) return;
-
-                const override = (items.lyricsOverrides || {})[trackKey] || null;
-                renderSearchResults(results, override);
-
-                if (hasTimeout) {
-                    // Show spinning deep-search indicator at the top of results
-                    const deepSearchCard = document.createElement('div');
-                    deepSearchCard.id = 'deep-search-indicator';
-                    deepSearchCard.className = 'result-item';
-                    deepSearchCard.innerHTML = `
-                        <div class="deep-search-label-row">
-                            <div class="sync-spinner"></div>
-                            Deep search running...
-                        </div>
-                    `;
-                    el.resultsContainer.insertBefore(deepSearchCard, el.resultsContainer.firstChild);
-                    el.resultsContainer.scrollTop = 0;
-
-                    // Background search with 30 s timeout — merges with initial results
-                    chrome.runtime.sendMessage({
-                        type: 'UNIFIED_SEARCH',
-                        payload: { query, duration, cleanArtist, cleanTitle: cleanTitleStr, timeoutMs: 30000 }
-                    }, (secondResponse) => {
-                        if (chrome.runtime.lastError) return;
-                        if (state.activeSearchQuery !== query) return;
-
-                        const secondResults = (secondResponse?.results || []).map(item => ({
-                            ...item,
-                            badgeHtml: buildBadgeHtml(item)
-                        }));
-
-                        // Merge: second results first, then unique first results
-                        const finalResults = [];
-                        const seen = new Set();
-                        secondResults.forEach(item => {
-                            const key = `${item.source}-${item.id}`;
-                            if (!seen.has(key)) { seen.add(key); finalResults.push(item); }
-                        });
-                        results.forEach(item => {
-                            const key = `${item.source}-${item.id}`;
-                            if (!seen.has(key)) { seen.add(key); finalResults.push(item); }
-                        });
-
-                        if (finalResults.length === 0) {
-                            el.resultsContainer.innerHTML = '<div class="status-msg">No results found.</div>';
-                            return;
-                        }
-
-                        state.currentResults = finalResults;
-                        storage.set({ lastSearch: { key: trackKey, query: query, results: finalResults } });
-
-                        // Query storage for the latest lyricsOverrides to avoid using a stale closure variable
-                        storage.get({ lyricsOverrides: {} }, (newItems) => {
-                            if (state.activeSearchQuery !== query) return;
-                            const latestOverride = (newItems.lyricsOverrides || {})[trackKey] || null;
-                            renderSearchResults(finalResults, latestOverride);
-                        });
-                    });
-                }
-            });
-
-        } catch (e) {
-            el.resultsContainer.innerHTML = '<div class="status-msg--error">Search failed.</div>';
-        } finally {
-            el.searchBtn.textContent = 'Search';
-            el.searchBtn.removeAttribute('aria-busy');
-            el.searchBtn.removeAttribute('aria-label');
-        }
-    });
-
-    // =========================================================
-    //  LOCAL FILE UPLOAD
-    // =========================================================
-    el.localUpload.addEventListener('click', (e) => {
-        if (!state.currentActiveTrack || !state.currentActiveTrack.artist || !state.currentActiveTrack.title) {
-            e.preventDefault();
-            alert('No active track found.');
-        }
-    });
-
-    el.localUpload.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            const rawText = ev.target.result;
-            const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
-                ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
-                : null;
-            saveAndNotify({ trackKey: trackKey, lyricOverride: { type: 'local', data: rawText } });
-            renderSearchResults(state.currentResults, { type: 'local' });
-        };
-        reader.readAsText(file);
-    });
-
-    // =========================================================
-    //  EDIT / ADD LYRICS BUTTON
-    // =========================================================
-    el.editLyricBtn.addEventListener('click', () => {
-        if (!state.currentActiveTrack || !state.currentActiveTrack.artist || !state.currentActiveTrack.title) {
-            alert('No active track found.');
-            return;
-        }
-
-        const editorUrl = chrome.runtime.getURL('src/pages/editor.html');
-        chrome.tabs.query({ url: editorUrl }, (tabs) => {
-            if (tabs && tabs.length > 0) {
-                const tab = tabs[0];
-                chrome.windows.update(tab.windowId, { focused: true });
-
-                // Query editor tab status to check if it's editing the same track
-                chrome.tabs.sendMessage(tab.id, { type: 'GET_EDITOR_STATUS' }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        // Editor might be loading or unresponsive — trigger reload
-                        chrome.tabs.reload(tab.id);
-                        return;
-                    }
-                    if (response && response.artist === state.currentActiveTrack.artist
-                               && response.title  === state.currentActiveTrack.title) {
-                        // Same track — focusing the window is enough
-                        return;
-                    }
-                    // Different track — reload to load new lyrics
-                    chrome.tabs.reload(tab.id);
-                });
-            } else {
-                chrome.windows.create({
-                    url: editorUrl,
-                    type: 'popup',
-                    width: 550,
-                    height: 650,
-                    focused: true
-                });
-            }
-        });
-    });
-
-    // =========================================================
-    //  SYNC OFFSET CONTROLS
-    // =========================================================
     function adjustOffset(delta) {
         const newOffset = state.currentEffectiveOffset + delta;
         updateOffsetDisplay(newOffset);
@@ -612,25 +115,16 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAndNotify({ trackKey: trackKey, syncOffset: newOffset });
     }
 
-    /**
-     * Makes a button trigger once on click and continuously while held.
-     * First tick fires immediately; rapid ticks begin after 400 ms.
-     */
     function setupHoldButton(btnElement, delta) {
+        if (!btnElement) return;
         let intervalId = null;
         let timeoutId  = null;
 
         const start = (e) => {
-            // Prevent default touch behaviors (scrolling, double-tap zoom)
             if (e && e.type === 'touchstart') e.preventDefault();
-
-            adjustOffset(delta);  // one instant tick
-
-            // Wait 400 ms to see if user is holding
+            adjustOffset(delta);
             timeoutId = setTimeout(() => {
-                intervalId = setInterval(() => {
-                    adjustOffset(delta);
-                }, 50); // fast continuous speed
+                intervalId = setInterval(() => { adjustOffset(delta); }, 50);
             }, 400);
         };
 
@@ -641,216 +135,212 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btnElement.addEventListener('mousedown', start);
         btnElement.addEventListener('touchstart', start, { passive: false });
-        btnElement.addEventListener('mouseup',    stop);
-        btnElement.addEventListener('mouseleave', stop);
-        btnElement.addEventListener('touchend',   stop);
+        ['mouseup', 'mouseleave', 'touchend'].forEach(evt => btnElement.addEventListener(evt, stop));
     }
 
     setupHoldButton(el.offsetMinus, -100);
     setupHoldButton(el.offsetPlus,   100);
 
-    el.globalOffsetSetBtn.addEventListener('click', () => {
-        const val = parseInt(el.globalOffsetInput.value, 10);
-        if (!isNaN(val)) {
-            state.currentGlobalOffset = val;
-            saveAndNotify({ globalSyncOffset: val });
+    if (el.globalOffsetSetBtn) {
+        el.globalOffsetSetBtn.addEventListener('click', () => {
+            const val = parseInt(el.globalOffsetInput.value, 10);
+            if (!isNaN(val)) {
+                state.currentGlobalOffset = val;
+                saveAndNotify({ globalSyncOffset: val });
 
-            el.globalOffsetSetBtn.textContent = 'Saved!';
-            el.globalOffsetSetBtn.classList.add('saved');
-            setTimeout(() => {
-                el.globalOffsetSetBtn.textContent = 'Set Global';
-                el.globalOffsetSetBtn.classList.remove('saved');
-            }, 1000);
-        }
-    });
+                el.globalOffsetSetBtn.textContent = 'Saved!';
+                el.globalOffsetSetBtn.classList.add('saved');
+                setTimeout(() => {
+                    el.globalOffsetSetBtn.textContent = 'Set Global';
+                    el.globalOffsetSetBtn.classList.remove('saved');
+                }, 1000);
+            }
+        });
+    }
 
-    el.globalOffsetInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            el.globalOffsetSetBtn.click();
-        }
-    });
+    if (el.globalOffsetInput) {
+        el.globalOffsetInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                el.globalOffsetSetBtn.click();
+            }
+        });
+    }
 
     // =========================================================
-    //  REQUEST CURRENT STATE FROM CONTENT SCRIPT (on popup open)
+    //  LOCAL FILE UPLOAD & EDIT MODAL
+    // =========================================================
+    if (el.localUpload) {
+        el.localUpload.addEventListener('click', (e) => {
+            if (!state.currentActiveTrack || !state.currentActiveTrack.artist || !state.currentActiveTrack.title) {
+                e.preventDefault();
+                alert('No active track found.');
+            }
+        });
+
+        el.localUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const rawText = ev.target.result;
+                const trackKey = state.currentActiveTrack?.artist && state.currentActiveTrack?.title
+                    ? `${state.currentActiveTrack.artist} - ${state.currentActiveTrack.title}`
+                    : null;
+                saveAndNotify({ trackKey: trackKey, lyricOverride: { type: 'local', data: rawText } });
+                if (typeof popup.renderSearchResults === 'function') {
+                    popup.renderSearchResults(state.currentResults, { type: 'local' });
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    if (el.editLyricBtn) {
+        el.editLyricBtn.addEventListener('click', () => {
+            if (!state.currentActiveTrack || !state.currentActiveTrack.artist || !state.currentActiveTrack.title) {
+                alert('No active track found.');
+                return;
+            }
+
+            const editorUrl = chrome.runtime.getURL('src/pages/editor.html');
+            chrome.tabs.query({ url: editorUrl }, (tabs) => {
+                if (tabs && tabs.length > 0) {
+                    const tab = tabs[0];
+                    chrome.windows.update(tab.windowId, { focused: true });
+                    chrome.tabs.sendMessage(tab.id, { type: 'GET_EDITOR_STATUS' }, (response) => {
+                        if (chrome.runtime.lastError || !(response && response.artist === state.currentActiveTrack.artist && response.title === state.currentActiveTrack.title)) {
+                            chrome.tabs.reload(tab.id);
+                        }
+                    });
+                } else {
+                    chrome.windows.create({
+                        url: editorUrl,
+                        type: 'popup',
+                        width: 550,
+                        height: 650,
+                        focused: true
+                    });
+                }
+            });
+        });
+    }
+
+    // =========================================================
+    //  INIT CURRENT STATE FROM CONTENT SCRIPT
     // =========================================================
     chrome.tabs.query({ url: ['*://open.spotify.com/*', '*://music.youtube.com/*'] }, (tabs) => {
         let trackFound = false;
-
-        tabs.forEach(tab => {
+        (tabs || []).forEach(tab => {
             if (!tab.id) return;
 
-            // Sync offset: just read what the content script is currently using
-            chrome.tabs.sendMessage(tab.id, { type: 'GET_SYNC_OFFSET' }, (response) => {
-                if (chrome.runtime.lastError) return;
-                if (response && response.syncOffset !== undefined && !trackFound) {
-                    updateOffsetDisplay(response.syncOffset);
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_SYNC_OFFSET' }, (res) => {
+                void chrome.runtime.lastError;
+                if (res && res.syncOffset !== undefined && !trackFound) {
+                    updateOffsetDisplay(res.syncOffset);
                 }
             });
 
-            // Active lyric source (for highlighting the correct result card)
-            chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_LYRIC' }, (response) => {
-                if (chrome.runtime.lastError) return;
-                if (response && response.source) {
-                    state.activeSource = response.source;
-                }
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_LYRIC' }, (res) => {
+                void chrome.runtime.lastError;
+                if (res && res.source) state.activeSource = res.source;
             });
 
-            // Current track — populate search box and restore last search
-            chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (response) => {
-                if (chrome.runtime.lastError) return;
-                if (trackFound) return;
+            chrome.tabs.sendMessage(tab.id, { type: 'GET_CURRENT_TRACK' }, (res) => {
+                void chrome.runtime.lastError;
+                if (trackFound || !res || !res.artist || !res.title) return;
 
-                if (response && response.artist && response.title) {
-                    trackFound = true;
-                    state.currentActiveTrack = response;
-                    const trackKey = `${response.artist} - ${response.title}`;
+                trackFound = true;
+                state.currentActiveTrack = res;
+                const trackKey = `${res.artist} - ${res.title}`;
+                const cleanQuery = `${res.primaryArtist || res.artist} - ${res.cleanTitle || res.title}`;
 
-                    const displayArtist = response.primaryArtist || response.artist;
-                    const displayTitle  = response.cleanTitle    || response.title;
-                    const cleanQuery    = `${displayArtist} - ${displayTitle}`;
+                storage.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
+                    const override = (items.lyricsOverrides || {})[trackKey] || null;
 
-                    storage.get({ lastSearch: null, lyricsOverrides: {} }, (items) => {
-                        const override = (items.lyricsOverrides || {})[trackKey] || null;
+                    if (el.searchInput) {
+                        el.searchInput.value = (items.lastSearch && items.lastSearch.key === trackKey)
+                            ? (items.lastSearch.query || cleanQuery)
+                            : cleanQuery;
+                    }
 
+                    if (typeof popup.renderSearchResults === 'function') {
                         if (items.lastSearch && items.lastSearch.key === trackKey && items.lastSearch.results?.length) {
-                            // Restore the last explicit search query the user typed
-                            el.searchInput.value  = items.lastSearch.query || cleanQuery;
-                            state.currentResults  = items.lastSearch.results;
-                            renderSearchResults(state.currentResults, override);
+                            state.currentResults = items.lastSearch.results;
+                            popup.renderSearchResults(state.currentResults, override);
                         } else if (override && override.type === 'local') {
-                            el.searchInput.value = cleanQuery;
-                            renderSearchResults([], override);
-                        } else {
-                            el.searchInput.value = cleanQuery;
-                            if (state.activeSource) renderSearchResults([], null);
+                            popup.renderSearchResults([], override);
+                        } else if (state.activeSource) {
+                            popup.renderSearchResults([], null);
                         }
-                    });
-                }
+                    }
+                });
             });
         });
     });
 
     // =========================================================
     //  RUNTIME MESSAGE LISTENER
-    //  Handles live pushes from the content script so the popup
-    //  stays in sync while it is open.
     // =========================================================
     chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg.type === 'SETTINGS_UPDATE') {
-            if (msg.payload.syncOffset !== undefined) {
-                updateOffsetDisplay(msg.payload.syncOffset);
-            }
+            if (msg.payload.syncOffset !== undefined) updateOffsetDisplay(msg.payload.syncOffset);
             if (msg.payload.globalSyncOffset !== undefined) {
                 state.currentGlobalOffset = msg.payload.globalSyncOffset;
-                el.globalOffsetInput.value = state.currentGlobalOffset;
+                if (el.globalOffsetInput) el.globalOffsetInput.value = state.currentGlobalOffset;
             }
         } else if (msg.type === 'FONT_LOADED_IN_PIP') {
-            const { fontName, success } = msg.payload;
-            // Delegated to popup-visuals.js via the exposed namespace function
             if (typeof popup.onFontFinishedLoading === 'function') {
-                popup.onFontFinishedLoading(fontName, success !== false);
+                popup.onFontFinishedLoading(msg.payload.fontName, msg.payload.success !== false);
             }
         } else if (msg.type === 'ACTIVE_TRACK_CHANGED') {
             state.currentActiveTrack = msg.payload || { artist: '', title: '' };
-            if (msg.payload) {
-                const displayArtist = msg.payload.primaryArtist || msg.payload.artist;
-                const displayTitle  = msg.payload.cleanTitle    || msg.payload.title;
-                el.searchInput.value = `${displayArtist} - ${displayTitle}`;
-            } else {
-                el.searchInput.value = '';
+            if (el.searchInput) {
+                el.searchInput.value = msg.payload
+                    ? `${msg.payload.primaryArtist || msg.payload.artist} - ${msg.payload.cleanTitle || msg.payload.title}`
+                    : '';
             }
         } else if (msg.type === 'ACTIVE_LYRIC_CHANGED') {
             state.activeSource = msg.payload;
-            // Remove spinners from result items, but preserve the deep search indicator spinner
+            if (!el.resultsContainer) return;
+
             el.resultsContainer.querySelectorAll('.result-item:not(#deep-search-indicator) .sync-spinner').forEach(s => s.remove());
             el.resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
             el.resultsContainer.querySelectorAll('.result-item').forEach(d => d.classList.remove('active-lyric'));
 
             if (state.activeSource) {
-                let activeItem = null;
-                if (state.activeSource.type === 'local') {
-                    activeItem = el.resultsContainer.querySelector('#local-file-card');
-                } else {
-                    activeItem = el.resultsContainer.querySelector(
-                        `[data-id="${state.activeSource.id}"][data-source="${state.activeSource.type}"]`
-                    );
-                }
+                const activeItem = state.activeSource.type === 'local'
+                    ? el.resultsContainer.querySelector('#local-file-card')
+                    : (el.resultsContainer.querySelector(`[data-id="${state.activeSource.id}"][data-source="${state.activeSource.type}"]`)
+                       || (!state.activeSource.id ? el.resultsContainer.querySelector('#auto-match-card') : null));
 
                 if (activeItem) {
                     activeItem.classList.add('active-lyric');
                     const dot = document.createElement('div');
                     dot.className = state.activeSource.isEmpty ? 'active-dot active-dot--empty' : 'active-dot';
-                    const dotContainer = activeItem.querySelector('.dot-container');
-                    if (dotContainer) dotContainer.appendChild(dot);
-
-                    // Dynamically update the provider badge to show EMPTY if the lyric is empty
-                    if (state.activeSource.isEmpty) {
-                        const badgesContainer = activeItem.querySelector('.result-badges');
-                        if (badgesContainer) {
-                            if (!badgesContainer.querySelector('.badge-empty')) {
-                                const pType = state.activeSource.type;
-                                badgesContainer.textContent = '';
-                                const provBadge = document.createElement('span');
-                                provBadge.className = `result-badge badge-${pType === 'netease' ? 'netease' : (pType === 'kugou' ? 'kugou' : 'lrclib')}`;
-                                provBadge.textContent = pType === 'netease' ? 'NETEASE' : (pType === 'kugou' ? 'KUGOU' : 'LRCLIB');
-
-                                const emptyBadge = document.createElement('span');
-                                emptyBadge.className = 'result-badge badge-empty';
-                                emptyBadge.textContent = 'EMPTY';
-
-                                badgesContainer.append(provBadge, emptyBadge);
-                            }
-                        }
-                    }
-                } else if (!state.activeSource.id) {
-                    // Fallback to auto match card if no specific ID matched
-                    const autoItem = el.resultsContainer.querySelector('#auto-match-card');
-                    if (autoItem) {
-                        autoItem.classList.add('active-lyric');
-                        const dot = document.createElement('div');
-                        dot.className = 'active-dot';
-                        const dotContainer = autoItem.querySelector('.dot-container');
-                        if (dotContainer) dotContainer.appendChild(dot);
-                    }
+                    activeItem.querySelector('.dot-container')?.appendChild(dot);
                 }
             }
         } else if (msg.type === 'LYRIC_FETCH_FAILED') {
             const { override } = msg.payload;
-            if (override && override.type !== 'local') {
-                const failedItem = el.resultsContainer.querySelector(
-                    `[data-id="${override.id}"][data-source="${override.type}"]`
-                );
+            if (override && override.type !== 'local' && el.resultsContainer) {
+                const failedItem = el.resultsContainer.querySelector(`[data-id="${override.id}"][data-source="${override.type}"]`);
                 if (failedItem) {
-                    failedItem.querySelectorAll('.sync-spinner').forEach(s => s.remove());
-                    failedItem.querySelectorAll('.active-dot').forEach(d => d.remove());
-                    failedItem.querySelectorAll('.failed-dot').forEach(d => d.remove());
-
+                    failedItem.querySelectorAll('.sync-spinner, .active-dot, .failed-dot').forEach(s => s.remove());
                     const dotContainer = failedItem.querySelector('.dot-container');
                     if (dotContainer) {
                         const failedDot = document.createElement('div');
                         failedDot.className = 'failed-dot';
-                        failedDot.innerHTML = '✕';
+                        failedDot.textContent = '✕';
                         dotContainer.appendChild(failedDot);
                     }
                 }
             }
         }
 
-        if (msg.type === 'SETTINGS_UPDATE' ||
-            msg.type === 'FONT_LOADED_IN_PIP' ||
-            msg.type === 'ACTIVE_TRACK_CHANGED' ||
-            msg.type === 'ACTIVE_LYRIC_CHANGED' ||
-            msg.type === 'LYRIC_FETCH_FAILED') {
-            if (typeof sendResponse === 'function') {
-                sendResponse({ success: true });
-            }
+        if (['SETTINGS_UPDATE', 'FONT_LOADED_IN_PIP', 'ACTIVE_TRACK_CHANGED', 'ACTIVE_LYRIC_CHANGED', 'LYRIC_FETCH_FAILED'].includes(msg.type)) {
+            if (typeof sendResponse === 'function') sendResponse({ success: true });
         }
     });
-
-    // Expose helpers for cross-module use
-    popup.notifyTab           = notifyTab;
-    popup.saveAndNotify       = saveAndNotify;
-    popup.refreshActiveTrack  = refreshActiveTrack;
-    popup.updateOffsetDisplay = updateOffsetDisplay;
 });

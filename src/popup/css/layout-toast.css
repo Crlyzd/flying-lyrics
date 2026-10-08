@@ -1,0 +1,83 @@
+/* =========================================================
+ *  REVIEW TOAST BANNER
+ * ========================================================= */
+
+/* Outer positioning wrapper — adds margin inside the popup-slides context */
+.review-toast-margin {
+    margin: 12px 15px 0 15px;
+}
+
+#review-toast {
+    display: none;
+    flex-direction: row;
+    /* row: text-body left, ✕ right */
+    align-items: center;
+    /* ✕ vertically centred */
+    gap: 10px;
+    background: rgba(29, 185, 84, 0.1);
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 8px;
+    padding: 9px 10px 7px 12px;
+    margin-bottom: 0;
+    transition: background 0.2s;
+}
+
+#review-toast:hover {
+    background: rgba(29, 185, 84, 0.15);
+}
+
+/* Left column: the two text lines stacked, left-aligned */
+#review-toast-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+/* Line 1: main message */
+#review-toast-text {
+    font-size: 11px;
+    color: #1DB954;
+    font-weight: 700;
+    cursor: pointer;
+    line-height: 1.3;
+}
+
+/* Line 2: snooze */
+#snooze-review-toast {
+    font-size: 10px;
+    color: #aaa;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: color 0.15s;
+}
+
+#snooze-review-toast:hover {
+    color: #fff;
+}
+
+/* Right side: ✕ vertically centred by parent align-items: center */
+#close-review-toast {
+    flex-shrink: 0;
+    color: #777;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px;
+    transition: color 0.15s;
+}
+
+#close-review-toast:hover {
+    color: #aaa;
+}
+
+/* Review toast — shown via class toggle instead of inline style */
+#review-toast.review-toast--visible {
+    display: flex;
+}
+
+/* When the review toast is visible, reduce the max-height of tab-content to prevent double scrollbars */
+#review-toast.review-toast--visible+.tab-content {
+    max-height: 420px;
+}

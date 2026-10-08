@@ -1,0 +1,139 @@
+/* =========================================================
+ *  FIXED HEADER & TAB SYSTEM
+ * ========================================================= */
+.popup-header-fixed {
+    position: sticky;
+    top: 0;
+    background-color: var(--header-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+
+.logo-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-link {
+    display: inline-block;
+    text-decoration: none;
+    outline: none;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.logo-row h2 {
+    margin: 0;
+    padding: 12px 15px 8px 15px;
+    font-size: 16px;
+    text-align: center;
+    color: var(--accent-foreground) !important;
+    text-shadow: 0 0 8px var(--accent-glow);
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.3s, text-shadow 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+.logo-link:hover h2,
+.logo-link:focus-visible h2 {
+    opacity: 0.92;
+    transform: translateY(-1px) scale(1.02);
+}
+
+.logo-link:active h2 {
+    transform: translateY(0) scale(0.98);
+}
+
+.tab-bar {
+    display: flex;
+    background-color: rgba(22, 22, 22, 0.35);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 8px 0 6px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 10px;
+    font-family: inherit;
+    font-weight: 600;
+    transition: color 0.2s, background-color 0.2s;
+    outline: none;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn svg {
+    transition: transform 0.2s;
+}
+
+.tab-btn:hover {
+    color: #ccc;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.tab-btn:hover svg {
+    transform: scale(1.08);
+}
+
+.tab-btn.active {
+    color: var(--accent-foreground);
+    border-bottom-color: var(--accent);
+    background-color: var(--accent-bg);
+}
+
+/* =========================================================
+ *  HEADER (Backwards compatibility — legacy .popup-header class)
+ * ========================================================= */
+.popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.popup-header h2 {
+    margin: 0;
+    font-size: 18px;
+    text-align: center;
+    color: var(--accent-foreground);
+    flex: 1;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 17px;
+    line-height: 1;
+    transition: background 0.18s, color 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: #282828;
+    color: white;
+}
+
+.icon-btn.phantom {
+    visibility: hidden;
+    pointer-events: none;
+}

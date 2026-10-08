@@ -16,7 +16,6 @@ body {
     background-color: #121212;
 }
 
-
 #bg-cover {
     position: absolute;
     inset: -20px;
@@ -35,37 +34,29 @@ body {
     position: absolute;
     inset: 0;
     background: #000;
-    opacity: 0.5;
-    /* default; overridden inline by JS */
-    z-index: 2;
-    /* same layer as bg-cover, rendered after it */
+    opacity: 0.5; /* default; overridden inline by JS */
+    z-index: 2; /* same layer as bg-cover, rendered after it */
     pointer-events: none;
     transition: opacity 0.4s ease;
 }
 
 #center-art {
     position: absolute;
-    /* Match Video PiP size (65% of viewport min dimension) */
-    width: 65vmin;
+    width: 65vmin; /* Match Video PiP size (65% of viewport min dimension) */
     height: 65vmin;
     --min-art-size: 200px;
     min-width: var(--min-art-size);
     min-height: var(--min-art-size);
     max-width: 100vmin;
     max-height: 100vmin;
-    /* Center horizontally and vertically */
-    top: 50%;
+    top: 50%; /* Center horizontally and vertically */
     left: 50%;
     transform: translate(-50%, -50%);
-    /* Soft blurred shadow matching Video PiP (2vmin offset, 8vmin blur) */
-    filter: drop-shadow(0 2vmin 8vmin rgba(0, 0, 0, 0.65));
-    /* Corner radius matching Video PiP (4.5% corner radius) */
-    border-radius: 4.5vmin;
+    filter: drop-shadow(0 2vmin 8vmin rgba(0, 0, 0, 0.65)); /* Soft blurred shadow (2vmin offset, 8vmin blur) */
+    border-radius: 4.5vmin; /* Corner radius matching Video PiP (4.5% corner radius) */
     object-fit: contain;
-    display: none;
-    /* hidden by default, shown only in centered mode */
-    z-index: 1;
-    /* above bg-cover, below lyricCanvas */
+    display: none; /* hidden by default, shown only in centered mode */
+    z-index: 1; /* above bg-cover, below lyricCanvas */
     opacity: 0;
     transition: opacity 0.5s ease;
     pointer-events: none;
@@ -228,13 +219,9 @@ body:hover #ui-container,
     top: 0;
     left: 0;
     right: 0;
-    height: 55%;
-    /* Covers the top half */
-    background: linear-gradient(to bottom,
-            #202124 0%,
-            transparent 100%);
-    opacity: 0.25;
-    /* Subtle glow, not overwhelming */
+    height: 55%; /* Covers the top half */
+    background: linear-gradient(to bottom, #202124 0%, transparent 100%);
+    opacity: 0.25; /* Subtle glow, not overwhelming */
     z-index: 1;
     pointer-events: none;
 }
@@ -268,11 +255,9 @@ body:hover #ui-container,
     width: 380px;
     height: 380px;
     z-index: 1;
-    background: 
-        radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent-1) 42%, #ffffff) 0%, transparent 60%),
+    background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--accent-1) 42%, #ffffff) 0%, transparent 60%),
         radial-gradient(circle at 65% 35%, color-mix(in srgb, var(--accent-2) 36%, #ffffff) 0%, transparent 60%),
-        radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--accent-3) 38%, #ffffff) 0%, transparent 65%),
-        #ffffff;
+        radial-gradient(circle at 50% 65%, color-mix(in srgb, var(--accent-3) 38%, #ffffff) 0%, transparent 65%), #ffffff;
     transform: translate(-50%, -50%) rotate(0deg);
     animation: circle-rotate 9s linear infinite;
     pointer-events: none;
@@ -289,8 +274,6 @@ body:hover #ui-container,
     line-height: 1.1;
 }
 
-
-
 @keyframes circle-rotate {
     0% { transform: translate(-50%, -50%) rotate(0deg); }
     100% { transform: translate(-50%, -50%) rotate(360deg); }
@@ -304,14 +287,12 @@ body:hover #ui-container,
     line-height: 1.4;
     max-width: 80%;
     position: relative;
-    /* Stack above ::before gradient */
-    z-index: 2;
+    z-index: 2; /* Stack above ::before gradient */
     flex-shrink: 0;
 }
 
 /* Activate Overlay when too small */
-@media (max-width: 139px),
-(max-height: 139px) {
+@media (max-width: 139px), (max-height: 139px) {
     #size-warning {
         display: flex;
     }
@@ -363,22 +344,5 @@ body:hover #ui-container,
     .warning-subtext {
         font-size: 8px;
         max-width: 98%;
-    }
-}
-
-@keyframes pill-glow {
-    0% {
-        background-position: 0% 50%;
-        box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
-    }
-
-    50% {
-        background-position: 100% 50%;
-        box-shadow: 0 0 25px rgba(196, 212, 250, 0.8), inset 0 2px 4px rgba(255, 255, 255, 0.4);
-    }
-
-    100% {
-        background-position: 0% 50%;
-        box-shadow: 0 0 20px rgba(252, 225, 237, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
     }
 }

@@ -1,0 +1,277 @@
+/* =========================================================
+ *  FOOTER — base link styles (backwards-compat)
+ * ========================================================= */
+.footer a {
+    color: var(--accent-foreground);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+}
+
+.footer a:hover {
+    color: var(--accent-foreground);
+    text-decoration: underline;
+}
+
+.footer .icon {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+/* =========================================================
+ *  FOOTER (redesigned System tab)
+ * ========================================================= */
+.footer {
+    margin-top: 18px;
+    border-top: 1px solid #1e1e1e;
+    padding-top: 14px;
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.footer p {
+    margin: 0 0 6px;
+}
+
+.footer-tagline {
+    color: #888;
+    font-size: 10.5px;
+    margin-bottom: 10px;
+}
+
+/* Star strip — 2-line stacked layout with unrated breathing pulse */
+.star-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.star-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #a1a1aa;
+    text-align: center;
+    min-height: 18px;
+    line-height: 1.2;
+    transition: color 0.15s ease, opacity 0.15s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.stars {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    line-height: 1;
+    user-select: none;
+}
+
+.stars span {
+    font-size: 18px;
+    color: #4b5563;
+    padding: 2px 2px;
+    margin: 0;
+    transition: color 0.15s ease, text-shadow 0.15s ease, transform 0.15s ease;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Unrated gentle golden breathing shimmer */
+@keyframes starPulse {
+    0%, 100% {
+        color: #4b5563;
+        text-shadow: 0 0 0 rgba(250, 204, 21, 0);
+        transform: scale(1);
+    }
+    50% {
+        color: #eab308;
+        text-shadow: 0 0 10px rgba(250, 204, 21, 0.55), 0 0 16px rgba(234, 179, 8, 0.3);
+        transform: scale(1.08);
+    }
+}
+
+.stars:not(.rated) span {
+    animation: starPulse 2.4s ease-in-out infinite;
+}
+
+.stars:not(.rated) span:nth-child(1) { animation-delay: 0.0s; }
+.stars:not(.rated) span:nth-child(2) { animation-delay: 0.12s; }
+.stars:not(.rated) span:nth-child(3) { animation-delay: 0.24s; }
+.stars:not(.rated) span:nth-child(4) { animation-delay: 0.36s; }
+.stars:not(.rated) span:nth-child(5) { animation-delay: 0.48s; }
+
+/* Hover: cancel pulse immediately and light up entire strip with crisp golden glow */
+.stars:hover span {
+    animation: none !important;
+    color: #ffcc00 !important;
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6) !important;
+    transform: scale(1.1) !important;
+}
+
+.stars span:hover~span {
+    animation: none !important;
+    color: #374151 !important;
+    text-shadow: none !important;
+    transform: scale(1) !important;
+}
+
+/* Rated state: disable animation permanently and lock golden yellow up to chosen rating */
+.stars.rated span {
+    animation: none !important;
+    color: #ffcc00;
+    text-shadow: 0 0 4px rgba(255, 204, 0, 0.25);
+    transform: scale(1);
+}
+
+.stars.rated[data-rating="1"] span:nth-child(n+2) {
+    color: #374151;
+    text-shadow: none;
+}
+
+.stars.rated[data-rating="2"] span:nth-child(n+3) {
+    color: #374151;
+    text-shadow: none;
+}
+
+.stars.rated[data-rating="3"] span:nth-child(n+4) {
+    color: #374151;
+    text-shadow: none;
+}
+
+.stars.rated[data-rating="4"] span:nth-child(n+5) {
+    color: #374151;
+    text-shadow: none;
+}
+
+/* Row 3a: Credits & links */
+.footer-credits {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+/* Row 3b: Coffee / donation line */
+.footer-coffee {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.footer-credits a,
+.footer-coffee a {
+    color: var(--accent-foreground);
+    text-decoration: none;
+}
+
+.footer-credits a:hover,
+.footer-coffee a:hover {
+    text-decoration: underline;
+}
+
+/* Thin separator between footer sections */
+.footer-sep {
+    border: none;
+    border-top: 1px solid #1e1e1e;
+    margin: 8px 0;
+}
+
+/* Bug / feature link — subtle grey, hot on hover */
+.footer-bug a {
+    color: #888;
+    text-decoration: none;
+    font-size: 10.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.15s;
+}
+
+.footer-bug a:hover {
+    color: #ff7070;
+}
+
+/* Telemetry toggle link — same color as bug link, no color change on hover */
+.footer-telemetry {
+    margin-top: 6px;
+}
+
+.footer-telemetry a {
+    color: #888;
+    text-decoration: none;
+    font-size: 10.5px;
+    cursor: pointer;
+}
+
+.footer-telemetry a:hover {
+    color: #888;
+    text-decoration: underline;
+}
+
+.footer-system {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 10px;
+}
+
+.red-heart {
+    color: #ff5555;
+    display: inline-block;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.red-heart:hover {
+    transform: scale(1.25);
+}
+
+.red-heart:active {
+    transform: scale(0.9);
+}
+
+/* Floating sprout heart (TikTok / Live stream style) */
+.floating-heart {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    user-select: none;
+    -webkit-user-select: none;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    animation: heartSprout 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes heartSprout {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.6) rotate(0deg);
+    }
+    30% {
+        transform: translate(calc(-50% + var(--drift-x) * 0.4), calc(-50% - 28px)) scale(1.25) rotate(var(--rot-mid));
+    }
+    70% {
+        opacity: 0.9;
+        transform: translate(calc(-50% + var(--drift-x) * 0.8), calc(-50% - 62px)) scale(1) rotate(var(--rot-end));
+    }
+    100% {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--drift-x)), calc(-50% - 95px)) scale(0.65) rotate(var(--rot-end));
+    }
+}
