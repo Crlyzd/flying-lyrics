@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.1.0] - 2026-10-07
+
+### Added
+- **Cross-Namespace Uninstall Survey Registration**: Implemented `registerUninstallSurvey()` utilizing `(globalThis.browser?.runtime || chrome.runtime).setUninstallURL(...)` with Promise catch handlers, registered both at background script startup and inside `chrome.runtime.onInstalled`.
+- **Gecko-Aware Developer Environment Detection**: Added environment inspection inspecting `details.temporary` in `chrome.runtime.onInstalled` to reliably differentiate unpacked development (`about:debugging`, `web-ext`) from official Firefox Add-ons (AMO) store installations.
+
+### Changed
+- **Popup Dev Tools Ingestion Guard**: Replaced unconditional script tag creation with an asynchronous `HEAD` availability check before injecting `js/popup-dev.js`, ensuring production store bundles (where dev tools are stripped) do not generate 404 console errors.
+- **Cross-Browser Privacy Neutrality**: Updated onboarding disclosure copy in `src/pages/welcome.html` to reference "browser user account information" rather than "Chrome user account information".
+
+### Fixed
+- **Firefox AMO Start Page & Onboarding Tour Auto-Trigger**: Resolved an issue where 100% of Firefox Store installations were misidentified as developer environments because Mozilla AMO manifests do not contain `update_url`. The Start Page (`welcome.html`) now opens immediately on fresh store installs, and the Interactive Onboarding Tour is properly armed and launched on first popup open.
+- **Background Search Routing in Firefox**: Fixed search requests taking developer simulation branches in production Firefox installs due to false-positive `IS_DEV_MODE` flags.
+
+---
+
 ## [5.0.0] - 2026-10-01
 
 ### Added

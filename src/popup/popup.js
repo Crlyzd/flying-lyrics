@@ -185,11 +185,17 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.remove('preload');
         }, 50);
 
-        // Dynamically inject Developer Tools only when running unpacked (zero footprint in Web Store builds)
+        // Dynamically inject Developer Tools only when present (stripped in production store builds)
         if (!('update_url' in chrome.runtime.getManifest())) {
-            const devScript = document.createElement('script');
-            devScript.src = 'js/popup-dev.js';
-            document.body.appendChild(devScript);
+            fetch(chrome.runtime.getURL('src/popup/js/popup-dev.js'), { method: 'HEAD' })
+                .then(res => {
+                    if (res.ok) {
+                        const devScript = document.createElement('script');
+                        devScript.src = 'js/popup-dev.js';
+                        document.body.appendChild(devScript);
+                    }
+                })
+                .catch(() => {});
         }
     });
 });
