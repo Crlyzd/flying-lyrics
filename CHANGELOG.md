@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [5.2.0] - 2026-10-09
+
+### Added
+- **Official Branding & Portfolio Navigation**: Added external links to the official Flying Lyrics landing page (`https://flyinglyrics.kaleksananbagus.com/`) on header logo and author portfolio (`https://kaleksananbagus.com/`) on footer credits with hover scaling affordances.
+- **Heart Sprout Micro-Interaction**: Added a TikTok-style floating particle heart burst animation on footer `.red-heart` clicks with automatic DOM cleanup on `animationend`.
+
+### Changed
+- **Zero-Bloat Modular Architecture & Line Ceiling Compliance**: Decomposed monolithic coordinator files to strictly honor quantitative line ceilings ($\le 500$ LOC for coordinators, $\le 350$ LOC for submodules):
+  - Extracted `src/content/content/settingsReceiver.js` from `messageRouter.js`.
+  - Extracted `src/content/pip/videoPipDriver.js` from `pipDrivers.js`.
+  - Extracted `src/content/services/overrideResolver.js` from `services.js`.
+  - Extracted `src/content/ui/paletteExtractor.js` from `utils.js`.
+  - Decomposed popup CSS into `layout-base.css`, `layout-header.css`, `layout-footer.css`, `layout-toast.css`, `galaxy-mesh.css`, `galaxy-picker.css`, `galaxy-theme.css`, `lyrics-search.css`, and `lyrics-preview.css`.
+  - Decomposed popup scripts into `popup-constants.js`, `popup-lyrics-search.js`, `popup-visuals-colors.js`, `popup-visuals-fonts.js`, and `popup-tour-steps.js`.
+- **Bolder 3px Concentric Glowing Border Ring**: Increased popup glowing ring thickness to 3px (`margin: 3px;` on `.popup-slides`) with rounder concentric curvature in Gecko (`18px` outer container, `15px` inner slides and header).
+
+### Fixed
+- **Instrumental Mismatch Scoring Protection**: Prevented empty and instrumental candidate tracks from outscoring vocal lyrics:
+  - Applied an asymmetric -12,000 point Instrumental Mismatch Penalty when a vocal track search query matches an empty or instrumental candidate.
+  - Rewarded matching instrumental candidates (+2,000 points) when the query explicitly requests an instrumental track.
+  - Gated the +10,000 synced bonus to strictly require non-empty timestamped lines (`candidate.synced && !candidate.isEmpty`).
+  - Mirrored scoring changes in benchmark `matcher.js` for 100% algorithm parity.
+- **Gecko Popup White Border & Boundary Clipping**:
+  - Set opaque black (`#000000`) on `html` and `body` in Firefox to suppress native Proton white arrowpanel border outlines.
+  - Applied `padding: 3px;` and `border-radius: 20px;` to `body` in Firefox to retract the glowing border ring inward from the browser ceiling and window edges, completely eliminating corner clipping.
+  - Preserved 100% zero-regression isolation for Chromium (sharp 90-degree square geometry).
+
+---
+
 ## [5.1.0] - 2026-10-07
 
 ### Added
