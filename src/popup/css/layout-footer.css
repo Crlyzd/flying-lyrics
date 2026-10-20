@@ -10,16 +10,8 @@
     transition: color 0.15s;
 }
 
-.footer a:hover {
-    color: var(--accent-foreground);
-    text-decoration: underline;
-}
-
-.footer .icon {
-    display: inline-flex;
-    align-items: center;
-    vertical-align: middle;
-}
+.footer a:hover { color: var(--accent-foreground); text-decoration: underline; }
+.footer .icon { display: inline-flex; align-items: center; vertical-align: middle; }
 
 /* =========================================================
  *  FOOTER (redesigned System tab)
@@ -77,27 +69,34 @@
 }
 
 .stars span {
-    font-size: 18px;
     color: #4b5563;
     padding: 2px 2px;
     margin: 0;
-    transition: color 0.15s ease, text-shadow 0.15s ease, transform 0.15s ease;
+    transition: color 0.15s ease, filter 0.15s ease, transform 0.15s ease;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 
+.star-svg {
+    width: 17px;
+    height: 17px;
+    fill: currentColor;
+    display: block;
+    pointer-events: none;
+}
+
 /* Unrated gentle golden breathing shimmer */
 @keyframes starPulse {
     0%, 100% {
         color: #4b5563;
-        text-shadow: 0 0 0 rgba(250, 204, 21, 0);
+        filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0));
         transform: scale(1);
     }
     50% {
         color: #eab308;
-        text-shadow: 0 0 10px rgba(250, 204, 21, 0.55), 0 0 16px rgba(234, 179, 8, 0.3);
+        filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.55)) drop-shadow(0 0 10px rgba(234, 179, 8, 0.3));
         transform: scale(1.08);
     }
 }
@@ -116,14 +115,14 @@
 .stars:hover span {
     animation: none !important;
     color: #ffcc00 !important;
-    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6) !important;
+    filter: drop-shadow(0 0 6px rgba(255, 204, 0, 0.6)) !important;
     transform: scale(1.1) !important;
 }
 
 .stars span:hover~span {
     animation: none !important;
     color: #374151 !important;
-    text-shadow: none !important;
+    filter: none !important;
     transform: scale(1) !important;
 }
 
@@ -131,58 +130,88 @@
 .stars.rated span {
     animation: none !important;
     color: #ffcc00;
-    text-shadow: 0 0 4px rgba(255, 204, 0, 0.25);
+    filter: drop-shadow(0 0 3px rgba(255, 204, 0, 0.25));
     transform: scale(1);
 }
 
-.stars.rated[data-rating="1"] span:nth-child(n+2) {
-    color: #374151;
-    text-shadow: none;
-}
-
-.stars.rated[data-rating="2"] span:nth-child(n+3) {
-    color: #374151;
-    text-shadow: none;
-}
-
-.stars.rated[data-rating="3"] span:nth-child(n+4) {
-    color: #374151;
-    text-shadow: none;
-}
-
+.stars.rated[data-rating="1"] span:nth-child(n+2),
+.stars.rated[data-rating="2"] span:nth-child(n+3),
+.stars.rated[data-rating="3"] span:nth-child(n+4),
 .stars.rated[data-rating="4"] span:nth-child(n+5) {
     color: #374151;
-    text-shadow: none;
+    filter: none;
 }
 
-/* Row 3a: Credits & links */
+/* Row 3: Author Credits */
 .footer-credits {
-    color: #888;
+    color: #9ca3af;
     font-size: 11px;
-    margin-bottom: 4px;
+    margin-bottom: 9px;
+    text-align: center;
 }
 
-/* Row 3b: Coffee / donation line */
-.footer-coffee {
-    color: #888;
-    font-size: 11px;
-    margin-bottom: 0;
+.footer-credits a {
+    color: #f3f4f6;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.footer-credits a:hover {
+    color: var(--accent-foreground);
+    text-decoration: underline;
+    text-underline-offset: 2.5px;
+}
+
+/* Structured link rows (Project Links & Coffee) */
+.footer-link-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 7px;
+}
+
+.footer-row-label {
+    display: inline-flex;
+    align-items: center;
     gap: 5px;
+    font-size: 11px;
+    color: #9ca3af;
+    white-space: nowrap;
 }
 
-.footer-credits a,
-.footer-coffee a {
-    color: var(--accent-foreground);
+/* Frosted pill container */
+.footer-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.footer a.footer-pill-link {
+    color: #d1d5db;
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s ease;
 }
 
-.footer-credits a:hover,
-.footer-coffee a:hover {
-    text-decoration: underline;
+.footer a.footer-pill-link:hover {
+    color: #ffffff;
+    text-decoration: none !important;
 }
+
+.footer a.footer-coffee-link { color: #f59e0b; }
+.footer a.footer-coffee-link:hover { color: #fbbf24; text-decoration: none !important; }
+.footer-pill-sep { color: rgba(255, 255, 255, 0.25); font-size: 10px; user-select: none; }
+.ext-arrow { font-size: 9.5px; opacity: 0.75; }
 
 /* Thin separator between footer sections */
 .footer-sep {
@@ -191,24 +220,38 @@
     margin: 8px 0;
 }
 
-/* Bug / feature link — subtle grey, hot on hover */
-.footer-bug a {
-    color: #888;
-    text-decoration: none;
-    font-size: 10.5px;
-    display: inline-flex;
+/* Report Bug full-width action button */
+.footer a.footer-btn-report {
+    display: flex;
     align-items: center;
-    gap: 3px;
-    transition: color 0.15s;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    margin-top: 10px;
+    margin-bottom: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: #d1d5db;
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.footer-bug a:hover {
-    color: #ff7070;
+.footer a.footer-btn-report:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    text-decoration: none;
 }
 
-/* Telemetry toggle link — same color as bug link, no color change on hover */
-.footer-telemetry {
-    margin-top: 6px;
+/* Telemetry toggle link — higher specificity to override .footer p */
+.footer p.footer-telemetry {
+    margin-top: 14px;
+    margin-bottom: 6px;
 }
 
 .footer-telemetry a {
@@ -231,20 +274,35 @@
 
 .red-heart {
     color: #ff5555;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    position: relative;
+    top: -1.5px;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
     transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.red-heart:hover {
-    transform: scale(1.25);
+.heart-svg {
+    width: 13px;
+    height: 13px;
+    display: inline-block;
+    fill: currentColor;
+    pointer-events: none;
 }
 
-.red-heart:active {
-    transform: scale(0.9);
+.sprout-heart-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    fill: currentColor;
 }
+
+.red-heart:hover { transform: scale(1.25); }
+.red-heart:active { transform: scale(0.9); }
 
 /* Floating sprout heart (TikTok / Live stream style) */
 .floating-heart {

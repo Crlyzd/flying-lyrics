@@ -246,6 +246,6 @@ Made with 💖 by **Kaleksanan Bagus**
 
 If you enjoy Flying Lyrics, consider buying me a coffee ☕ to support development:
 * [Saweria](https://saweria.co/curlyzed)
-* [PayPal](https://paypal.me/BagusMassani)
+* [Ko-fi](https://ko-fi.com/curlyzed)
 
 ---

@@ -42,6 +42,17 @@
     font-weight: 700;
     cursor: pointer;
     line-height: 1.3;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.toast-star-svg {
+    width: 13px;
+    height: 13px;
+    fill: #f59e0b;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
 }
 
 /* Line 2: snooze */

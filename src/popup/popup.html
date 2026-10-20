@@ -87,7 +87,7 @@
         <!-- REVIEW TOAST — shown by JS after 5th/20th popup open, or 7-day milestone (Placed globally under header) -->
         <div id="review-toast" class="review-toast-margin">
             <div id="review-toast-body">
-                <span id="review-toast-text">Enjoying Flying Lyrics? Please rate it! ⭐️</span>
+                <span id="review-toast-text">Enjoying Flying Lyrics? Please rate it! <svg viewBox="0 0 24 24" class="toast-star-svg"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span>
                 <span id="snooze-review-toast">Remind me later . . .</span>
             </div>
             <span id="close-review-toast" title="Dismiss">✕</span>
@@ -674,30 +674,40 @@
                     <div class="star-row">
                         <span class="star-label" id="star-label">Rate us! </span>
                         <div class="stars" id="footer-star-strip" title="Leave a 5-star rating">
-                            <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                            <span><svg viewBox="0 0 24 24" class="star-svg" fill="currentColor"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span><span><svg viewBox="0 0 24 24" class="star-svg" fill="currentColor"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span><span><svg viewBox="0 0 24 24" class="star-svg" fill="currentColor"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span><span><svg viewBox="0 0 24 24" class="star-svg" fill="currentColor"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span><span><svg viewBox="0 0 24 24" class="star-svg" fill="currentColor"><path d="M12 18.26L4.947 22.208L6.533 14.288L0.587 8.792L8.614 7.84L12 0.5L15.386 7.84L23.413 8.792L17.467 14.288L19.053 22.208L12 18.26Z"/></svg></span>
                         </div>
                     </div>
 
                     <hr class="footer-sep">
 
-                    <!-- Row 3a: Credits -->
-                    <p class="footer-credits">Made with <span class="red-heart">❤</span> by <a href="https://kaleksananbagus.com/" target="_blank" rel="noopener noreferrer" title="Visit Kaleksanan Bagus's personal website">Kaleksanan Bagus</a></p>
+                    <!-- Row 3: Author Credits -->
+                    <p class="footer-credits">Made with <span class="red-heart" title="Spam me with love!"><svg viewBox="0 0 24 24" class="heart-svg" fill="currentColor"><path d="M12.001 4.529c2.349-2.109 5.979-2.039 8.242.228 2.262 2.268 2.34 5.88.236 8.236l-8.48 8.492-8.478-8.492c-2.104-2.356-2.025-5.974.236-8.236 2.265-2.264 5.888-2.34 8.244-.228z"/></svg></span> by <a href="https://kaleksananbagus.com/" target="_blank" rel="noopener noreferrer" title="Visit Kaleksanan Bagus's personal website">Kaleksanan Bagus</a></p>
 
-                    <!-- Row 3b: Donation links -->
-                    <p class="footer-coffee">
-                        <span class="icon-mask icon-coffee icon-size-14"></span>
-                        <span>Buy me a coffee: <a href="https://saweria.co/curlyzed" target="_blank">Saweria</a> / <a href="https://paypal.me/BagusMassani" target="_blank">PayPal</a></span>
-                    </p>
+                    <!-- Row 4: Project Links -->
+                    <div class="footer-link-row">
+                        <span class="footer-row-label"><span class="icon-mask icon-global icon-size-12"></span> Project Links</span>
+                        <div class="footer-pill">
+                            <a href="https://github.com/Crlyzd/flying-lyrics" target="_blank" rel="noopener noreferrer" class="footer-pill-link" title="Source code on GitHub"><span class="icon-mask icon-github icon-size-11"></span> GitHub <span class="ext-arrow">↗</span></a>
+                            <span class="footer-pill-sep">/</span>
+                            <a href="https://flyinglyrics.kaleksananbagus.com/" target="_blank" rel="noopener noreferrer" class="footer-pill-link" title="Official Flying Lyrics website"><span class="icon-mask icon-global icon-size-11"></span> Website <span class="ext-arrow">↗</span></a>
+                        </div>
+                    </div>
 
-                    <hr class="footer-sep">
+                    <!-- Row 5: Buy me a coffee -->
+                    <div class="footer-link-row">
+                        <span class="footer-row-label"><span class="icon-mask icon-coffee icon-size-14"></span> Buy me a coffee:</span>
+                        <div class="footer-pill">
+                            <a href="https://saweria.co/curlyzed" target="_blank" rel="noopener noreferrer" class="footer-pill-link footer-coffee-link" title="Support via Saweria">Saweria <span class="ext-arrow">↗</span></a>
+                            <span class="footer-pill-sep">/</span>
+                            <a href="https://ko-fi.com/curlyzed" target="_blank" rel="noopener noreferrer" class="footer-pill-link footer-coffee-link" title="Support via Ko-fi">Ko-fi <span class="ext-arrow">↗</span></a>
+                        </div>
+                    </div>
 
-                    <!-- Row 4: Report Bug -->
-                    <p class="footer-bug">
-                        <a href="https://forms.gle/qdyBFtmeomtGBroXA" target="_blank">
-                            <span class="icon-mask icon-bug icon-size-10"></span>
-                            Report Bug / Request Feature
-                        </a>
-                    </p>
+                    <!-- Row 6: Report Bug Action Button -->
+                    <a href="https://forms.gle/qdyBFtmeomtGBroXA" target="_blank" rel="noopener noreferrer" class="footer-btn-report" title="Report Bug or Request Feature">
+                        <span class="icon-mask icon-bug icon-size-12"></span>
+                        Report an Issue or Bug <span class="ext-arrow">↗</span>
+                    </a>
 
                     <!-- Row 5: Telemetry Consent Toggle -->
                     <p class="footer-telemetry"><a href="#" id="telemetry-toggle"></a></p>

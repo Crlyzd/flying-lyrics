@@ -57,6 +57,8 @@
     mask-repeat: no-repeat;
     -webkit-mask-position: center;
     mask-position: center;
+    vertical-align: middle;
+    flex-shrink: 0;
 }
 
 .icon-music {
@@ -129,10 +131,30 @@
     mask-image: url('../icons/coffee.svg');
 }
 
+.icon-global {
+    -webkit-mask-image: url('../icons/global.svg');
+    mask-image: url('../icons/global.svg');
+}
+
+.icon-github {
+    -webkit-mask-image: url('../icons/github.svg');
+    mask-image: url('../icons/github.svg');
+}
+
 /* Icon size helpers */
 .icon-size-10 {
     width: 10px;
     height: 10px;
+}
+
+.icon-size-11 {
+    width: 11px;
+    height: 11px;
+}
+
+.icon-size-12 {
+    width: 12px;
+    height: 12px;
 }
 
 .icon-size-14 {
