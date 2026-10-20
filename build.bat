@@ -61,14 +61,40 @@ node tools\target.js status
 goto :end
 
 :bump_version
-set "newver="
-set /p newver="Enter new version (e.g. 5.0): "
-if not defined newver (
-    echo Version cannot be empty.
+echo.
+set "CURVER="
+for /f "tokens=*" %%v in ('node -e "try { console.log(require('./manifest.json').version); } catch(e) { console.log('unknown'); }"') do set "CURVER=%%v"
+echo Current version: v%CURVER%
+echo.
+echo Select bump type:
+echo [1] Patch  (e.g. v%CURVER% -^> patch) [Default]
+echo [2] Minor  (e.g. v%CURVER% -^> minor)
+echo [3] Major  (e.g. v%CURVER% -^> major)
+echo [4] Custom version string
+echo.
+set "bchoice=1"
+set /p bchoice="Select bump type (1-4) [default: 1]: "
+set "bchoice=%bchoice: =%"
+
+if "%bchoice%"=="2" (
+    node tools\bump-version.js minor
     goto :end
 )
-set "newver=%newver: =%"
-node tools\bump-version.js %newver%
+if "%bchoice%"=="3" (
+    node tools\bump-version.js major
+    goto :end
+)
+if "%bchoice%"=="4" (
+    set "customver="
+    set /p customver="Enter custom version (e.g. 5.3.0): "
+    if not defined customver (
+        echo Version cannot be empty.
+        goto :end
+    )
+    node tools\bump-version.js %customver: =%
+    goto :end
+)
+node tools\bump-version.js patch
 goto :end
 
 :validate

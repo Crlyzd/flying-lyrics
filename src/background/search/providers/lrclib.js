@@ -28,7 +28,11 @@ function fetchLrcLibRaw(id, timeoutMs) {
     const fetchFn = typeof fetchWithTimeout === 'function' ? fetchWithTimeout : fetch;
     const defaultMs = typeof DEFAULT_TIMEOUT_MS !== 'undefined' ? DEFAULT_TIMEOUT_MS : 5000;
     return fetchFn(`https://lrclib.net/api/get/${id}`, timeoutMs || defaultMs)
-        .then(r => r.ok ? r.json() : null)
+        .then(r => {
+            if (r.ok) return r.json();
+            if (r.status === 404) return { notFound: true };
+            return null;
+        })
         .catch(() => null);
 }
 

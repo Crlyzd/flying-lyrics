@@ -212,18 +212,15 @@
                 : "";
 
             if (!raw && fl.lyricsOverrides && fl.lyricsOverrides[key]) {
-                if (typeof fl.clearFailedOverride === 'function') {
-                    fl.clearFailedOverride(key);
-                } else {
-                    const failedOverride = fl.lyricsOverrides[key];
-                    delete fl.lyricsOverrides[key];
-                    FLYING_LYRICS.storage.set({ lyricsOverrides: fl.lyricsOverrides });
-                    chrome.runtime.sendMessage({
-                        type: 'LYRIC_FETCH_FAILED',
-                        payload: { key: key, override: failedOverride }
-                    }).catch(() => {});
+                if (fl.lastOverrideError === 'not_found' || !fl.lastOverrideError) {
+                    if (typeof fl.clearFailedOverride === 'function') {
+                        fl.clearFailedOverride(key);
+                    }
+                } else if (fl.lastOverrideError === 'network_error') {
+                    fl.isNetworkError = true;
                 }
             }
+            fl.lastOverrideError = null;
 
             let initialSearchTimedOut = false;
 

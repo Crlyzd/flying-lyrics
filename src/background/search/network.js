@@ -4,6 +4,14 @@
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
+const EXTENSION_VERSION = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest)
+    ? (chrome.runtime.getManifest()?.version || '5.3.0') : '5.3.0';
+
+const LRCLIB_CLIENT_HEADERS = {
+    'Lrclib-Client': `FlyingLyrics/${EXTENSION_VERSION} (https://github.com/Crlyzd/flying-lyrics)`,
+    'X-User-Agent':  `FlyingLyrics/${EXTENSION_VERSION} (https://github.com/Crlyzd/flying-lyrics)`
+};
+
 function getCanonicalEndpoint(url) {
     if (!url) return 'unknown';
     if (url.includes('lrclib.net/api/get')) return 'lrclib_get';
@@ -32,14 +40,20 @@ function getLatencyRange(ms) {
     return 'over_5s';
 }
 
-function fetchWithTimeout(url, timeoutMs) {
+function fetchWithTimeout(url, timeoutMs, options = {}) {
     const startTime = performance.now();
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs || DEFAULT_TIMEOUT_MS);
+    const activeTimeout = timeoutMs || DEFAULT_TIMEOUT_MS;
+    const id = setTimeout(() => controller.abort(), activeTimeout);
     const endpoint = getCanonicalEndpoint(url);
 
-    return fetch(url, { signal: controller.signal })
-        .then(res => {
+    const headers = { ...(options.headers || {}) };
+    if (url.includes('lrclib.net')) {
+        Object.assign(headers, LRCLIB_CLIENT_HEADERS);
+    }
+
+    return fetch(url, { ...options, headers, signal: controller.signal })
+        .then(async res => {
             clearTimeout(id);
             const latency = Math.round(performance.now() - startTime);
             const latencyRange = getLatencyRange(latency);
@@ -54,6 +68,24 @@ function fetchWithTimeout(url, timeoutMs) {
                     trackEvent('rate_limited', { endpoint: endpoint });
                 }
             }
+
+            // Resilient single-backoff retry on LRCLIB 503 (ServerOverloaded) or 429
+            if ((res.status === 503 || res.status === 429) && url.includes('lrclib.net') && !options._retryCount) {
+                const retryAfterHeader = res.headers.get('retry-after');
+                const parsedSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 1;
+                const delayMs = Math.min(Math.max(isNaN(parsedSec) ? 1000 : parsedSec * 1000, 500), 1500);
+                const remainingBudget = activeTimeout - (performance.now() - startTime);
+
+                if (remainingBudget > (delayMs + 300)) {
+                    await new Promise(r => setTimeout(r, delayMs));
+                    return fetchWithTimeout(url, Math.round(remainingBudget - delayMs), {
+                        ...options,
+                        headers,
+                        _retryCount: 1
+                    });
+                }
+            }
+
             return res;
         })
         .catch(err => {

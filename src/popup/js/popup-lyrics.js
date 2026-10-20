@@ -305,8 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.activeSource = msg.payload;
             if (!el.resultsContainer) return;
 
-            el.resultsContainer.querySelectorAll('.result-item:not(#deep-search-indicator) .sync-spinner').forEach(s => s.remove());
-            el.resultsContainer.querySelectorAll('.active-dot').forEach(d => d.remove());
+            el.resultsContainer.querySelectorAll('.result-item:not(#deep-search-indicator) .sync-spinner, .active-dot, .failed-dot').forEach(d => d.remove());
             el.resultsContainer.querySelectorAll('.result-item').forEach(d => d.classList.remove('active-lyric'));
 
             if (state.activeSource) {

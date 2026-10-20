@@ -30,13 +30,32 @@
             if (typeof fl.activateLyrics === 'function') fl.activateLyrics();
             return override.data;
         } else if (override.type === 'api' && override.id) {
+            if (override.raw) {
+                const isEmpty = !override.raw || override.raw.includes('♫ (Empty) ♫');
+                fl.activeLyricSource = { 
+                    type: 'api', 
+                    id: override.id, 
+                    name: override.name || key, 
+                    synced: !!override.synced,
+                    isEmpty: isEmpty
+                };
+                if (typeof fl.activateLyrics === 'function') fl.activateLyrics();
+                return override.raw;
+            }
+
             const resData = await fl.sendMessageWithTimeout(
                 { type: 'FETCH_LRCLIB', payload: { id: override.id, timeoutMs: 8000 } },
                 10000,
                 null
             );
-            if (abortSignal?.aborted) throw new Error('TrackChanged');
-            if (!resData) return "";
+            if (!resData) {
+                fl.lastOverrideError = 'network_error';
+                return "";
+            }
+            if (resData.notFound) {
+                fl.lastOverrideError = 'not_found';
+                return "";
+            }
 
             let raw = resData.syncedLyrics || resData.plainLyrics || "";
             const isEmpty = !raw || !!resData.instrumental;

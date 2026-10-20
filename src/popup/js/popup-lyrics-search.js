@@ -193,6 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (source && id) {
                     const overridePayload = { type: source, id: id };
                     if (source === 'kugou' && accesskey) overridePayload.accesskey = accesskey;
+                    if (source === 'api') {
+                        const hit = (state.currentResults || []).find(r => String(r.id) === String(id));
+                        if (hit?.rawLyric) {
+                            overridePayload.raw = hit.rawLyric;
+                            overridePayload.synced = !!hit.synced;
+                        }
+                    }
                     saveAndNotify({ trackKey: trackKey, lyricOverride: overridePayload });
 
                     const spinner = document.createElement('div');
