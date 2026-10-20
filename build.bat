@@ -27,6 +27,7 @@ set "choice=1"
 set /p choice="Select option (1-8) [default: 1]: "
 set "choice=%choice: =%"
 
+if "%choice%"=="1" goto :build_all
 if "%choice%"=="2" goto :build_chrome
 if "%choice%"=="3" goto :build_firefox
 if "%choice%"=="4" goto :switch_chrome
@@ -34,7 +35,11 @@ if "%choice%"=="5" goto :switch_firefox
 if "%choice%"=="6" goto :check_target
 if "%choice%"=="7" goto :bump_version
 if "%choice%"=="8" goto :validate
-goto :build_all
+
+echo.
+echo [!] Invalid selection "%choice%". Please select a number from 1 to 8.
+echo.
+goto :menu
 
 :build_all
 node tools\build.js --target=all
@@ -84,17 +89,19 @@ if "%bchoice%"=="3" (
     node tools\bump-version.js major
     goto :end
 )
-if "%bchoice%"=="4" (
-    set "customver="
-    set /p customver="Enter custom version (e.g. 5.3.0): "
-    if not defined customver (
-        echo Version cannot be empty.
-        goto :end
-    )
-    node tools\bump-version.js %customver: =%
+if "%bchoice%"=="4" goto :bump_custom
+node tools\bump-version.js patch
+goto :end
+
+:bump_custom
+set "customver="
+set /p customver="Enter custom version (e.g. 5.3.0): "
+set "customver=%customver: =%"
+if not defined customver (
+    echo Version cannot be empty.
     goto :end
 )
-node tools\bump-version.js patch
+node tools\bump-version.js %customver%
 goto :end
 
 :validate
