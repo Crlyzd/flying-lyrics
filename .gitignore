@@ -27,6 +27,7 @@ yarn-error.log
 # AI Assistant memory/artifacts
 .gemini/
 .antigravity/
+history.md
 
 # Old or broken files
 test.html
@@ -37,4 +38,4 @@ scratch/
 
 # Benchmark Tool Cache & Reports
 tools/benchmark/data/cache/
-tools/benchmark/reports/
+tools/benchmark/reports/
